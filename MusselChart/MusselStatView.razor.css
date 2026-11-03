@@ -49,6 +49,19 @@
     font-size: 14px;
 }
 
+.mussel-stat-horizontal .mussel-stat-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.mussel-stat-horizontal .mussel-stat-value {
+    margin-top: 0;
+    text-align: right;
+    white-space: nowrap;
+}
+
 .mussel-stat-trend {
     display: block;
     margin-top: 4px;

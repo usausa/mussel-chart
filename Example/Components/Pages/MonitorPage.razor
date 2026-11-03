@@ -10,10 +10,10 @@
         <button type="button" @onclick="ToggleWindow">Range: @(wide ? "3 min" : "45 s")</button>
     </div>
     <div class="board-grid">
-        <MusselStatView class="span-3" Title="CPU" Value="Feed.Cpu" TrendValues="Feed.CpuTrend" Unit="%" ValueFormat="N1" Fill="#5794F2" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
-        <MusselStatView class="span-3" Title="Memory" Value="Feed.Memory" TrendValues="Feed.MemoryTrend" Unit="%" ValueFormat="N1" Fill="#B877D9" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
-        <MusselStatView class="span-3" Title="Temp" Value="Feed.Temperature" TrendValues="Feed.TemperatureTrend" Unit="°C" ValueFormat="N0" Fill="#F2495C" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
-        <MusselStatView class="span-3" Title="Network" Value="Feed.Network" TrendValues="Feed.NetworkTrend" Unit=" KB/s" ValueFormat="N0" Fill="#73BF69" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
+        <MusselStatView class="span-3" Title="CPU" Value="Feed.Cpu" TrendValues="Feed.CpuTrend" Unit="%" ValueFormat="N1" Fill="#5794F2" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
+        <MusselStatView class="span-3" Title="Memory" Value="Feed.Memory" TrendValues="Feed.MemoryTrend" Unit="%" ValueFormat="N1" Fill="#B877D9" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
+        <MusselStatView class="span-3" Title="Temp" Value="Feed.Temperature" TrendValues="Feed.TemperatureTrend" Unit="°C" ValueFormat="N0" Fill="#F2495C" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
+        <MusselStatView class="span-3" Title="Network" Value="Feed.Network" TrendValues="Feed.NetworkTrend" Unit=" KB/s" ValueFormat="N0" Fill="#73BF69" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
 
         <section class="panel span-8">
             <h2>CPU Load (%)</h2>

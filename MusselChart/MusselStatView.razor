@@ -28,13 +28,15 @@
         </svg>
     }
     <div class="mussel-stat-content">
-        <div class="mussel-stat-title">@Title</div>
-        <div class="mussel-stat-value" style="@valueStyle">
-            @valueText
-            @if (!Double.IsNaN(Value))
-            {
-                <span class="mussel-stat-unit">@Unit</span>
-            }
+        <div class="mussel-stat-header">
+            <div class="mussel-stat-title">@Title</div>
+            <div class="mussel-stat-value" style="@valueStyle">
+                @valueText
+                @if (!Double.IsNaN(Value))
+                {
+                    <span class="mussel-stat-unit">@Unit</span>
+                }
+            </div>
         </div>
         @if ((trend.Count > 1) && (TrendPlacement == ChartTrendPlacement.Bottom))
         {

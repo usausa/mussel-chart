@@ -64,6 +64,9 @@ public sealed partial class MusselStatView
     public ChartStatColorMode ColorMode { get; set; }
 
     [Parameter]
+    public ChartStatLayoutMode LayoutMode { get; set; }
+
+    [Parameter]
     public ChartFillMode FillMode { get; set; }
 
     [Parameter]
@@ -111,6 +114,7 @@ public sealed partial class MusselStatView
 
         var text = filled ? (ChartColor.Brightness(tileColor) > BrightThreshold ? " mussel-stat-dark-text" : " mussel-stat-light-text") : string.Empty;
         var empty = Double.IsNaN(Value) ? " mussel-stat-empty" : string.Empty;
-        rootClass = "mussel-stat" + text + empty;
+        var layout = LayoutMode == ChartStatLayoutMode.Horizontal ? " mussel-stat-horizontal" : string.Empty;
+        rootClass = "mussel-stat" + layout + text + empty;
     }
 }

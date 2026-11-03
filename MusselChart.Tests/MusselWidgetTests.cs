@@ -75,6 +75,18 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void StatHorizontalLayoutPlacesValueBesideTitle()
+    {
+        var cut = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Title, "CPU")
+            .Add(static p => p.Value, 1)
+            .Add(static p => p.LayoutMode, ChartStatLayoutMode.Horizontal));
+
+        Assert.Equal("mussel-stat mussel-stat-horizontal", cut.Find("div").ClassName);
+        Assert.Equal(["mussel-stat-title", "mussel-stat-value"], cut.Find(".mussel-stat-header").Children.Select(static x => x.ClassName));
+    }
+
+    [Fact]
     public void GaugeDrawsRatioValueAndTarget()
     {
         var cut = Render<MusselBarGaugeView>(parameters => parameters
