@@ -13,14 +13,26 @@
     gap: 4px 8px;
 }
 
+.mussel-gauge-left {
+    grid-template-columns: fit-content(40%) minmax(0, 1fr) auto;
+    column-gap: 8px;
+}
+
 .mussel-gauge-left .mussel-gauge-row {
+    grid-column: 1 / -1;
     grid-template-areas: "label bar value";
-    grid-template-columns: max-content minmax(0, 1fr) auto;
+    grid-template-columns: subgrid;
 }
 
 .mussel-gauge-label {
     grid-area: label;
     color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-gauge-left .mussel-gauge-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .mussel-gauge-bar {

@@ -66,7 +66,7 @@ A KPI tile that fills the height of its container.
 | `Items` | `ChartEntry` with a label, a value, a color, a maximum and a target |
 | `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first |
 | `DisplayMode`, `SegmentWidth`, `BarThickness` | `Basic` or `Segmented` bars |
-| `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
+| `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` (one column for every bar, up to 40 % of the width) or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the numbers |
 | `TrackVisible`, `Thresholds`, `Color`, `Palette` | Track, threshold colors by percentage and the bar color |
 
