@@ -1,0 +1,15 @@
+.mussel-sparkline {
+    display: block;
+    overflow: visible;
+}
+
+.mussel-sparkline-line {
+    fill: none;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-sparkline-area {
+    stroke: none;
+    fill-opacity: 0.2;
+}

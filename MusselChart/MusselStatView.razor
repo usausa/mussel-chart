@@ -1,0 +1,47 @@
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<div @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(rootClass, AdditionalAttributes)">
+    @if (ColorMode == ChartStatColorMode.Background)
+    {
+        <svg class="mussel-stat-background" width="100%" height="100%">
+            <defs>
+                <linearGradient id="@gradientId" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0" stop-color="@gradientFrom" />
+                    <stop offset="1" stop-color="@gradientTo" />
+                </linearGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="@backgroundFill" fill-opacity="@backgroundOpacity" />
+        </svg>
+    }
+    @if (ColorMode == ChartStatColorMode.Indicator)
+    {
+        <svg class="mussel-stat-indicator" width="4" height="100%"><rect width="4" height="100%" fill="@tileColor" /></svg>
+    }
+    @if ((trend.Count > 1) && (TrendPlacement == ChartTrendPlacement.Background))
+    {
+        <svg class="mussel-stat-trend-background" width="100%" height="60%" viewBox="@trend.ViewBox(false)" preserveAspectRatio="none">
+            <polygon points="@trend.Area" fill="@trendFill" fill-opacity="@trendFillOpacity" />
+            <polyline class="mussel-stat-trend-line" points="@trend.Line" stroke="@trendStroke" />
+        </svg>
+    }
+    <div class="mussel-stat-content">
+        <div class="mussel-stat-title">@Title</div>
+        <div class="mussel-stat-value" style="@valueStyle">
+            @valueText
+            @if (!Double.IsNaN(Value))
+            {
+                <span class="mussel-stat-unit">@Unit</span>
+            }
+        </div>
+        @if ((trend.Count > 1) && (TrendPlacement == ChartTrendPlacement.Bottom))
+        {
+            <svg class="mussel-stat-trend" width="100%" height="24" viewBox="@trend.ViewBox(false)" preserveAspectRatio="none">
+                <polygon points="@trend.Area" fill="@trendFill" fill-opacity="@trendFillOpacity" />
+                <polyline class="mussel-stat-trend-line" points="@trend.Line" stroke="@trendStroke" />
+            </svg>
+        }
+    </div>
+</div>

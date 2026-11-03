@@ -1,0 +1,62 @@
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<div @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(rootClass, AdditionalAttributes)">
+    @foreach (var row in rows)
+    {
+        <div class="mussel-gauge-row">
+            @if (LabelPosition != ChartBarGaugeLabelPosition.None)
+            {
+                <div class="mussel-gauge-label">@row.Label</div>
+            }
+            <svg class="mussel-gauge-bar" width="100%" height="@barHeight">
+                <defs>
+                    <linearGradient id="@row.GradientId" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0">
+                        @foreach (var stop in row.Stops)
+                        {
+                            <stop offset="@stop.Offset" stop-color="@stop.Color" />
+                        }
+                    </linearGradient>
+                    @if (DisplayMode == ChartBarGaugeMode.Segmented)
+                    {
+                        <pattern id="@row.PatternId" width="@segmentWidth" height="@barHeight" patternUnits="userSpaceOnUse">
+                            <rect width="@segmentCell" height="@barHeight" fill="#FFFFFF" />
+                        </pattern>
+                        <mask id="@row.MaskId">
+                            <rect width="100%" height="100%" fill="url(#@row.PatternId)" />
+                        </mask>
+                    }
+                </defs>
+                @if (DisplayMode == ChartBarGaugeMode.Segmented)
+                {
+                    <g mask="url(#@row.MaskId)">
+                        <rect width="100%" height="100%" fill="url(#@row.GradientId)" fill-opacity="0.18" />
+                        <rect width="@row.Ratio" height="100%" fill="url(#@row.GradientId)" />
+                    </g>
+                }
+                else
+                {
+                    if (TrackVisible)
+                    {
+                        <rect class="mussel-gauge-track" width="100%" height="100%" />
+                    }
+
+                    <rect width="@row.Ratio" height="100%" fill="url(#@row.GradientId)" fill-opacity="0.35" />
+                    <svg x="@row.Ratio" overflow="visible"><rect x="-2" width="2" height="@barHeight" fill="@row.Color" /></svg>
+                }
+                @if (row.Target is not null)
+                {
+                    <svg x="@row.Target" overflow="visible"><rect class="mussel-gauge-target" x="-1" width="2" height="@barHeight" /></svg>
+                }
+            </svg>
+            @if (ValueVisible)
+            {
+                <svg class="mussel-gauge-value" width="@valueWidth" height="@barHeight" overflow="visible">
+                    <text x="100%" y="50%" text-anchor="end" dominant-baseline="central" fill="@row.Color">@row.ValueText</text>
+                </svg>
+            }
+        </div>
+    }
+</div>

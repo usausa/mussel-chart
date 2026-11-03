@@ -1,0 +1,15 @@
+.mussel-dark {
+    --mussel-primary-text: #F0EFEC;
+    --mussel-secondary-text: #C3C2B7;
+    --mussel-muted-text: #8E8C86;
+    --mussel-axis-line: #383835;
+    --mussel-grid-line: #2C2C2A;
+    --mussel-track: rgba(255, 255, 255, 0.07);
+    --mussel-tooltip-background: #1F1F1D;
+    --mussel-tooltip-border: rgba(240, 239, 236, 0.1);
+    --mussel-tooltip-text: #F0EFEC;
+    --mussel-good: #73BF69;
+    --mussel-warning: #FADE2A;
+    --mussel-serious: #FF9830;
+    --mussel-critical: #F2495C;
+}

@@ -1,0 +1,43 @@
+.mussel-gauge {
+    display: grid;
+    gap: 12px;
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-size: 12px;
+}
+
+.mussel-gauge-row {
+    display: grid;
+    grid-template-areas: "label label" "bar value";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.mussel-gauge-left .mussel-gauge-row {
+    grid-template-areas: "label bar value";
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+}
+
+.mussel-gauge-label {
+    grid-area: label;
+    color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-gauge-bar {
+    display: block;
+    grid-area: bar;
+}
+
+.mussel-gauge-value {
+    grid-area: value;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.mussel-gauge-track {
+    fill: var(--mussel-track, rgba(0, 0, 0, 0.07));
+}
+
+.mussel-gauge-target {
+    fill: var(--mussel-primary-text, #0B0B0B);
+}

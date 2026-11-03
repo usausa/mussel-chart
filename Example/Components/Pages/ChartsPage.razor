@@ -1,0 +1,72 @@
+@page "/charts"
+
+<PageTitle>Charts</PageTitle>
+
+<div class="page">
+    <h1>Charts</h1>
+    <div class="grid">
+        <section class="card">
+            <h2>Temperature (°C) with thresholds</h2>
+            <MusselChartView Height="240" Palette="ChartPalettes.GrafanaLight" Thresholds="TemperatureThresholds" ThresholdsMode="ChartThresholdsMode.Lines | ChartThresholdsMode.Bands" TrackingGroup="weather">
+                <DateTimeAxis />
+                <NumericAxis SoftMinimum="10" SoftMaximum="35" />
+                <LineSeries Items="Weather" X="static x => x.Time" Y="static x => x.Tokyo" Title="Tokyo" ValueFormat="{0:N1} °C" />
+                <LineSeries Items="Weather" X="static x => x.Time" Y="static x => x.Osaka" Title="Osaka" ValueFormat="{0:N1} °C" />
+            </MusselChartView>
+        </section>
+        <section class="card">
+            <h2>Humidity (%)</h2>
+            <MusselChartView Height="240" Palette="ChartPalettes.GrafanaLight" TrackingGroup="weather" TrackingGroupMode="ChartTrackingGroupMode.Tooltip">
+                <DateTimeAxis />
+                <NumericAxis Minimum="0" Maximum="100" />
+                <AreaSeries Items="Weather" X="static x => x.Time" Y="static x => x.Humidity" Title="Humidity" Color="#3274D9" FillOpacity="0.2" ValueFormat="{0:N0}%" />
+            </MusselChartView>
+        </section>
+        <section class="card">
+            <h2>Daily profit</h2>
+            <MusselChartView Height="240" LegendMode="ChartLegendMode.Table" LegendValues="ChartLegendValues.Min | ChartLegendValues.Max | ChartLegendValues.Mean" LegendVisible="true">
+                <DateTimeAxis />
+                <BarSeries Items="Profits" X="static x => x.Time" Y="static x => x.Value" Title="Profit" Color="#56A64B" ValueFormat="{0:N0}" />
+            </MusselChartView>
+        </section>
+        <section class="card">
+            <h2>Empty</h2>
+            <MusselChartView Height="240" EmptyText="No data">
+                <LineSeries Items="Empty" X="static x => x.Time" Y="static x => x.Value" Title="None" />
+            </MusselChartView>
+        </section>
+    </div>
+</div>
+
+@code {
+    private static readonly ChartThreshold[] TemperatureThresholds =
+    [
+        new() { Level = ChartThresholdLevel.Good },
+        new() { Value = 28, Level = ChartThresholdLevel.Warning, Label = "28 °C" },
+        new() { Value = 32, Level = ChartThresholdLevel.Critical, Label = "32 °C" }
+    ];
+
+    private static readonly WeatherPoint[] Weather = CreateWeather();
+
+    private static readonly ValuePoint[] Profits = CreateProfits();
+
+    private static readonly ValuePoint[] Empty = [];
+
+    private static WeatherPoint[] CreateWeather() =>
+        Enumerable.Range(0, 48)
+            .Select(static i => new WeatherPoint(
+                new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Unspecified).AddHours(i),
+                24 + (7 * Math.Sin((i - 9) * Math.PI / 12)) + (i % 5 * 0.3),
+                23 + (8 * Math.Sin((i - 8) * Math.PI / 12)) - (i % 3 * 0.4),
+                65 - (20 * Math.Sin((i - 9) * Math.PI / 12))))
+            .ToArray();
+
+    private static ValuePoint[] CreateProfits() =>
+        Enumerable.Range(0, 14)
+            .Select(static i => new ValuePoint(new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Unspecified).AddDays(i), Math.Round((Math.Sin(i * 0.9) * 120) + (i * 8) - 30)))
+            .ToArray();
+
+    private sealed record WeatherPoint(DateTime Time, double Tokyo, double Osaka, double Humidity);
+
+    private sealed record ValuePoint(DateTime Time, double Value);
+}

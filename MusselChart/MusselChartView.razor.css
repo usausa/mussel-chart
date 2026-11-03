@@ -1,0 +1,220 @@
+.mussel-chart {
+    position: relative;
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
+    touch-action: pan-y;
+}
+
+.mussel-chart-svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.mussel-grid line {
+    stroke: var(--mussel-grid-line, #E1E0D9);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.mussel-axis text {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-stroke polyline {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-bars rect {
+    shape-rendering: crispEdges;
+}
+
+.mussel-threshold {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 2;
+    stroke-dasharray: 10 10;
+    stroke-opacity: 0.7;
+}
+
+.mussel-threshold-label {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-band {
+    fill-opacity: 0.15;
+}
+
+.mussel-good .mussel-threshold, .mussel-band.mussel-good {
+    stroke: var(--mussel-good, #56A64B);
+    fill: var(--mussel-good, #56A64B);
+}
+
+.mussel-warning .mussel-threshold, .mussel-band.mussel-warning {
+    stroke: var(--mussel-warning, #F2CC0C);
+    fill: var(--mussel-warning, #F2CC0C);
+}
+
+.mussel-serious .mussel-threshold, .mussel-band.mussel-serious {
+    stroke: var(--mussel-serious, #FF780A);
+    fill: var(--mussel-serious, #FF780A);
+}
+
+.mussel-critical .mussel-threshold, .mussel-band.mussel-critical {
+    stroke: var(--mussel-critical, #E02F44);
+    fill: var(--mussel-critical, #E02F44);
+}
+
+.mussel-good .mussel-threshold-label {
+    fill: var(--mussel-good, #56A64B);
+}
+
+.mussel-warning .mussel-threshold-label {
+    fill: var(--mussel-warning, #F2CC0C);
+}
+
+.mussel-serious .mussel-threshold-label {
+    fill: var(--mussel-serious, #FF780A);
+}
+
+.mussel-critical .mussel-threshold-label {
+    fill: var(--mussel-critical, #E02F44);
+}
+
+.mussel-live-ring {
+    animation: mussel-live 1.8s ease-out infinite;
+}
+
+@keyframes mussel-live {
+    from {
+        r: 4px;
+        opacity: 0.45;
+    }
+
+    to {
+        r: 12px;
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mussel-live-ring {
+        animation: none;
+        opacity: 0;
+    }
+}
+
+.mussel-empty text {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 12px;
+}
+
+.mussel-cross {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+}
+
+.mussel-hover {
+    pointer-events: none;
+}
+
+.mussel-tooltip {
+    position: absolute;
+    z-index: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--mussel-tooltip-border, rgba(11, 11, 11, 0.1));
+    border-radius: 2px;
+    background: var(--mussel-tooltip-background, #FFFFFF);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: var(--mussel-tooltip-text, #0B0B0B);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-time {
+    margin-bottom: 2px;
+    color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row b {
+    margin-left: auto;
+    padding-left: 12px;
+    font-weight: 500;
+}
+
+.mussel-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+.mussel-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mussel-legend-marker {
+    flex: none;
+    vertical-align: middle;
+}
+
+.mussel-legend-hidden {
+    opacity: 0.45;
+}
+
+.mussel-toggle .mussel-legend-item, .mussel-toggle .mussel-legend-row {
+    cursor: pointer;
+}
+
+.mussel-legend-table {
+    width: 100%;
+    margin-top: 4px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.mussel-legend-table th {
+    padding: 2px 6px;
+    border-bottom: 1px solid var(--mussel-grid-line, #E1E0D9);
+    color: var(--mussel-secondary-text, #52514E);
+    font-weight: 500;
+    text-align: right;
+}
+
+.mussel-legend-table td {
+    padding: 2px 6px;
+    border-bottom: 1px solid var(--mussel-grid-line, #E1E0D9);
+    text-align: right;
+}
+
+.mussel-legend-table th:first-child, .mussel-legend-table td:first-child {
+    text-align: left;
+}
+
+.mussel-legend-table td:first-child .mussel-legend-marker {
+    margin-right: 6px;
+}

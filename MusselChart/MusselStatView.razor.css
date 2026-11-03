@@ -1,0 +1,67 @@
+.mussel-stat {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 86px;
+    overflow: hidden;
+    border-radius: 2px;
+    color: var(--mussel-primary-text, #0B0B0B);
+}
+
+.mussel-stat-background, .mussel-stat-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.mussel-stat-trend-background {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+}
+
+.mussel-stat-trend-line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-stat-content {
+    position: relative;
+    padding: 8px 12px;
+}
+
+.mussel-stat-title {
+    color: var(--mussel-secondary-text, #52514E);
+    font-size: 12px;
+}
+
+.mussel-stat-value {
+    margin-top: 4px;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.mussel-stat-unit {
+    margin-left: 2px;
+    font-size: 14px;
+}
+
+.mussel-stat-trend {
+    display: block;
+    margin-top: 4px;
+}
+
+.mussel-stat-light-text, .mussel-stat-light-text .mussel-stat-title {
+    color: #F7F8FA;
+}
+
+.mussel-stat-dark-text, .mussel-stat-dark-text .mussel-stat-title {
+    color: #202226;
+}
+
+.mussel-stat-empty .mussel-stat-value {
+    color: var(--mussel-muted-text, #898781);
+}

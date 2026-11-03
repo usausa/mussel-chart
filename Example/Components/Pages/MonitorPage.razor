@@ -1,0 +1,80 @@
+@page "/"
+@implements IDisposable
+@inject MonitorFeed Feed
+
+<PageTitle>Monitor</PageTitle>
+
+<div class="board mussel-dark">
+    <div class="board-header">
+        <h1>Monitor</h1>
+        <button type="button" @onclick="ToggleWindow">Range: @(wide ? "3 min" : "45 s")</button>
+    </div>
+    <div class="board-grid">
+        <MusselStatView class="span-3" Title="CPU" Value="Feed.Cpu" TrendValues="Feed.CpuTrend" Unit="%" ValueFormat="N1" Fill="#5794F2" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
+        <MusselStatView class="span-3" Title="Memory" Value="Feed.Memory" TrendValues="Feed.MemoryTrend" Unit="%" ValueFormat="N1" Fill="#B877D9" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
+        <MusselStatView class="span-3" Title="Temp" Value="Feed.Temperature" TrendValues="Feed.TemperatureTrend" Unit="°C" ValueFormat="N0" Fill="#F2495C" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
+        <MusselStatView class="span-3" Title="Network" Value="Feed.Network" TrendValues="Feed.NetworkTrend" Unit=" KB/s" ValueFormat="N0" Fill="#73BF69" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" />
+
+        <section class="panel span-8">
+            <h2>CPU Load (%)</h2>
+            <MusselChartView Height="260" Palette="ChartPalettes.BlueShadesDark" LegendMode="ChartLegendMode.Table" LegendValues="ChartLegendValues.Last | ChartLegendValues.Max" LegendToggleEnabled="true" TrackingGroup="monitor" TrackingGroupMode="ChartTrackingGroupMode.Tooltip">
+                <DateTimeAxis WindowSize="Window" />
+                <NumericAxis Minimum="0" Maximum="100" />
+                <LineSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Core1" Title="Core #1" ValueFormat="{0:N1}%" />
+                <LineSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Core2" Title="Core #2" ValueFormat="{0:N1}%" />
+                <LineSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Core3" Title="Core #3" ValueFormat="{0:N1}%" />
+                <LineSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Core4" Title="Core #4" ValueFormat="{0:N1}%" />
+            </MusselChartView>
+        </section>
+
+        <section class="panel span-4">
+            <h2>Disk Usage</h2>
+            <MusselBarGaugeView Items="Feed.Disks" DisplayMode="ChartBarGaugeMode.Segmented" BarThickness="12" LabelPosition="ChartBarGaugeLabelPosition.Left" Thresholds="DiskThresholds" />
+        </section>
+
+        <section class="panel span-6">
+            <h2>Network (KB/s)</h2>
+            <MusselChartView Height="180" Palette="ChartPalettes.PurpleShadesDark" LegendVisible="true" TrackingGroup="monitor" TrackingGroupMode="ChartTrackingGroupMode.Tooltip">
+                <DateTimeAxis WindowSize="Window" />
+                <NumericAxis Minimum="0" />
+                <AreaSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Receive" Title="Receive" StackGroup="network" FillOpacity="0.4" ValueFormat="{0:N0} KB/s" LiveIndicatorVisible="true" />
+                <AreaSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Send" Title="Send" StackGroup="network" FillOpacity="0.4" ValueFormat="{0:N0} KB/s" LiveIndicatorVisible="true" />
+            </MusselChartView>
+        </section>
+
+        <section class="panel span-6">
+            <h2>Run Queue</h2>
+            <MusselChartView Height="180" TrackingGroup="monitor" TrackingGroupMode="ChartTrackingGroupMode.Tooltip">
+                <DateTimeAxis WindowSize="Window" />
+                <BarSeries Items="Feed.Samples" X="static x => x.Time" Y="static x => x.Queue" Title="Queue" Color="#FF9830" ValueFormat="{0:N0}" />
+            </MusselChartView>
+        </section>
+    </div>
+</div>
+
+@code {
+    private static readonly ChartThreshold[] DiskThresholds =
+    [
+        new() { Level = ChartThresholdLevel.Good },
+        new() { Value = 70, Level = ChartThresholdLevel.Warning },
+        new() { Value = 85, Level = ChartThresholdLevel.Critical }
+    ];
+
+    private bool wide = true;
+
+    private TimeSpan Window => wide ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(45);
+
+    protected override void OnInitialized()
+    {
+        Feed.Updated += OnUpdated;
+    }
+
+    public void Dispose()
+    {
+        Feed.Updated -= OnUpdated;
+    }
+
+    private void OnUpdated(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
+
+    private void ToggleWindow() => wide = !wide;
+}

@@ -1,0 +1,53 @@
+@using MusselChart.Internal
+@{
+    var path = TrendPath.Create(Values, Minimum, Maximum, Kind == ChartSparklineKind.Bar, Kind == ChartSparklineKind.Bar ? 0 : 4);
+    var color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+}
+
+<svg @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass("mussel-sparkline", AdditionalAttributes)" width="100%" height="@ChartFormat.Pixel(Height)" viewBox="@path.ViewBox(Kind == ChartSparklineKind.Bar)" preserveAspectRatio="none">
+    @if (Kind == ChartSparklineKind.Bar)
+    {
+        foreach (var bar in path.Bars)
+        {
+            <rect x="@bar.X" y="@bar.Y" width="0.7" height="@bar.Height" fill="@color" />
+        }
+    }
+    else
+    {
+        if (Kind == ChartSparklineKind.Area)
+        {
+            <polygon class="mussel-sparkline-area" points="@path.Area" fill="@color" />
+        }
+
+        <polyline class="mussel-sparkline-line" points="@path.Line" stroke="@color" stroke-width="@ChartFormat.Pixel(Thickness)" />
+    }
+</svg>
+
+@code {
+    [Parameter]
+    public IEnumerable<double>? Values { get; set; }
+
+    [Parameter]
+    public ChartSparklineKind Kind { get; set; }
+
+    [Parameter]
+    public string? Color { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? Palette { get; set; }
+
+    [Parameter]
+    public double Thickness { get; set; } = 2;
+
+    [Parameter]
+    public double? Minimum { get; set; }
+
+    [Parameter]
+    public double? Maximum { get; set; }
+
+    [Parameter]
+    public double Height { get; set; } = 32;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}
