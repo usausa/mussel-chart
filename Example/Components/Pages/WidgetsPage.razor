@@ -2,75 +2,31 @@
 
 <PageTitle>Widgets</PageTitle>
 
-<div class="page">
-    <h1>Widgets</h1>
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2">Widgets</MudText>
 
-    <h2>MusselStatView</h2>
-    <div class="tiles">
-        <MusselStatView Title="Requests" Value="12840" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Bottom" />
-        <MusselStatView Title="Errors" Value="3.2" Unit="%" ValueFormat="N1" TrendValues="Trend" ColorMode="ChartStatColorMode.Value" Thresholds="ErrorThresholds" TrendPlacement="ChartTrendPlacement.Bottom" />
-        <MusselStatView Title="Latency" Value="182" Unit=" ms" ValueFormat="N0" ColorMode="ChartStatColorMode.Indicator" Thresholds="LatencyThresholds" TrendPlacement="ChartTrendPlacement.None" />
-        <MusselStatView Title="Users" Value="1420" ColorMode="ChartStatColorMode.Background" Fill="#5794F2" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Background" />
-        <MusselStatView Title="Load" Value="68.4" Unit="%" ValueFormat="N1" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" Fill="#FF9830" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Background" />
-        <MusselStatView Title="Offline" Value="Double.NaN" EmptyText="No data" />
-    </div>
-
-    <h2>MusselSparklineView</h2>
-    <div class="sparklines">
-        <div><span>Line</span><MusselSparklineView Values="Trend" /></div>
-        <div><span>Area</span><MusselSparklineView Values="Trend" Kind="ChartSparklineKind.Area" Color="#B877D9" /></div>
-        <div><span>Bar</span><MusselSparklineView Values="Changes" Kind="ChartSparklineKind.Bar" Color="#FF9830" /></div>
-    </div>
-
-    <h2>MusselBarGaugeView</h2>
-    <div class="grid">
-        <section class="card">
-            <MusselBarGaugeView Items="Stores" ValueMode="ChartBarGaugeValueMode.ValueOfMaximum" ValueFormat="N0" Color="#3274D9" />
-        </section>
-        <section class="card">
-            <MusselBarGaugeView Items="Disks" DisplayMode="ChartBarGaugeMode.Segmented" LabelPosition="ChartBarGaugeLabelPosition.Left" BarThickness="12" Thresholds="DiskThresholds" />
-        </section>
-    </div>
+<MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="mt-2 mb-1">MusselStatView</MudText>
+<div class="tiles">
+    <MusselStatView Title="Requests" Value="12840" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Bottom" />
+    <MusselStatView Title="Errors" Value="3.2" Unit="%" ValueFormat="N1" TrendValues="Trend" ColorMode="ChartStatColorMode.Value" Thresholds="ErrorThresholds" TrendPlacement="ChartTrendPlacement.Bottom" />
+    <MusselStatView Title="Latency" Value="182" Unit=" ms" ValueFormat="N0" ColorMode="ChartStatColorMode.Indicator" Thresholds="LatencyThresholds" TrendPlacement="ChartTrendPlacement.None" />
+    <MusselStatView Title="Users" Value="1420" ColorMode="ChartStatColorMode.Background" Fill="#5794F2" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Background" />
+    <MusselStatView Title="Load" Value="68.4" Unit="%" ValueFormat="N1" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" Fill="#FF9830" TrendValues="Trend" TrendPlacement="ChartTrendPlacement.Background" />
+    <MusselStatView Title="Offline" Value="Double.NaN" EmptyText="No data" />
 </div>
 
-@code {
-    private static readonly double[] Trend = [12, 14, 13, 17, 21, 19, 24, 22, 27, 25, 29, 31, 28, 33, 30, 34];
+<MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="mt-2 mb-1">MusselSparklineView</MudText>
+<div class="sparklines">
+    <div><span>Line</span><MusselSparklineView Values="Trend" /></div>
+    <div><span>Area</span><MusselSparklineView Values="Trend" Kind="ChartSparklineKind.Area" Color="#B877D9" /></div>
+    <div><span>Bar</span><MusselSparklineView Values="Changes" Kind="ChartSparklineKind.Bar" Color="#FF9830" /></div>
+</div>
 
-    private static readonly double[] Changes = [3, -2, 5, 4, -1, -3, 6, 2, -4, 5, 3, -2];
-
-    private static readonly ChartThreshold[] ErrorThresholds =
-    [
-        new() { Level = ChartThresholdLevel.Good },
-        new() { Value = 2, Level = ChartThresholdLevel.Warning },
-        new() { Value = 5, Level = ChartThresholdLevel.Critical }
-    ];
-
-    private static readonly ChartThreshold[] LatencyThresholds =
-    [
-        new() { Level = ChartThresholdLevel.Good },
-        new() { Value = 150, Level = ChartThresholdLevel.Serious },
-        new() { Value = 300, Level = ChartThresholdLevel.Critical }
-    ];
-
-    private static readonly ChartThreshold[] DiskThresholds =
-    [
-        new() { Level = ChartThresholdLevel.Good },
-        new() { Value = 70, Level = ChartThresholdLevel.Warning },
-        new() { Value = 85, Level = ChartThresholdLevel.Critical }
-    ];
-
-    private static readonly ChartEntry[] Stores =
-    [
-        new("Shibuya", 8420, null, 10000, 9000),
-        new("Shinjuku", 6150, null, 8000, 7000),
-        new("Ikebukuro", 4980, null, 6000, 5500)
-    ];
-
-    private static readonly ChartEntry[] Disks =
-    [
-        new("C: System", 57, null, 100),
-        new("D: Data", 23, null, 100),
-        new("E: Work", 76, null, 100),
-        new("F: Backup", 91, null, 100)
-    ];
-}
+<MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="mt-2 mb-1">MusselBarGaugeView</MudText>
+<div class="grid">
+    <SampleCard>
+        <MusselBarGaugeView Items="Stores" ValueMode="ChartBarGaugeValueMode.ValueOfMaximum" ValueFormat="N0" Color="#3274D9" />
+    </SampleCard>
+    <SampleCard>
+        <MusselBarGaugeView Items="Disks" DisplayMode="ChartBarGaugeMode.Segmented" LabelPosition="ChartBarGaugeLabelPosition.Left" BarThickness="12" Thresholds="DiskThresholds" />
+    </SampleCard>
+</div>

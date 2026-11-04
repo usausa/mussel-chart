@@ -1,13 +1,37 @@
 @inherits LayoutComponentBase
 
-<header class="top">
-    <span class="brand">MusselChart</span>
-    <nav>
-        <NavLink href="" Match="NavLinkMatch.All">Monitor</NavLink>
-        <NavLink href="charts">Charts</NavLink>
-        <NavLink href="widgets">Widgets</NavLink>
-    </nav>
-</header>
-<main>
-    @Body
-</main>
+<MudThemeProvider Theme="Styles.Theme" />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Size="Size.Small" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" aria-label="Menu" />
+        <MudText Typo="Typo.h6" Class="ml-2">MusselChart</MudText>
+    </MudAppBar>
+    <MudDrawer @bind-Open="drawerOpen" Elevation="2">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent Class="px-3 pb-3">
+        <ErrorBoundary @ref="errorBoundary">
+            <ChildContent>
+                @Body
+            </ChildContent>
+            <ErrorContent>
+                <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">An error occurred on this page.</MudAlert>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Recover">Retry</MudButton>
+            </ErrorContent>
+        </ErrorBoundary>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private ErrorBoundary? errorBoundary;
+
+    private bool drawerOpen = true;
+
+    private void ToggleDrawer() => drawerOpen = !drawerOpen;
+
+    private void Recover() => errorBoundary?.Recover();
+
+    protected override void OnParametersSet() => errorBoundary?.Recover();
+}

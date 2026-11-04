@@ -1,0 +1,15 @@
+<section class="sample-card">
+    @if (Title is not null)
+    {
+        <MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="mb-1">@Title</MudText>
+    }
+    @ChildContent
+</section>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

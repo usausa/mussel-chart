@@ -1,21 +1,32 @@
-using Example.Components;
-using Example.Monitor;
+using Example.Application;
 
+//--------------------------------------------------------------------------------
+// Configure builder
+//--------------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+// Blazor
+builder.ConfigureBlazor();
 
-builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton<MonitorFeed>();
-builder.Services.AddHostedService(static p => p.GetRequiredService<MonitorFeed>());
+// Monitor
+builder.ConfigureMonitor();
 
+//--------------------------------------------------------------------------------
+// Configure the HTTP request pipeline
+//--------------------------------------------------------------------------------
 var app = builder.Build();
 
+// Error handler
+app.UseErrorHandler();
+
+// Routing
+app.UseRouting();
+
+// Antiforgery
 app.UseAntiforgery();
 
-app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+// End point
+app.MapEndpoints();
 
-app.Run();
+// Run
+await app.RunAsync();

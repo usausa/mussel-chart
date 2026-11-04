@@ -4,11 +4,12 @@
 
 <PageTitle>Monitor</PageTitle>
 
+<div class="board-header mt-2 mb-2">
+    <MudText Typo="Typo.h6" HtmlTag="h1">Monitor</MudText>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="ToggleWindow">Range: @(wide ? "3 min" : "45 s")</MudButton>
+</div>
+
 <div class="board mussel-dark">
-    <div class="board-header">
-        <h1>Monitor</h1>
-        <button type="button" @onclick="ToggleWindow">Range: @(wide ? "3 min" : "45 s")</button>
-    </div>
     <div class="board-grid">
         <MusselStatView class="span-3" Title="CPU" Value="Feed.Cpu" TrendValues="Feed.CpuTrend" Unit="%" ValueFormat="N1" Fill="#5794F2" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
         <MusselStatView class="span-3" Title="Memory" Value="Feed.Memory" TrendValues="Feed.MemoryTrend" Unit="%" ValueFormat="N1" Fill="#B877D9" ColorMode="ChartStatColorMode.Background" FillMode="ChartFillMode.Gradient" TrendPlacement="ChartTrendPlacement.Background" LayoutMode="ChartStatLayoutMode.Horizontal" />
@@ -51,30 +52,3 @@
         </section>
     </div>
 </div>
-
-@code {
-    private static readonly ChartThreshold[] DiskThresholds =
-    [
-        new() { Level = ChartThresholdLevel.Good },
-        new() { Value = 70, Level = ChartThresholdLevel.Warning },
-        new() { Value = 85, Level = ChartThresholdLevel.Critical }
-    ];
-
-    private bool wide = true;
-
-    private TimeSpan Window => wide ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(45);
-
-    protected override void OnInitialized()
-    {
-        Feed.Updated += OnUpdated;
-    }
-
-    public void Dispose()
-    {
-        Feed.Updated -= OnUpdated;
-    }
-
-    private void OnUpdated(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
-
-    private void ToggleWindow() => wide = !wide;
-}
