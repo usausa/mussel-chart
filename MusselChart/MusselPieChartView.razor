@@ -1,0 +1,34 @@
+@inherits ChartViewBase
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<ChartFrame Owner="this" ViewClass="mussel-pie" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition" LegendToggleEnabled="LegendToggleEnabled" OnLegendClick="ToggleSlice">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+        <g class="@sliceClass">
+            @foreach (var slice in sliceViews)
+            {
+                <path @key="slice.Key" class="mussel-slice" d="@slice.Path" fill="@slice.Color" fill-rule="evenodd" data-tip="@slice.Tip" />
+            }
+        </g>
+        @foreach (var label in insideLabels)
+        {
+            <g><text class="mussel-pie-label" x="@label.X" y="@label.Y" text-anchor="middle" dominant-baseline="central" fill="@label.Color">@label.Text</text></g>
+        }
+        @foreach (var label in outsideLabels)
+        {
+            <polyline class="mussel-pie-leader" points="@label.Line" stroke="@label.Color" />
+            <g><text class="mussel-pie-outside" x="@label.X" y="@label.Y" text-anchor="@label.Anchor" dominant-baseline="central">@label.Text</text></g>
+        }
+        @if (layout.Center is { } center)
+        {
+            <g><text class="mussel-pie-center" x="@centerX" y="@ChartGeometry.Text(center.ValueY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.ValueFontSize)">@center.Value</text></g>
+            @if (center.Caption is not null)
+            {
+                <g><text class="mussel-pie-caption" x="@centerX" y="@ChartGeometry.Text(center.CaptionY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.CaptionFontSize)">@center.Caption</text></g>
+            }
+        }
+        <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
+    </svg>
+</ChartFrame>

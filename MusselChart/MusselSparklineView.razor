@@ -1,15 +1,17 @@
 @using MusselChart.Internal
 @{
-    var path = TrendPath.Create(Values, Minimum, Maximum, Kind == ChartSparklineKind.Bar, Kind == ChartSparklineKind.Bar ? 0 : 4);
+    var bars = Kind is ChartSparklineKind.Bar or ChartSparklineKind.WinLoss;
+    var path = Kind == ChartSparklineKind.WinLoss ? TrendPath.CreateWinLoss(Values, Height) : TrendPath.Create(Values, Minimum, Maximum, bars, bars ? 0 : 4);
     var color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+    var negative = NegativeColor ?? (Kind == ChartSparklineKind.WinLoss ? null : color);
 }
 
-<svg @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass("mussel-sparkline", AdditionalAttributes)" width="100%" height="@ChartFormat.Pixel(Height)" viewBox="@path.ViewBox(Kind == ChartSparklineKind.Bar)" preserveAspectRatio="none">
-    @if (Kind == ChartSparklineKind.Bar)
+<svg @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass("mussel-sparkline", AdditionalAttributes)" width="100%" height="@ChartFormat.Pixel(Height)" viewBox="@path.ViewBox(bars)" preserveAspectRatio="none">
+    @if (bars)
     {
         foreach (var bar in path.Bars)
         {
-            <rect x="@bar.X" y="@bar.Y" width="0.7" height="@bar.Height" fill="@color" />
+            <rect class="@(bar.Negative && (negative is null) ? "mussel-sparkline-loss" : null)" x="@bar.X" y="@bar.Y" width="0.7" height="@bar.Height" fill="@(bar.Negative ? negative : color)" />
         }
     }
     else
@@ -32,6 +34,9 @@
 
     [Parameter]
     public string? Color { get; set; }
+
+    [Parameter]
+    public string? NegativeColor { get; set; }
 
     [Parameter]
     public IReadOnlyList<string>? Palette { get; set; }

@@ -1,0 +1,22 @@
+<div @attributes="Attributes" class="@ChartFormat.MergeClass(RootClass, Attributes)">
+    <div @ref="plot" class="mussel-view-plot" data-trackball="@Owner.TrackballText" data-tooltip="@Owner.TooltipText" data-hover="item">
+        @ChildContent
+        <ChartTooltip />
+    </div>
+    @if (LegendItems is { Count: > 0 })
+    {
+        <div class="mussel-view-legend">
+            @foreach (var item in LegendItems)
+            {
+                <span class="@(item.Hidden ? "mussel-view-legend-item mussel-view-legend-hidden" : "mussel-view-legend-item")" @onclick="() => OnLegendClick.InvokeAsync(item.Key)">
+                    <svg class="mussel-view-legend-marker" width="8" height="8"><circle cx="4" cy="4" r="4" fill="@item.Color" /></svg>
+                    <span class="mussel-view-legend-name">@item.Text</span>
+                    @if (item.Value is not null)
+                    {
+                        <span class="mussel-view-legend-value">@item.Value</span>
+                    }
+                </span>
+            }
+        </div>
+    }
+</div>

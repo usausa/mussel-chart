@@ -1,0 +1,19 @@
+@page "/timeline"
+
+<PageTitle>State timeline</PageTitle>
+
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">State timeline</MudText>
+<div class="grid">
+    <SampleCard Title="Value mappings of server states">
+        <MusselStateTimelineView Height="220" Items="States" Row="static x => x.Server" Start="static x => x.Start" State="static x => x.State" Maximum="Now" ValueMappings="Mappings" />
+    </SampleCard>
+    <SampleCard Title="Thresholds of CPU load">
+        <MusselStateTimelineView Height="220" Items="Levels" Row="static x => x.Server" Start="static x => x.Start" State="static x => x.Load" Maximum="Now" Thresholds="LoadThresholds" AlignValue="ChartValueAlignment.Center" ValueFormat="{0:N0}%" />
+    </SampleCard>
+    <SampleCard Title="Numbers on a color scale, not merged">
+        <MusselStateTimelineView Height="160" Items="Levels" Row="static x => x.Server" Start="static x => x.Start" State="static x => x.Load" Maximum="Now" MergeValues="false" ShowValue="ChartVisibilityMode.Never" FillOpacity="1" RowHeight="0.8" ValueFormat="{0:N0}%" />
+    </SampleCard>
+    <SampleCard Title="States with an end and an outline">
+        <MusselStateTimelineView Height="160" Items="Jobs" Start="static x => x.Start" End="static x => x.End" State="static x => x.State" Row="static x => x.Worker" LineWidth="1" FillOpacity="0.3" LegendPosition="ChartLegendPosition.Right" />
+    </SampleCard>
+</div>

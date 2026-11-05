@@ -4,5 +4,6 @@ public enum ChartSparklineKind
 {
     Line,
     Area,
-    Bar
+    Bar,
+    WinLoss
 }

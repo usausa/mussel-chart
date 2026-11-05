@@ -1,0 +1,36 @@
+@typeparam TItem
+@inherits ChartViewBase
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<ChartFrame Owner="this" ViewClass="mussel-timeline" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+        @foreach (var x in gridLines)
+        {
+            <line class="mussel-grid-line" x1="@x" x2="@x" y1="@plotTop" y2="@plotBottom" />
+        }
+        <g class="mussel-timeline-bands">
+            @foreach (var band in bands)
+            {
+                <rect x="@band.X" y="@band.Y" width="@band.Width" height="@band.Height" fill="@band.Color" fill-opacity="@fillOpacity" stroke="@band.Stroke" stroke-width="@lineWidth" data-tip="@band.Tip" data-mark="overlay" />
+            }
+        </g>
+        @foreach (var text in bandTexts)
+        {
+            <g><text class="mussel-timeline-text" x="@text.X" y="@text.Y" text-anchor="@text.Anchor" dominant-baseline="central" fill="@text.Color">@text.Text</text></g>
+        }
+        @foreach (var label in rowLabels)
+        {
+            <g><text class="mussel-view-label" x="@label.X" y="@label.Y" text-anchor="start" dominant-baseline="central">@label.Text</text></g>
+        }
+        @foreach (var label in axisLabels)
+        {
+            <g><text class="mussel-view-label" x="@label.Position" y="@axisY" text-anchor="middle">@label.Text</text></g>
+        }
+        <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
+        <line class="mussel-cross" x1="0" x2="0" y1="@plotTop" y2="@plotBottom" visibility="hidden" />
+        <g class="mussel-hover"></g>
+    </svg>
+</ChartFrame>

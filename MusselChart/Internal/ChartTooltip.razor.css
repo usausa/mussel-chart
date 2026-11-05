@@ -1,0 +1,37 @@
+.mussel-tooltip {
+    position: absolute;
+    z-index: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--mussel-tooltip-border, rgba(11, 11, 11, 0.1));
+    border-radius: 2px;
+    background: var(--mussel-tooltip-background, #FFFFFF);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: var(--mussel-tooltip-text, #0B0B0B);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-time {
+    margin-bottom: 2px;
+    color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.mussel-tooltip ::deep .mussel-tooltip-row b {
+    margin-left: auto;
+    padding-left: 12px;
+    font-weight: 500;
+}

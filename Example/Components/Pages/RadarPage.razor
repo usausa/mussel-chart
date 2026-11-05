@@ -1,0 +1,19 @@
+@page "/radar"
+
+<PageTitle>Radar</PageTitle>
+
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">Radar</MudText>
+<div class="grid">
+    <SampleCard Title="Polygon grid">
+        <MusselRadarChartView Height="300" Minimum="0" Maximum="100" LegendToggleEnabled="true">
+            <RadarSeries Items="ProductA" Category="static x => x.Name" Y="static x => x.Score" Title="Product A" ValueFormat="N0" />
+            <RadarSeries Items="ProductB" Category="static x => x.Name" Y="static x => x.Score" Title="Product B" ValueFormat="N0" />
+        </MusselRadarChartView>
+    </SampleCard>
+    <SampleCard Title="Circle grid">
+        <MusselRadarChartView Height="300" GridShape="ChartRadarGridShape.Circle" Palette="ChartPalettes.GrafanaLight" LegendPosition="ChartLegendPosition.Right">
+            <RadarSeries Items="Team" Title="Team" FillOpacity="0.3" />
+            <RadarSeries Items="Average" Title="Average" Thickness="1" FillOpacity="0" />
+        </MusselRadarChartView>
+    </SampleCard>
+</div>

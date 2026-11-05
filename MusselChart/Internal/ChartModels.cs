@@ -6,10 +6,20 @@ internal enum ChartSeriesKind
 {
     Line,
     Area,
-    Bar
+    Bar,
+    RangeBar,
+    Scatter,
+    Bubble
 }
 
-internal readonly record struct ChartPointData(long Ticks, double Value);
+internal enum ChartXKind
+{
+    Time,
+    Number,
+    Category
+}
+
+internal readonly record struct ChartPointData(long Ticks, double Number, string? Category, double Value, double Low, double Size);
 
 internal sealed record SeriesOptions(
     string? Title,
@@ -19,10 +29,20 @@ internal sealed record SeriesOptions(
     string? ValueFormat,
     Func<double, string>? ValueFormatter,
     object? Source,
+    ChartXKind XKind,
     double Thickness,
     double Opacity,
     string? Stack,
-    bool Live);
+    bool Live)
+{
+    public ChartMarkerShape Shape { get; init; }
+
+    public double MinSize { get; init; }
+
+    public double MaxSize { get; init; }
+
+    public bool SizeIncludesZero { get; init; }
+}
 
 internal static class ChartTime
 {
@@ -77,6 +97,8 @@ internal static class ChartFormat
     public static string Coordinate(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     public static string Data(double value) => value.ToString("G6", CultureInfo.InvariantCulture);
+
+    public static string Position(double value) => value.ToString("G9", CultureInfo.InvariantCulture);
 
     public static string LevelClass(ChartThresholdLevel level) => level switch
     {

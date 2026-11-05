@@ -1,0 +1,43 @@
+@inherits ChartViewBase
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<CascadingValue Value="this" IsFixed="true">
+    @ChildContent
+</CascadingValue>
+<ChartFrame Owner="this" ViewClass="mussel-radar" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition" LegendToggleEnabled="LegendToggleEnabled" OnLegendClick="ToggleSeries">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+        <defs>
+            <mask id="@maskId" maskUnits="userSpaceOnUse" x="0" y="0" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)">
+                <rect width="100%" height="100%" fill="#FFFFFF" />
+                @foreach (var level in levelLabels)
+                {
+                    <rect x="@level.BoxX" y="@level.BoxY" width="@level.BoxWidth" height="@level.BoxHeight" fill="#000000" />
+                }
+            </mask>
+        </defs>
+        <path class="mussel-grid-line" d="@gridPath" mask="url(#@maskId)" />
+        @foreach (var label in axisLabels)
+        {
+            <g><text class="mussel-radar-axis" x="@label.X" y="@label.Y" text-anchor="@label.Anchor" dominant-baseline="central">@label.Text</text></g>
+        }
+        @foreach (var polygon in polygons)
+        {
+            <polygon class="mussel-radar-fill" points="@polygon.Points" fill="@polygon.Color" fill-opacity="@polygon.Opacity" stroke="@polygon.Color" stroke-width="@polygon.Thickness" />
+        }
+        @foreach (var level in levelLabels)
+        {
+            <g><text class="mussel-view-label" x="@centerX" y="@level.Y" text-anchor="middle" dominant-baseline="central">@level.Text</text></g>
+        }
+        <g class="mussel-radar-areas">
+            @foreach (var area in axisAreas)
+            {
+                <path d="@area.Path" data-tip="@area.Tip" />
+            }
+        </g>
+        <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
+        <g class="mussel-hover"></g>
+    </svg>
+</ChartFrame>

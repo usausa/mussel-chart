@@ -1,6 +1,5 @@
+@inherits ChartViewBase
 @using MusselChart.Internal
-@using Microsoft.JSInterop
-@inject IJSRuntime Runtime
 @{
     Prepare();
 }
@@ -8,8 +7,8 @@
 <CascadingValue Value="this" IsFixed="true">
     @ChildContent
 </CascadingValue>
-<div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-time-format="@timeFormat">
-    <svg class="mussel-chart-svg" width="@ChartFormat.Pixel(width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox" data-base="@baseText">
+<div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-time-format="@timeFormat" data-x-kind="@xKindText" data-x-format="@xFormatText" data-categories="@categoriesText" data-orientation="@(Orientation == ChartOrientation.Horizontal ? "horizontal" : "vertical")">
+    <svg class="mussel-chart-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox" data-base="@baseText">
         <defs>
             <clipPath id="@clipId">
                 <rect x="@clipX" y="@clipY" width="@clipWidth" height="@clipHeight" />
@@ -17,7 +16,7 @@
         </defs>
         @foreach (var band in thresholdBands)
         {
-            <rect class="@band.Class" x="@plotLeftText" y="@band.Y" width="@plotWidthText" height="@band.Height" fill="@band.Color" />
+            <rect class="@band.Class" x="@band.X" y="@band.Y" width="@band.Width" height="@band.Height" fill="@band.Color" />
         }
         <g class="mussel-grid">
             @foreach (var y in yGridLines)
@@ -33,7 +32,12 @@
             <g class="mussel-plot" transform="@transform">
                 @foreach (var view in seriesViews)
                 {
-                    <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.Color" data-kind="@view.Kind" data-format="@view.Format" data-stack="@view.Stack">
+                    if (view.Markers is not null)
+                    {
+                        continue;
+                    }
+
+                    <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.Color" data-kind="@view.Kind" data-format="@view.Format">
                         @if (view.Kind == ChartSeriesKind.Area)
                         {
                             <g class="mussel-fill">
@@ -43,12 +47,18 @@
                                 }
                             </g>
                         }
-                        @if (view.Kind == ChartSeriesKind.Bar)
+                        @if (view.Kind is ChartSeriesKind.Bar or ChartSeriesKind.RangeBar)
                         {
                             <g class="mussel-bars">
                                 @foreach (var bar in view.State.Bars)
                                 {
-                                    <rect @key="bar.Key" x="@ChartFormat.Coordinate(bar.X - view.HalfWidth)" y="@ChartFormat.Data(bar.Bottom)" width="@view.Width" height="@ChartFormat.Data(bar.Top - bar.Bottom)" fill="@view.Color" />
+                                    var extent = view.GetBarExtent(bar);
+                                    if (extent.Y is null)
+                                    {
+                                        continue;
+                                    }
+
+                                    <rect @key="bar.Key" x="@FormatX(bar.X + view.Offset - view.HalfWidth)" y="@extent.Y" width="@view.Width" height="@extent.Height" fill="@view.Color" data-x="@bar.XText" data-v="@ChartFormat.Data(bar.Value)" />
                                 }
                             </g>
                         }
@@ -57,19 +67,42 @@
                             <g class="mussel-stroke">
                                 @foreach (var chunk in view.State.Chunks)
                                 {
-                                    <polyline @key="chunk.Key" points="@chunk.LinePoints" stroke="@view.Color" stroke-width="@view.Thickness" />
+                                    <polyline @key="chunk.Key" points="@chunk.LinePoints" stroke="@view.Color" stroke-width="@view.Thickness" data-values="@chunk.Values" />
                                 }
                             </g>
                         }
                     </g>
                 }
             </g>
+            @foreach (var view in seriesViews)
+            {
+                if (view.Markers is null)
+                {
+                    continue;
+                }
+
+                <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.Color" data-kind="@view.Kind" data-format="@view.Format">
+                    <g class="mussel-markers" fill="@view.Color" fill-opacity="@view.Opacity" stroke="@view.Color">
+                        @foreach (var marker in view.Markers)
+                        {
+                            if (marker.Path is null)
+                            {
+                                <circle @key="marker.Key" cx="@marker.Cx" cy="@marker.Cy" r="@marker.R" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" />
+                            }
+                            else
+                            {
+                                <path @key="marker.Key" d="@marker.Path" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" />
+                            }
+                        }
+                    </g>
+                </g>
+            }
         </g>
         @foreach (var line in thresholdLines)
         {
             <g class="@line.Class">
-                <line class="mussel-threshold" x1="@plotLeftText" x2="@plotRightText" y1="@line.Y" y2="@line.Y" stroke="@line.Color" />
-                <text class="mussel-threshold-label" x="@plotRightText" y="@line.Y" dy="-4" text-anchor="end" fill="@line.Color">@line.Label</text>
+                <line class="mussel-threshold" x1="@line.X1" x2="@line.X2" y1="@line.Y1" y2="@line.Y2" stroke="@line.Color" />
+                <text class="mussel-threshold-label" x="@line.LabelX" y="@line.LabelY" dy="-4" text-anchor="end" fill="@line.Color">@line.Label</text>
             </g>
         }
         <g class="mussel-axis">
@@ -91,9 +124,10 @@
         }
         <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
         <line class="mussel-cross" x1="0" x2="0" y1="@plotTopText" y2="@plotBottomText" visibility="hidden" />
+        <line class="mussel-cross mussel-cross-across" x1="@plotLeftText" x2="@plotRightText" y1="0" y2="0" visibility="hidden" />
         <g class="mussel-hover"></g>
     </svg>
-    <div class="mussel-tooltip" hidden></div>
+    <ChartTooltip />
     @if (legendVisible && (LegendMode == ChartLegendMode.Table))
     {
         <table class="mussel-legend-table">
@@ -111,7 +145,16 @@
                 {
                     <tr class="@(row.Hidden ? "mussel-legend-row mussel-legend-hidden" : "mussel-legend-row")" @onclick="() => ToggleSeries(row.Series)">
                         <td>
-                            <svg class="mussel-legend-marker" width="14" height="8"><rect y="3" width="14" height="2" fill="@row.Color" /></svg>
+                            <svg class="mussel-legend-marker" width="14" height="8">
+                                @if (row.Dot)
+                                {
+                                    <circle cx="7" cy="4" r="4" fill="@row.Color" />
+                                }
+                                else
+                                {
+                                    <rect y="3" width="14" height="2" fill="@row.Color" />
+                                }
+                            </svg>
                             @row.Title
                         </td>
                         @foreach (var value in row.Values)
@@ -129,7 +172,16 @@
             @foreach (var row in legendRows)
             {
                 <span class="@(row.Hidden ? "mussel-legend-item mussel-legend-hidden" : "mussel-legend-item")" @onclick="() => ToggleSeries(row.Series)">
-                    <svg class="mussel-legend-marker" width="14" height="8"><rect y="3" width="14" height="2" fill="@row.Color" /></svg>
+                    <svg class="mussel-legend-marker" width="@(row.Dot ? "8" : "14")" height="8">
+                        @if (row.Dot)
+                        {
+                            <circle cx="4" cy="4" r="4" fill="@row.Color" />
+                        }
+                        else
+                        {
+                            <rect y="3" width="14" height="2" fill="@row.Color" />
+                        }
+                    </svg>
                     @row.Title
                 </span>
             }

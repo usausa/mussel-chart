@@ -1,0 +1,22 @@
+@page "/radial"
+
+<PageTitle>Radial bars</PageTitle>
+
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">Radial bars</MudText>
+<div class="grid">
+    <SampleCard Title="Rings that wrap over the maximum">
+        <MusselRadialBarView Height="220" Items="Activities" OverflowMode="ChartOverflowMode.Wrap" CapStyle="ChartCapStyle.Round" Palette="ChartPalettes.GrafanaLight" LegendValueMode="ChartLegendValueMode.Percent" />
+    </SampleCard>
+    <SampleCard Title="Gauge with a gradient and threshold markers">
+        <MusselRadialBarView Height="220" Items="Cpu" StartAngle="250" SweepAngle="220" FillMode="ChartFillMode.Gradient" Thresholds="LoadThresholds" ThresholdMarkersVisible="true" LegendVisible="false" />
+    </SampleCard>
+    <SampleCard Title="Segmented">
+        <MusselRadialBarView Height="220" Items="Memory" DisplayMode="ChartRadialBarMode.Segmented" SegmentCount="24" Thresholds="LoadThresholds" LegendVisible="false" />
+    </SampleCard>
+    <SampleCard Title="Thresholds and glow">
+        <MusselRadialBarView Height="220" Items="Servers" BarGlow="true" Thresholds="LoadThresholds" LegendValueMode="ChartLegendValueMode.Value" ValueFormat="{0:N0}%" CenterValueMode="ChartCenterValueMode.None" />
+    </SampleCard>
+    <SampleCard Title="Gradient without thresholds and a total">
+        <MusselRadialBarView Height="220" Items="Servers" FillMode="ChartFillMode.Gradient" CenterValueMode="ChartCenterValueMode.Total" CenterLabel="Total" ValueFormat="N0" LegendPosition="ChartLegendPosition.Bottom" />
+    </SampleCard>
+</div>

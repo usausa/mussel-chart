@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
-    <link rel="stylesheet" href="@Assets["_content/MusselChart/musselchart.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/MusselChart/MusselChart.css"]" />
     <link rel="stylesheet" href="@Assets["css/app.css"]" />
     <link rel="stylesheet" href="@Assets["Example.styles.css"]" />
     <ImportMap />
@@ -34,9 +34,5 @@
 </html>
 
 @code {
-    [CascadingParameter]
-    public HttpContext HttpContext { get; set; } = default!;
-
-    // Pages with [ExcludeFromInteractiveRouting] (error, not found) stay static
-    private IComponentRenderMode? PageRenderMode => HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+    private static readonly IComponentRenderMode PageRenderMode = new InteractiveServerRenderMode(prerender: false);
 }

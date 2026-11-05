@@ -1,0 +1,8 @@
+.mussel-timeline-bands rect {
+    shape-rendering: crispEdges;
+}
+
+.mussel-timeline-text {
+    font-size: 11px;
+    pointer-events: none;
+}

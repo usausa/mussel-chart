@@ -3,14 +3,9 @@ namespace MusselChart;
 using System.Globalization;
 
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 
-public sealed partial class MusselChartView : IAsyncDisposable
+public sealed partial class MusselChartView
 {
-    private const string ModulePath = "./_content/MusselChart/musselchart.js";
-
-    private const double DefaultWidth = 640;
-
     private readonly string clipId = "mussel-" + Guid.NewGuid().ToString("N")[..12];
 
     private readonly List<ChartSeries> seriesList = [];
@@ -19,17 +14,9 @@ public sealed partial class MusselChartView : IAsyncDisposable
 
     private ElementReference element;
 
-    private IJSObjectReference? module;
-
-    private DotNetObjectReference<MusselChartView>? reference;
-
-    private DateTimeAxis? xAxis;
+    private ChartAxis? xAxis;
 
     private NumericAxis? yAxis;
-
-    private double width = DefaultWidth;
-
-    private bool disposed;
 
     private CultureInfo culture = CultureInfo.CurrentCulture;
 
@@ -39,10 +26,13 @@ public sealed partial class MusselChartView : IAsyncDisposable
     public RenderFragment? ChildContent { get; set; }
 
     [Parameter]
-    public double Height { get; set; } = 240;
+    public IReadOnlyList<string>? Palette { get; set; }
 
     [Parameter]
-    public IReadOnlyList<string>? Palette { get; set; }
+    public ChartOrientation Orientation { get; set; }
+
+    [Parameter]
+    public ChartStackMode StackMode { get; set; }
 
     [Parameter]
     public bool? LegendVisible { get; set; }
@@ -57,12 +47,6 @@ public sealed partial class MusselChartView : IAsyncDisposable
     public bool LegendToggleEnabled { get; set; }
 
     [Parameter]
-    public ChartTrackballMode TrackballMode { get; set; } = ChartTrackballMode.Hover;
-
-    [Parameter]
-    public bool TooltipVisible { get; set; } = true;
-
-    [Parameter]
     public string? TrackingGroup { get; set; }
 
     [Parameter]
@@ -75,72 +59,15 @@ public sealed partial class MusselChartView : IAsyncDisposable
     public ChartThresholdsMode ThresholdsMode { get; set; }
 
     [Parameter]
-    public CultureInfo? Culture { get; set; }
-
-    [Parameter]
     public TimeZoneInfo? TimeZone { get; set; }
-
-    [Parameter]
-    public string? EmptyText { get; set; }
-
-    [Parameter(CaptureUnmatchedValues = true)]
-    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string GroupModeText => TrackingGroupMode == ChartTrackingGroupMode.Tooltip ? "tooltip" : "crosshair";
 
-    private string TrackballText => TrackballMode == ChartTrackballMode.Hover ? "hover" : "none";
-
-    private string TooltipText => TooltipVisible ? "true" : "false";
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
         {
-            return;
-        }
-
-        try
-        {
-            module = await Runtime.InvokeAsync<IJSObjectReference>("import", ModulePath).ConfigureAwait(true);
-            if (disposed)
-            {
-                return;
-            }
-
-            reference = DotNetObjectReference.Create(this);
-            await module.InvokeVoidAsync("attach", element, reference).ConfigureAwait(true);
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        disposed = true;
-        if (module is not null)
-        {
-            try
-            {
-                await module.InvokeVoidAsync("detach", element).ConfigureAwait(true);
-                await module.DisposeAsync().ConfigureAwait(true);
-            }
-            catch (JSDisconnectedException)
-            {
-            }
-        }
-
-        reference?.Dispose();
-    }
-
-    [JSInvokable]
-    public void OnResize(double value)
-    {
-        var rounded = Math.Floor(value);
-        if ((rounded > 0) && (Math.Abs(rounded - width) >= 1))
-        {
-            width = rounded;
-            StateHasChanged();
+            await AttachAsync(element).ConfigureAwait(true);
         }
     }
 
@@ -168,14 +95,13 @@ public sealed partial class MusselChartView : IAsyncDisposable
 
     internal void SetAxis(ChartAxis axis)
     {
-        switch (axis)
+        if (axis is NumericAxis numericAxis and not NumericXAxis)
         {
-            case DateTimeAxis dateTimeAxis:
-                xAxis = dateTimeAxis;
-                break;
-            case NumericAxis numericAxis:
-                yAxis = numericAxis;
-                break;
+            yAxis = numericAxis;
+        }
+        else
+        {
+            xAxis = axis;
         }
 
         RequestRender();
@@ -215,14 +141,6 @@ public sealed partial class MusselChartView : IAsyncDisposable
         }
 
         rebuildRequired = true;
-    }
-
-    private void RequestRender()
-    {
-        if (!disposed)
-        {
-            StateHasChanged();
-        }
     }
 
     private void Prepare()

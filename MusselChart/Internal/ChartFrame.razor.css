@@ -1,0 +1,139 @@
+.mussel-view {
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
+}
+
+.mussel-view-plot {
+    position: relative;
+    min-width: 0;
+    touch-action: pan-y;
+}
+
+.mussel-view-plot ::deep .mussel-view-svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.mussel-view-plot ::deep .mussel-view-label {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 11px;
+}
+
+.mussel-view-plot ::deep .mussel-empty text {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 12px;
+}
+
+.mussel-view-plot ::deep .mussel-grid-line {
+    fill: none;
+    stroke: var(--mussel-grid-line, #E1E0D9);
+    stroke-width: 1;
+}
+
+.mussel-view-plot ::deep .mussel-cross {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+}
+
+.mussel-view-plot ::deep .mussel-hover {
+    pointer-events: none;
+}
+
+.mussel-view-plot ::deep .mussel-mark-frame {
+    fill: none;
+    stroke: var(--mussel-primary-text, #0B0B0B);
+    stroke-width: 2;
+}
+
+.mussel-view-plot ::deep .mussel-mark-overlay {
+    fill: #FFFFFF;
+    fill-opacity: 0.2;
+}
+
+.mussel-view-plot ::deep .mussel-mark-line {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+}
+
+.mussel-view-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 4px;
+    color: var(--mussel-secondary-text, #52514E);
+    font-size: 12px;
+}
+
+.mussel-view-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.mussel-view-legend-marker {
+    flex: none;
+}
+
+.mussel-view-legend-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mussel-view-legend-value {
+    flex: none;
+}
+
+.mussel-view-legend-hidden {
+    opacity: 0.45;
+}
+
+.mussel-view-toggle .mussel-view-legend-item {
+    cursor: pointer;
+}
+
+.mussel-view-legend-top {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.mussel-view-legend-top .mussel-view-legend {
+    margin: 0 0 4px;
+}
+
+.mussel-view-legend-left, .mussel-view-legend-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.mussel-view-legend-left {
+    flex-direction: row-reverse;
+}
+
+.mussel-view-legend-left .mussel-view-plot, .mussel-view-legend-right .mussel-view-plot {
+    flex: 1 1 160px;
+}
+
+.mussel-view-legend-left .mussel-view-legend, .mussel-view-legend-right .mussel-view-legend {
+    flex: 0 1 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    min-width: 0;
+    margin: 0;
+}
+
+.mussel-view-legend-left .mussel-view-legend-item, .mussel-view-legend-right .mussel-view-legend-item {
+    display: flex;
+}
+
+.mussel-view-legend-left .mussel-view-legend-value, .mussel-view-legend-right .mussel-view-legend-value {
+    margin-left: auto;
+    padding-left: 12px;
+}

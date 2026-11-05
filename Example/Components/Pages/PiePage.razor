@@ -1,0 +1,22 @@
+@page "/pie"
+
+<PageTitle>Pie</PageTitle>
+
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">Pie</MudText>
+<div class="grid">
+    <SampleCard Title="Donut with a total and a legend that hides slices">
+        <MusselPieChartView Height="240" Items="Expenses" CenterLabel="Total" LegendValueMode="ChartLegendValueMode.Percent" LegendToggleEnabled="true" MaxSlices="6" />
+    </SampleCard>
+    <SampleCard Title="Pie with labels inside">
+        <MusselPieChartView Height="240" Items="Expenses" InnerRadius="0" LabelsMode="ChartPieLabelsMode.Inside" Palette="ChartPalettes.GrafanaLight" OthersLabel="Rest" MaxSlices="6" />
+    </SampleCard>
+    <SampleCard Title="Half donut">
+        <MusselPieChartView Height="200" Items="Traffic" StartAngle="270" SweepAngle="180" InnerRadius="0.7" CenterLabel="Visits" LegendPosition="ChartLegendPosition.Right" LegendValueMode="ChartLegendValueMode.Value" />
+    </SampleCard>
+    <SampleCard Title="Labels outside with leader lines">
+        <MusselPieChartView Height="240" Items="Expenses" LabelsMode="ChartPieLabelsMode.Outside" LabelContent="ChartPieLabelContent.LabelAndPercent" LegendVisible="false" CenterValueMode="ChartCenterValueMode.None" SortMode="ChartSortMode.Descending" />
+    </SampleCard>
+    <SampleCard Title="Empty">
+        <MusselPieChartView Height="200" Items="Empty" EmptyText="No data" />
+    </SampleCard>
+</div>

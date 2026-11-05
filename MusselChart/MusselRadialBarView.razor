@@ -1,0 +1,70 @@
+@inherits ChartViewBase
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<ChartFrame Owner="this" ViewClass="mussel-radial" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+        @if (BarGlow)
+        {
+            <defs>
+                <filter id="@glowId" filterUnits="userSpaceOnUse" x="0" y="0" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)">
+                    <feGaussianBlur stdDeviation="@glowSigma" />
+                </filter>
+            </defs>
+            <g class="mussel-radial-glow" filter="url(#@glowId)" stroke-width="@thicknessText">
+                @foreach (var arc in glowArcs)
+                {
+                    <path d="@arc.Path" stroke="@arc.Color" stroke-linecap="@arc.Cap" />
+                }
+                @foreach (var sweep in glowSweeps)
+                {
+                    <foreignObject class="mussel-radial-sweep" x="@sweep.X" y="@sweep.Y" width="@sweep.Size" height="@sweep.Size"><div style="@sweep.Style"></div></foreignObject>
+                }
+                @foreach (var arc in markerArcs)
+                {
+                    <path d="@arc.Path" stroke="@arc.Color" stroke-width="@markerWidthText" />
+                }
+            </g>
+        }
+        <g class="@ringClass" stroke-width="@thicknessText">
+            @foreach (var ring in ringViews)
+            {
+                <g @key="ring.Key" class="mussel-ring" data-tip="@ring.Tip">
+                    @foreach (var arc in ring.Arcs)
+                    {
+                        <path class="@arc.Class" d="@arc.Path" stroke="@arc.Color" stroke-linecap="@arc.Cap" />
+                    }
+                    @if (ring.Sweep is { } sweep)
+                    {
+                        <foreignObject class="mussel-radial-sweep" x="@sweep.X" y="@sweep.Y" width="@sweep.Size" height="@sweep.Size"><div style="@sweep.Style"></div></foreignObject>
+                    }
+                    @foreach (var cap in ring.Caps)
+                    {
+                        <circle cx="@cap.X" cy="@cap.Y" r="@capRadius" fill="@cap.Color" />
+                    }
+                </g>
+            }
+        </g>
+        <g class="mussel-radial-markers" stroke-width="@markerWidthText">
+            @foreach (var arc in markerArcs)
+            {
+                <path d="@arc.Path" stroke="@arc.Color" />
+            }
+            @if (markerSweep is { } markerRing)
+            {
+                <foreignObject class="mussel-radial-sweep" x="@markerRing.X" y="@markerRing.Y" width="@markerRing.Size" height="@markerRing.Size"><div style="@markerRing.Style"></div></foreignObject>
+            }
+        </g>
+        @if (layout.Center is { } center)
+        {
+            <g><text class="mussel-radial-center" x="@centerX" y="@ChartGeometry.Text(center.ValueY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.ValueFontSize)">@center.Value</text></g>
+            @if (center.Caption is not null)
+            {
+                <g><text class="mussel-radial-caption" x="@centerX" y="@ChartGeometry.Text(center.CaptionY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.CaptionFontSize)">@center.Caption</text></g>
+            }
+        }
+        <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
+    </svg>
+</ChartFrame>

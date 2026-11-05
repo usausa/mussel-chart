@@ -14,11 +14,21 @@ public sealed partial class MusselChartView
 
     private readonly List<(SeriesState State, ChartBufferRead Read, int Start, int Count)> reads = [];
 
-    private readonly Dictionary<string, Dictionary<long, double>> stacks = new(StringComparer.Ordinal);
+    private readonly Dictionary<(ChartSeriesKind Kind, string Group), Dictionary<long, StackTop>> stacks = [];
+
+    private readonly Dictionary<(ChartSeriesKind Kind, string Group), Dictionary<long, StackTop>> totals = [];
+
+    private readonly Dictionary<string, int> categoryIndexes = new(StringComparer.Ordinal);
+
+    private readonly List<string> categories = [];
 
     private bool rebuildRequired = true;
 
     private long baseTicks;
+
+    private ChartXKind xKind;
+
+    private ChartStackMode stackMode;
 
     private void SyncData()
     {
@@ -47,7 +57,17 @@ public sealed partial class MusselChartView
             ordered.Add(state);
         }
 
-        var rebuild = rebuildRequired || !Read(ordered, false);
+        var kind = ResolveXKind();
+        if ((kind != xKind) || (stackMode != StackMode))
+        {
+            xKind = kind;
+            stackMode = StackMode;
+            rebuildRequired = true;
+        }
+
+        // Only a time axis in absolute values can be appended to: the others depend on all of the data
+        var appendable = (xKind == ChartXKind.Time) && (stackMode == ChartStackMode.Normal);
+        var rebuild = rebuildRequired || !appendable || !Read(ordered, false);
         if (!rebuild && (reading.Count > 0) && (reading[^1].Ticks - baseTicks > RebaseTicks))
         {
             rebuild = true;
@@ -57,6 +77,9 @@ public sealed partial class MusselChartView
         {
             Read(ordered, true);
             stacks.Clear();
+            totals.Clear();
+            categories.Clear();
+            categoryIndexes.Clear();
             foreach (var state in ordered)
             {
                 state.Clear();
@@ -65,10 +88,18 @@ public sealed partial class MusselChartView
             var minimum = Int64.MaxValue;
             foreach (var point in reading)
             {
-                minimum = Math.Min(minimum, point.Ticks);
+                minimum = (point.Ticks != 0) ? Math.Min(minimum, point.Ticks) : minimum;
+                if ((xKind == ChartXKind.Category) && (point.Category is { } category))
+                {
+                    AddCategory(category);
+                }
             }
 
-            baseTicks = minimum == Int64.MaxValue ? 0 : minimum - (minimum % TimeSpan.TicksPerSecond);
+            baseTicks = (xKind != ChartXKind.Time) || (minimum == Int64.MaxValue) ? 0 : minimum - (minimum % TimeSpan.TicksPerSecond);
+            if (stackMode == ChartStackMode.Percent)
+            {
+                CollectTotals();
+            }
         }
 
         foreach (var (state, read, start, count) in reads)
@@ -76,7 +107,7 @@ public sealed partial class MusselChartView
             var first = read.Sequence - count + 1;
             for (var i = 0; i < count; i++)
             {
-                Append(state, reading[start + i], first + i);
+                Append(state, reading[start + i], first + i, i);
             }
 
             state.Source = state.Series.Source;
@@ -85,9 +116,21 @@ public sealed partial class MusselChartView
             state.Trim(read.Sequence - read.Count + 1);
         }
 
-        PruneStacks(ordered);
+        if (xKind == ChartXKind.Time)
+        {
+            PruneStacks(ordered);
+        }
+
         rebuildRequired = false;
     }
+
+    private ChartXKind ResolveXKind() => xAxis switch
+    {
+        DateTimeAxis => ChartXKind.Time,
+        CategoryAxis => ChartXKind.Category,
+        NumericXAxis => ChartXKind.Number,
+        _ => seriesList.Count > 0 ? seriesList[0].XKind : ChartXKind.Time
+    };
 
     private bool Read(List<SeriesState> ordered, bool full)
     {
@@ -105,24 +148,102 @@ public sealed partial class MusselChartView
         return appended;
     }
 
-    private void Append(SeriesState state, ChartPointData point, long sequence)
+    private int AddCategory(string category)
     {
-        var x = (point.Ticks - baseTicks) / (double)TimeSpan.TicksPerSecond;
-        var value = point.Value;
-        var bottom = 0d;
-        var top = value;
-        var stackKey = state.Visible ? state.Series.StackKey : null;
-        if ((stackKey is not null) && Double.IsFinite(value))
+        if (!categoryIndexes.TryGetValue(category, out var index))
         {
-            if (!stacks.TryGetValue(stackKey, out var tops))
+            index = categories.Count;
+            categoryIndexes.Add(category, index);
+            categories.Add(category);
+        }
+
+        return index;
+    }
+
+    private int GetCategoryIndex(string? category, int position)
+    {
+        if (category is not null)
+        {
+            return AddCategory(category);
+        }
+
+        while (categories.Count <= position)
+        {
+            categories.Add(string.Empty);
+        }
+
+        return position;
+    }
+
+    private double GetX(SeriesState state, in ChartPointData point, int position) => xKind switch
+    {
+        ChartXKind.Time => state.Series.XKind == ChartXKind.Time ? (point.Ticks - baseTicks) / (double)TimeSpan.TicksPerSecond : Double.NaN,
+        ChartXKind.Number => state.Series.XKind == ChartXKind.Number ? point.Number : Double.NaN,
+        _ => GetCategoryIndex(point.Category, position)
+    };
+
+    private long GetStackSlot(double x, in ChartPointData point) =>
+        xKind == ChartXKind.Time ? point.Ticks : BitConverter.DoubleToInt64Bits(x);
+
+    private string FormatX(double x) => xKind == ChartXKind.Time ? ChartFormat.Coordinate(x) : ChartFormat.Position(x);
+
+    private void CollectTotals()
+    {
+        foreach (var (state, _, start, count) in reads)
+        {
+            if (!state.Visible || (state.Series.StackKey is not { } stackKey))
             {
-                tops = [];
-                stacks[stackKey] = tops;
+                continue;
             }
 
-            bottom = tops.GetValueOrDefault(point.Ticks);
-            top = bottom + value;
-            tops[point.Ticks] = top;
+            var key = (state.Series.Kind, stackKey);
+            if (!totals.TryGetValue(key, out var group))
+            {
+                group = [];
+                totals[key] = group;
+            }
+
+            for (var i = 0; i < count; i++)
+            {
+                var point = reading[start + i];
+                var x = GetX(state, point, i);
+                if (!Double.IsFinite(x) || !Double.IsFinite(point.Value))
+                {
+                    continue;
+                }
+
+                var slot = GetStackSlot(x, point);
+                var total = group.GetValueOrDefault(slot);
+                group[slot] = point.Value >= 0 ? total with { Positive = total.Positive + point.Value } : total with { Negative = total.Negative - point.Value };
+            }
+        }
+    }
+
+    private void Append(SeriesState state, in ChartPointData point, long sequence, int position)
+    {
+        var kind = state.Series.Kind;
+        var x = GetX(state, point, position);
+        var value = kind switch
+        {
+            ChartSeriesKind.RangeBar when !Double.IsFinite(point.Low) => Double.NaN,
+            ChartSeriesKind.RangeBar => Math.Max(point.Low, point.Value),
+            ChartSeriesKind.Bubble when !Double.IsFinite(point.Size) => Double.NaN,
+            _ => point.Value
+        };
+
+        if (!Double.IsFinite(x))
+        {
+            value = Double.NaN;
+        }
+
+        var bottom = kind == ChartSeriesKind.RangeBar ? Math.Min(point.Low, point.Value) : 0d;
+        var top = value;
+        var stackKey = state.Visible ? state.Series.StackKey : null;
+        var slot = 0L;
+        if ((stackKey is not null) && Double.IsFinite(value))
+        {
+            slot = GetStackSlot(x, point);
+            (top, bottom) = Stack((kind, stackKey), slot, value);
         }
 
         state.Points.Add(new SeriesPoint(sequence, point.Ticks, x, value, top, bottom));
@@ -132,28 +253,65 @@ public sealed partial class MusselChartView
             return;
         }
 
-        if (state.Series.Kind == ChartSeriesKind.Bar)
+        var text = FormatX(x);
+        switch (kind)
         {
-            state.Bars.Add(new SeriesBar(sequence, x, Math.Min(bottom, top), Math.Max(bottom, top)));
-            return;
+            case ChartSeriesKind.Bar:
+            case ChartSeriesKind.RangeBar:
+                state.Bars.Add(new SeriesBar(sequence, text, x, Math.Min(bottom, top), Math.Max(bottom, top), value, slot));
+                return;
+            case ChartSeriesKind.Scatter:
+            case ChartSeriesKind.Bubble:
+                state.Markers.Add(new SeriesMarker(sequence, text, x, value, point.Size));
+                return;
         }
 
-        var area = state.Series.Kind == ChartSeriesKind.Area;
+        var area = kind == ChartSeriesKind.Area;
+        var stacked = stackKey is not null;
         var chunk = state.Chunks.Count > 0 ? state.Chunks[^1] : null;
         if ((chunk is null) || state.Gap || (chunk.Count >= ChunkSize))
         {
             var next = new SeriesChunk(sequence);
             if ((chunk is not null) && !state.Gap)
             {
-                next.Add(chunk.LastSequence, chunk.LastX, chunk.LastTop, chunk.LastBottom, area);
+                next.Add(chunk.LastSequence, chunk.LastX, chunk.LastTop, chunk.LastBottom, chunk.LastValue, area, stacked);
             }
 
             state.Chunks.Add(next);
             chunk = next;
         }
 
-        chunk.Add(sequence, x, top, bottom, area);
+        chunk.Add(sequence, text, top, bottom, value, area, stacked);
         state.Gap = false;
+    }
+
+    // Positive values stack up from 0 and negative values down from 0, each scaled to its own total in Percent
+    private (double Top, double Bottom) Stack((ChartSeriesKind Kind, string Group) key, long slot, double value)
+    {
+        if (!stacks.TryGetValue(key, out var tops))
+        {
+            tops = [];
+            stacks[key] = tops;
+        }
+
+        var scaled = value;
+        if ((stackMode == ChartStackMode.Percent) && totals.TryGetValue(key, out var group) && group.TryGetValue(slot, out var total))
+        {
+            var sum = value >= 0 ? total.Positive : total.Negative;
+            scaled = sum > 0 ? value / sum * 100 : 0;
+        }
+
+        var current = tops.GetValueOrDefault(slot);
+        if (value >= 0)
+        {
+            var top = current.Positive + scaled;
+            tops[slot] = current with { Positive = top };
+            return (top, current.Positive);
+        }
+
+        var low = current.Negative + scaled;
+        tops[slot] = current with { Negative = low };
+        return (low, current.Negative);
     }
 
     private void PruneStacks(List<SeriesState> ordered)
@@ -163,7 +321,7 @@ public sealed partial class MusselChartView
             var minimum = Int64.MaxValue;
             foreach (var state in ordered)
             {
-                if ((state.Points.Count > 0) && String.Equals(state.Series.StackKey, key, StringComparison.Ordinal))
+                if ((state.Points.Count > 0) && (state.Series.Kind == key.Kind) && String.Equals(state.Series.StackKey, key.Group, StringComparison.Ordinal))
                 {
                     minimum = Math.Min(minimum, state.Points[0].Ticks);
                 }

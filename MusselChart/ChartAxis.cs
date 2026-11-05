@@ -69,7 +69,22 @@ public sealed class DateTimeAxis : ChartAxis
         (IsVisible, LabelsVisible, LabelFormat, MaxLabelCount, GridLinesVisible, Minimum, Maximum, WindowSize, LabelFormatter);
 }
 
-public sealed class NumericAxis : ChartAxis
+public sealed class CategoryAxis : ChartAxis
+{
+    [Parameter]
+    public ChartLabelPlacement LabelPlacement { get; set; }
+
+    [Parameter]
+    public int? LabelMaxLength { get; set; }
+
+    [Parameter]
+    public Func<string, string>? LabelFormatter { get; set; }
+
+    internal override object CreateOptions() =>
+        (IsVisible, LabelsVisible, LabelFormat, MaxLabelCount, GridLinesVisible, LabelPlacement, LabelMaxLength, LabelFormatter);
+}
+
+public class NumericAxis : ChartAxis
 {
     [Parameter]
     public double? Minimum { get; set; }
@@ -94,4 +109,8 @@ public sealed class NumericAxis : ChartAxis
 
     internal override object CreateOptions() =>
         (IsVisible, LabelsVisible, LabelFormat, MaxLabelCount, GridLinesVisible, Minimum, Maximum, SoftMinimum, SoftMaximum, IncludeZero, NiceRange, LabelFormatter);
+}
+
+public sealed class NumericXAxis : NumericAxis
+{
 }

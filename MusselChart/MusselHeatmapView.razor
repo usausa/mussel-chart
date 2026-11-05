@@ -1,0 +1,29 @@
+@typeparam TItem
+@inherits ChartViewBase
+@using MusselChart.Internal
+@{
+    Prepare();
+}
+
+<ChartFrame Owner="this" ViewClass="mussel-heatmap" Attributes="AdditionalAttributes">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+        <g class="mussel-heat-cells">
+            @foreach (var cell in cells)
+            {
+                <rect class="@cell.Class" x="@cell.X" y="@cell.Y" width="@cell.Width" height="@cell.Height" fill="@cell.Color" data-tip="@cell.Tip" data-mark="frame" />
+            }
+        </g>
+        @foreach (var label in labels)
+        {
+            <g><text class="mussel-view-label" x="@label.X" y="@label.Y" text-anchor="@label.Anchor" dominant-baseline="central">@label.Text</text></g>
+        }
+        <g class="mussel-heat-scale">
+            @foreach (var step in scaleSteps)
+            {
+                <rect x="@step.X" y="@step.Y" width="@step.Width" height="@step.Height" fill="@step.Color" />
+            }
+        </g>
+        <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>
+        <g class="mussel-hover"></g>
+    </svg>
+</ChartFrame>

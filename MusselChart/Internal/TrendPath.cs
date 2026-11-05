@@ -3,11 +3,13 @@ namespace MusselChart.Internal;
 using System.Globalization;
 using System.Text;
 
+internal readonly record struct TrendBar(string X, string Y, string Height, bool Negative);
+
 internal sealed class TrendPath
 {
     public const double ViewHeight = 100;
 
-    private TrendPath(int count, string line, string area, IReadOnlyList<(string X, string Y, string Height)> bars)
+    private TrendPath(int count, string line, string area, IReadOnlyList<TrendBar> bars)
     {
         Count = count;
         Line = line;
@@ -23,10 +25,41 @@ internal sealed class TrendPath
 
     public string Area { get; }
 
-    public IReadOnlyList<(string X, string Y, string Height)> Bars { get; }
+    public IReadOnlyList<TrendBar> Bars { get; }
 
     public string ViewBox(bool bars) =>
         String.Create(CultureInfo.InvariantCulture, $"0 0 {(bars ? Count : Math.Max(Count - 1, 1))} {ViewHeight}");
+
+    // Wins fill the upper half and losses the lower half with a pixel between them, and the rest is not drawn
+    public static TrendPath CreateWinLoss(IEnumerable<double>? source, double height)
+    {
+        if (source is null)
+        {
+            return Empty;
+        }
+
+        var values = source.ToArray();
+        if (values.Length == 0)
+        {
+            return Empty;
+        }
+
+        var middle = ViewHeight / 2;
+        var gap = height > 0 ? ViewHeight / height / 2 : 0;
+        var extent = ChartFormat.Coordinate(middle - gap);
+        var lossTop = ChartFormat.Coordinate(middle + gap);
+        var list = new List<TrendBar>(values.Length);
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (Double.IsFinite(values[i]) && (values[i] != 0))
+            {
+                var negative = values[i] < 0;
+                list.Add(new TrendBar(ChartFormat.Coordinate(i + 0.15), negative ? lossTop : "0", extent, negative));
+            }
+        }
+
+        return new TrendPath(values.Length, string.Empty, string.Empty, list);
+    }
 
     public static TrendPath Create(IEnumerable<double>? source, double? minimum, double? maximum, bool bars, double inset)
     {
@@ -62,7 +95,7 @@ internal sealed class TrendPath
 
         if (bars)
         {
-            var list = new List<(string X, string Y, string Height)>(values.Length);
+            var list = new List<TrendBar>(values.Length);
             var zero = ToY(0);
             for (var i = 0; i < values.Length; i++)
             {
@@ -72,7 +105,7 @@ internal sealed class TrendPath
                 }
 
                 var y = ToY(values[i]);
-                list.Add((ChartFormat.Coordinate(i + 0.15), ChartFormat.Coordinate(Math.Min(y, zero)), ChartFormat.Coordinate(Math.Abs(zero - y))));
+                list.Add(new TrendBar(ChartFormat.Coordinate(i + 0.15), ChartFormat.Coordinate(Math.Min(y, zero)), ChartFormat.Coordinate(Math.Abs(zero - y)), values[i] < 0));
             }
 
             return new TrendPath(values.Length, string.Empty, string.Empty, list);

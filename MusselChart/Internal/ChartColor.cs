@@ -4,6 +4,14 @@ using System.Globalization;
 
 internal static class ChartColor
 {
+    public const string Other = "#B5B3AA";
+
+    private const string DarkText = "#0B0B0B";
+
+    private const string LightText = "#FFFFFF";
+
+    private static readonly double DarkTextLuminance = GetLuminance((0x0B, 0x0B, 0x0B));
+
     public static string Level(ChartThresholdLevel level) => level switch
     {
         ChartThresholdLevel.Good => "#73BF69",
@@ -12,6 +20,16 @@ internal static class ChartColor
         ChartThresholdLevel.Critical => "#F2495C",
         _ => "#8E8C86"
     };
+
+    public static string Threshold(ChartThreshold? threshold, string fallback)
+    {
+        if (threshold is null)
+        {
+            return fallback;
+        }
+
+        return threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : Level(threshold.Level));
+    }
 
     public static bool TryParse(string? text, out (int R, int G, int B) color)
     {
@@ -39,7 +57,9 @@ internal static class ChartColor
     public static double Brightness(string? text) =>
         TryParse(text, out var color) ? ((color.R * 299) + (color.G * 587) + (color.B * 114)) / 1000d : 0;
 
-    public static string Shift(string text, double hue, double lightness)
+    public static string Shift(string text, double hue, double lightness) => Shift(text, hue, 0, lightness);
+
+    public static string Shift(string text, double hue, double saturation, double lightness)
     {
         if (!TryParse(text, out var color))
         {
@@ -48,9 +68,57 @@ internal static class ChartColor
 
         var (h, s, l) = ToHsl(color);
         h = (((h + hue) % 360) + 360) % 360;
+        s = Math.Clamp(s + (saturation / 100), 0, 1);
         l = Math.Clamp(l + (lightness / 100), 0, 1);
-        var (r, g, b) = FromHsl(h, s, l);
-        return String.Create(CultureInfo.InvariantCulture, $"#{r:X2}{g:X2}{b:X2}");
+        return ToHex(FromHsl(h, s, l));
+    }
+
+    public static string Brighten(string text, double percent)
+    {
+        if (!TryParse(text, out var color))
+        {
+            return text;
+        }
+
+        var delta = (int)Math.Round(255 * percent / 100);
+        return ToHex((Math.Min(255, color.R + delta), Math.Min(255, color.G + delta), Math.Min(255, color.B + delta)));
+    }
+
+    public static string Lerp(string from, string to, double progress)
+    {
+        if (!TryParse(from, out var start) || !TryParse(to, out var end))
+        {
+            return to;
+        }
+
+        var t = Math.Clamp(progress, 0, 1);
+        return ToHex((Lerp(start.R, end.R, t), Lerp(start.G, end.G, t), Lerp(start.B, end.B, t)));
+    }
+
+    // White or near black, whichever has the higher WCAG contrast with the background
+    public static string Contrast(string background)
+    {
+        if (!TryParse(background, out var color))
+        {
+            return DarkText;
+        }
+
+        var luminance = GetLuminance(color);
+        return (luminance + 0.05) / (DarkTextLuminance + 0.05) >= 1.05 / (luminance + 0.05) ? DarkText : LightText;
+    }
+
+    public static string ToHex((int R, int G, int B) color) =>
+        String.Create(CultureInfo.InvariantCulture, $"#{color.R:X2}{color.G:X2}{color.B:X2}");
+
+    private static int Lerp(int from, int to, double progress) => (int)Math.Round(from + ((to - from) * progress));
+
+    private static double GetLuminance((int R, int G, int B) color) =>
+        (0.2126 * ToLinear(color.R)) + (0.7152 * ToLinear(color.G)) + (0.0722 * ToLinear(color.B));
+
+    private static double ToLinear(int channel)
+    {
+        var value = channel / 255d;
+        return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
     }
 
     private static bool TryParseHex(ReadOnlySpan<char> hex, out (int R, int G, int B) color)

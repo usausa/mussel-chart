@@ -1,0 +1,38 @@
+.mussel-slice {
+    transition: opacity 150ms;
+}
+
+.mussel-slices-hover:hover .mussel-slice:not(:hover) {
+    opacity: 0.35;
+}
+
+.mussel-pie-label {
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.mussel-pie-leader {
+    fill: none;
+    stroke-width: 1;
+}
+
+.mussel-pie-outside {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-pie-center {
+    fill: var(--mussel-primary-text, #0B0B0B);
+    pointer-events: none;
+}
+
+.mussel-pie-caption {
+    fill: var(--mussel-secondary-text, #52514E);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mussel-slice {
+        transition: none;
+    }
+}

@@ -1,0 +1,13 @@
+.mussel-radar-axis {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-radar-fill {
+    stroke-linejoin: round;
+}
+
+.mussel-radar-areas path {
+    fill: transparent;
+    stroke: none;
+}

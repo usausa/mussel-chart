@@ -1,0 +1,39 @@
+@page "/points"
+
+<PageTitle>Points</PageTitle>
+
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">Points</MudText>
+<div class="grid">
+    <SampleCard Title="Scatter on a numeric axis">
+        <MusselChartView Height="280" Palette="ChartPalettes.GrafanaLight">
+            <NumericXAxis Minimum="150" Maximum="190" GridLinesVisible="true" LabelFormat="{0:N0} cm" />
+            <NumericAxis SoftMinimum="40" SoftMaximum="90" LabelFormat="{0:N0} kg" />
+            <ScatterSeries Items="GroupA" XValue="static x => x.X" Y="static x => x.Y" Title="Group A" ValueFormat="{0:N1} kg" />
+            <ScatterSeries Items="GroupB" XValue="static x => x.X" Y="static x => x.Y" Title="Group B" MarkerShape="ChartMarkerShape.Diamond" ValueFormat="{0:N1} kg" />
+            <ScatterSeries Items="GroupC" XValue="static x => x.X" Y="static x => x.Y" Title="Group C" MarkerShape="ChartMarkerShape.Square" MarkerSize="7" FillOpacity="0.2" ValueFormat="{0:N1} kg" />
+        </MusselChartView>
+    </SampleCard>
+    <SampleCard Title="Bubble sized by a value">
+        <MusselChartView Height="280" Palette="ChartPalettes.MaterialLight">
+            <NumericXAxis GridLinesVisible="true" />
+            <NumericAxis />
+            <BubbleSeries Items="Regions" XValue="static x => x.X" Y="static x => x.Y" Size="static x => x.Size" Title="Regions" ValueFormat="N1" />
+            <BubbleSeries Items="Cities" XValue="static x => x.X" Y="static x => x.Y" Size="static x => x.Size" Title="Cities" ValueFormat="N1" />
+        </MusselChartView>
+    </SampleCard>
+    <SampleCard Title="Line and points on a numeric axis">
+        <MusselChartView Height="240">
+            <NumericXAxis />
+            <NumericAxis />
+            <LineSeries Items="Curve" XValue="static x => x.X" Y="static x => x.Y" Title="Fit" ValueFormat="N2" />
+            <ScatterSeries Items="Measured" XValue="static x => x.X" Y="static x => x.Y" Title="Measured" ValueFormat="N2" />
+        </MusselChartView>
+    </SampleCard>
+    <SampleCard Title="Scatter on a time axis">
+        <MusselChartView Height="240">
+            <DateTimeAxis />
+            <NumericAxis SoftMinimum="0" />
+            <ScatterSeries Items="Events" X="static x => x.Time" Y="static x => x.Value" Title="Response time" Color="#E02F44" ValueFormat="{0:N0} ms" />
+        </MusselChartView>
+    </SampleCard>
+</div>

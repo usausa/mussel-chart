@@ -13,3 +13,7 @@
     stroke: none;
     fill-opacity: 0.2;
 }
+
+.mussel-sparkline-loss {
+    fill: var(--mussel-critical, #E02F44);
+}
