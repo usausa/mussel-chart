@@ -8,7 +8,7 @@
     @ChildContent
 </CascadingValue>
 <div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-time-format="@timeFormat" data-x-kind="@xKindText" data-x-format="@xFormatText" data-categories="@categoriesText" data-orientation="@(Orientation == ChartOrientation.Horizontal ? "horizontal" : "vertical")">
-    <svg class="mussel-chart-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox" data-base="@baseText">
+    <svg class="@(Measured ? "mussel-chart-svg" : "mussel-chart-svg mussel-unmeasured")" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox" data-base="@baseText">
         <defs>
             <clipPath id="@clipId">
                 <rect x="@clipX" y="@clipY" width="@clipWidth" height="@clipHeight" />

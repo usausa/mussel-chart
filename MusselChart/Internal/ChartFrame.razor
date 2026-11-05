@@ -1,5 +1,5 @@
 <div @attributes="Attributes" class="@ChartFormat.MergeClass(RootClass, Attributes)">
-    <div @ref="plot" class="mussel-view-plot" data-trackball="@Owner.TrackballText" data-tooltip="@Owner.TooltipText" data-hover="item">
+    <div @ref="plot" class="@(Owner.Measured ? "mussel-view-plot" : "mussel-view-plot mussel-unmeasured")" data-trackball="@Owner.TrackballText" data-tooltip="@Owner.TooltipText" data-hover="item">
         @ChildContent
         <ChartTooltip />
     </div>

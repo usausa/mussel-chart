@@ -12,8 +12,19 @@
 .mussel-view-plot ::deep .mussel-view-svg {
     display: block;
     max-width: 100%;
-    height: auto;
     overflow: visible;
+}
+
+/* The width comes from the browser after the first render, and pages that never measure show the chart after a while */
+.mussel-unmeasured ::deep .mussel-view-svg {
+    visibility: hidden;
+    animation: mussel-reveal 0s linear 1s forwards;
+}
+
+@keyframes mussel-reveal {
+    to {
+        visibility: visible;
+    }
 }
 
 .mussel-view-plot ::deep .mussel-view-label {

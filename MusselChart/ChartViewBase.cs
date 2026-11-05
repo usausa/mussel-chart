@@ -42,6 +42,8 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     internal string TooltipText => TooltipVisible ? "true" : "false";
 
+    internal bool Measured { get; private set; }
+
     private protected double Width { get; private set; } = DefaultWidth;
 
     private protected bool Disposed { get; private set; }
@@ -69,11 +71,14 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     public void OnResize(double value)
     {
         var rounded = Math.Floor(value);
-        if ((rounded > 0) && (Math.Abs(rounded - Width) >= 1))
+        if (!(rounded > 0) || (Measured && (Math.Abs(rounded - Width) < 1)))
         {
-            Width = rounded;
-            StateHasChanged();
+            return;
         }
+
+        Measured = true;
+        Width = rounded;
+        StateHasChanged();
     }
 
     internal async Task AttachAsync(ElementReference element)

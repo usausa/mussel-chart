@@ -234,6 +234,21 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public async Task StaysHiddenWithItsHeightUntilTheWidthIsMeasured()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, Entries));
+
+        Assert.Contains("mussel-unmeasured", cut.Find(".mussel-view-plot").ClassList);
+        Assert.Equal("240", cut.Find("svg.mussel-view-svg").GetAttribute("height"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnResize(320));
+
+        Assert.DoesNotContain("mussel-unmeasured", cut.Find(".mussel-view-plot").ClassList);
+        Assert.Equal("240", cut.Find("svg.mussel-view-svg").GetAttribute("height"));
+    }
+
+    [Fact]
     public void HalfDonutSitsOnItsFlatSide()
     {
         var layout = new PieLayout();

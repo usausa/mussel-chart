@@ -21,6 +21,9 @@ Axes and series are written as child components, and every component passes othe
 | `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone |
 | `EmptyText` | `string?` | `null` | Text drawn when there is no data |
 
+A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size.  
+The pie, radial bar, radar, heatmap and state timeline views do the same.  
+
 ### Axes
 
 | Axis | Parameters |

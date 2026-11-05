@@ -179,6 +179,35 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
+    public async Task StaysHiddenWithItsHeightUntilTheWidthIsMeasured()
+    {
+        var cut = RenderLine(CreateBuffer(10, 10));
+
+        Assert.Contains("mussel-unmeasured", cut.Find("svg").ClassList);
+        Assert.Equal("240", cut.Find("svg").GetAttribute("height"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnResize(0));
+
+        Assert.Contains("mussel-unmeasured", cut.Find("svg").ClassList);
+
+        await cut.InvokeAsync(() => cut.Instance.OnResize(812));
+
+        Assert.DoesNotContain("mussel-unmeasured", cut.Find("svg").ClassList);
+        Assert.Equal("240", cut.Find("svg").GetAttribute("height"));
+    }
+
+    [Fact]
+    public async Task MeasuringTheDefaultWidthAlsoShowsTheChart()
+    {
+        var cut = RenderLine(CreateBuffer(10, 10));
+
+        await cut.InvokeAsync(() => cut.Instance.OnResize(640));
+
+        Assert.DoesNotContain("mussel-unmeasured", cut.Find("svg").ClassList);
+        Assert.Equal("640", cut.Find("svg").GetAttribute("width"));
+    }
+
+    [Fact]
     public void WindowSizeLimitsLegendAndRangeToLatestPoints()
     {
         var cut = Render<MusselChartView>(parameters => parameters

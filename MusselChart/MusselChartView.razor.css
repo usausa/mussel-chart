@@ -8,8 +8,19 @@
 .mussel-chart-svg {
     display: block;
     max-width: 100%;
-    height: auto;
     overflow: visible;
+}
+
+/* The width comes from the browser after the first render, and pages that never measure show the chart after a while */
+.mussel-unmeasured {
+    visibility: hidden;
+    animation: mussel-reveal 0s linear 1s forwards;
+}
+
+@keyframes mussel-reveal {
+    to {
+        visibility: visible;
+    }
 }
 
 .mussel-grid line {
