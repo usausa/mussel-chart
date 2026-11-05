@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Globalization;
+
 using MusselChart.Internal;
 
 public sealed partial class MusselChartView
@@ -9,6 +11,8 @@ public sealed partial class MusselChartView
     private const long RebaseTicks = 100_000 * TimeSpan.TicksPerSecond;
 
     private readonly Dictionary<ChartSeries, SeriesState> states = new(ReferenceEqualityComparer.Instance);
+
+    private readonly List<SeriesState> orderedStates = [];
 
     private readonly List<ChartPointData> reading = [];
 
@@ -32,7 +36,8 @@ public sealed partial class MusselChartView
 
     private void SyncData()
     {
-        var ordered = new List<SeriesState>(seriesList.Count);
+        var ordered = orderedStates;
+        ordered.Clear();
         foreach (var series in seriesList)
         {
             if (!states.TryGetValue(series, out var state))
@@ -96,6 +101,7 @@ public sealed partial class MusselChartView
             }
 
             baseTicks = (xKind != ChartXKind.Time) || (minimum == Int64.MaxValue) ? 0 : minimum - (minimum % TimeSpan.TicksPerSecond);
+            baseText = (baseTicks / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture);
             if (stackMode == ChartStackMode.Percent)
             {
                 CollectTotals();
@@ -258,11 +264,12 @@ public sealed partial class MusselChartView
         {
             case ChartSeriesKind.Bar:
             case ChartSeriesKind.RangeBar:
-                state.Bars.Add(new SeriesBar(sequence, text, x, Math.Min(bottom, top), Math.Max(bottom, top), value, slot));
+                AppendBar(state, text, sequence, bottom, top, value, slot, stackKey is not null);
                 return;
             case ChartSeriesKind.Scatter:
             case ChartSeriesKind.Bubble:
-                state.Markers.Add(new SeriesMarker(sequence, text, x, value, point.Size));
+                state.Markers.Add(new SeriesMarker(sequence, text, ChartFormat.Position(value), kind == ChartSeriesKind.Bubble ? ChartFormat.Position(point.Size) : null, x, value, point.Size));
+                state.MarkersSorted = false;
                 return;
         }
 
@@ -283,6 +290,16 @@ public sealed partial class MusselChartView
 
         chunk.Add(sequence, text, top, bottom, value, area, stacked);
         state.Gap = false;
+    }
+
+    // The texts of a bar stay as they are while it is in the buffer, except for the segments of a stack that move with the scale
+    private static void AppendBar(SeriesState state, string text, long sequence, double bottom, double top, double value, long slot, bool stacked)
+    {
+        var low = Math.Min(bottom, top);
+        var high = Math.Max(bottom, top);
+        var lowText = stacked ? null : ChartFormat.Data(low);
+        var heightText = stacked ? null : ChartFormat.Data(high - low);
+        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Data(value), lowText, heightText, low, high, value, slot));
     }
 
     // Positive values stack up from 0 and negative values down from 0, each scaled to its own total in Percent
@@ -327,11 +344,12 @@ public sealed partial class MusselChartView
                 }
             }
 
-            if (tops.Count > 0)
+            // A dictionary allows removing while it is enumerated
+            foreach (var slot in tops.Keys)
             {
-                foreach (var stale in tops.Keys.Where(x => x < minimum).ToList())
+                if (slot < minimum)
                 {
-                    tops.Remove(stale);
+                    tops.Remove(slot);
                 }
             }
         }

@@ -91,11 +91,13 @@ public sealed class RadarSeries<TItem> : RadarSeriesBase
             return;
         }
 
-        foreach (var item in Items)
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < Items.Count; i++)
         {
+            var item = Items[i];
             if (item is ChartEntry entry)
             {
-                destination.Add(new RadarPoint(Category is null ? entry.Label : Category(item), Y is null ? entry.Value : Y(item)));
+                destination.Add(new RadarPoint(Category is null ? entry.Label : Category(item), Y?.Invoke(item) ?? entry.Value));
             }
             else if (Y is not null)
             {

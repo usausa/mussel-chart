@@ -56,7 +56,15 @@ internal sealed class RadarLayout
 
     private readonly List<double> ticks = [];
 
+    private readonly List<RadarLevel> levelCandidates = [];
+
+    private readonly List<LabelExtent> levelExtents = [];
+
+    private readonly List<int> selectedLevels = [];
+
     private double[] values = [];
+
+    private bool[] filled = [];
 
     private double margin;
 
@@ -91,7 +99,7 @@ internal sealed class RadarLayout
     public (double X, double Y) GetPoint(int axis, double ratio) =>
         (CenterX + (axes[axis].DirectionX * Radius * ratio), CenterY + (axes[axis].DirectionY * Radius * ratio));
 
-    public void Update(double width, double height, RadarLayoutOptions options, IReadOnlyList<IReadOnlyList<RadarPoint>> series, IReadOnlyList<bool> visible, double ringMargin)
+    public void Update(double width, double height, RadarLayoutOptions options, List<List<RadarPoint>> series, List<bool> visible, double ringMargin)
     {
         margin = ringMargin;
         SeriesCount = series.Count;
@@ -105,12 +113,12 @@ internal sealed class RadarLayout
     // The rings of every level and a line from the center to each axis
     public string CreateGridPath()
     {
-        var builder = new StringBuilder(128);
         if (Radius <= 0)
         {
             return string.Empty;
         }
 
+        var builder = ChartStringBuilder.Rent();
         foreach (var tick in ticks)
         {
             var ratio = Scale.Span > 0 ? (tick - Scale.Minimum) / Scale.Span : 0;
@@ -124,16 +132,16 @@ internal sealed class RadarLayout
         for (var k = 0; k < AxisCount; k++)
         {
             var (x, y) = GetPoint(k, 1);
-            builder.Append('M').Append(ChartGeometry.Text(CenterX)).Append(' ').Append(ChartGeometry.Text(CenterY));
-            builder.Append('L').Append(ChartGeometry.Text(x)).Append(' ').Append(ChartGeometry.Text(y));
+            builder.Append('M').AppendNumber(CenterX).Append(' ').AppendNumber(CenterY);
+            builder.Append('L').AppendNumber(x).Append(' ').AppendNumber(y);
         }
 
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     public string CreatePolygon(int series)
     {
-        var builder = new StringBuilder(64);
+        var builder = ChartStringBuilder.Rent();
         for (var k = 0; k < AxisCount; k++)
         {
             var value = GetValue(series, k);
@@ -148,10 +156,10 @@ internal sealed class RadarLayout
                 builder.Append(' ');
             }
 
-            builder.Append(ChartGeometry.Text(x)).Append(',').Append(ChartGeometry.Text(y));
+            builder.AppendNumber(x).Append(',').AppendNumber(y);
         }
 
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     // The wedge around an axis that reacts to the pointer
@@ -178,24 +186,23 @@ internal sealed class RadarLayout
         if (IsCircle)
         {
             var radius = Radius * ratio;
-            builder.Append('M').Append(ChartGeometry.Text(CenterX - radius)).Append(' ').Append(ChartGeometry.Text(CenterY));
-            var text = ChartGeometry.Text(radius);
-            builder.Append('a').Append(text).Append(' ').Append(text).Append(" 0 1 0 ").Append(ChartGeometry.Text(radius * 2)).Append(" 0");
-            builder.Append('a').Append(text).Append(' ').Append(text).Append(" 0 1 0 ").Append(ChartGeometry.Text(-radius * 2)).Append(" 0");
+            builder.Append('M').AppendNumber(CenterX - radius).Append(' ').AppendNumber(CenterY);
+            builder.Append('a').AppendNumber(radius).Append(' ').AppendNumber(radius).Append(" 0 1 0 ").AppendNumber(radius * 2).Append(" 0");
+            builder.Append('a').AppendNumber(radius).Append(' ').AppendNumber(radius).Append(" 0 1 0 ").AppendNumber(-radius * 2).Append(" 0");
             return;
         }
 
         for (var k = 0; k < AxisCount; k++)
         {
             var (x, y) = GetPoint(k, ratio);
-            builder.Append(k == 0 ? 'M' : 'L').Append(ChartGeometry.Text(x)).Append(' ').Append(ChartGeometry.Text(y));
+            builder.Append(k == 0 ? 'M' : 'L').AppendNumber(x).Append(' ').AppendNumber(y);
         }
 
         builder.Append('Z');
     }
 
     // Each item name becomes one axis in the order it first appears; items without a name take axes by position
-    private void MergeAxes(IReadOnlyList<IReadOnlyList<RadarPoint>> series)
+    private void MergeAxes(List<List<RadarPoint>> series)
     {
         indexes.Clear();
         names.Clear();
@@ -212,7 +219,12 @@ internal sealed class RadarLayout
 
         foreach (var points in series)
         {
-            var unnamed = points.Count(static x => x.Category is null);
+            var unnamed = 0;
+            foreach (var point in points)
+            {
+                unnamed += point.Category is null ? 1 : 0;
+            }
+
             while (names.Count < unnamed)
             {
                 names.Add(null);
@@ -224,10 +236,11 @@ internal sealed class RadarLayout
         if (values.Length < size)
         {
             values = new double[size];
+            filled = new bool[size];
         }
 
         Array.Fill(values, Double.NaN, 0, size);
-        var filled = new bool[size];
+        Array.Clear(filled, 0, size);
         for (var s = 0; s < series.Count; s++)
         {
             var points = series[s];
@@ -254,7 +267,7 @@ internal sealed class RadarLayout
         }
     }
 
-    private void ResolveScale(RadarLayoutOptions options, IReadOnlyList<bool> visible)
+    private void ResolveScale(RadarLayoutOptions options, List<bool> visible)
     {
         var minimum = Double.PositiveInfinity;
         var maximum = Double.NegativeInfinity;
@@ -418,8 +431,8 @@ internal sealed class RadarLayout
         }
 
         var half = (LabelHeight / 2) + LevelLabelPadding;
-        var candidates = new List<RadarLevel>();
-        var extents = new List<LabelExtent>();
+        levelCandidates.Clear();
+        levelExtents.Clear();
         foreach (var value in ticks)
         {
             if ((value <= Scale.Minimum) || (value > Scale.Maximum))
@@ -429,15 +442,14 @@ internal sealed class RadarLayout
 
             var text = ChartFormat.Value(value, options.ValueFormat, options.ValueFormatter, options.Culture);
             var radius = Radius * GetRatio(value);
-            candidates.Add(new RadarLevel(value, text, ChartText.Measure(text, LabelFontSize)));
-            extents.Add(new LabelExtent(radius - half, radius + half));
+            levelCandidates.Add(new RadarLevel(value, text, ChartText.Measure(text, LabelFontSize)));
+            levelExtents.Add(new LabelExtent(radius - half, radius + half));
         }
 
-        var selected = new List<int>();
-        LabelThinning.Select(extents, 0, Int32.MaxValue, selected);
-        foreach (var index in selected)
+        LabelThinning.Select(levelExtents, 0, Int32.MaxValue, selectedLevels);
+        foreach (var index in selectedLevels)
         {
-            levels.Add(candidates[index]);
+            levels.Add(levelCandidates[index]);
         }
     }
 

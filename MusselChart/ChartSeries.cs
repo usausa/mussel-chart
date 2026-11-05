@@ -37,6 +37,8 @@ public abstract class ChartSeries : ComponentBase, IDisposable
 
     internal virtual object? Source => null;
 
+    internal SeriesOptions Options => options ??= CreateOptions();
+
     public void Dispose()
     {
         Dispose(true);
@@ -59,7 +61,12 @@ public abstract class ChartSeries : ComponentBase, IDisposable
     protected override void OnParametersSet()
     {
         var current = CreateOptions();
-        if ((options is not null) && !current.Equals(options))
+        if (current.Equals(options))
+        {
+            return;
+        }
+
+        if (options is not null)
         {
             Chart?.InvalidateSeries();
         }
@@ -255,5 +262,5 @@ public sealed class BubbleSeries<TItem> : ScatterSeries<TItem>
 
     internal override SeriesOptions CreateOptions() => base.CreateOptions() with { MinSize = MinBubbleSize, MaxSize = MaxBubbleSize, SizeIncludesZero = SizeIncludesZero };
 
-    internal override double ReadSize(TItem item) => Size is null ? Double.NaN : Size(item);
+    internal override double ReadSize(TItem item) => Size?.Invoke(item) ?? Double.NaN;
 }

@@ -37,7 +37,7 @@ public sealed class MusselChartKindsTests : BunitContext
         var root = cut.Find(".mussel-chart");
         Assert.Equal("category", root.GetAttribute("data-x-kind"));
         Assert.Equal("[\"A\",\"B\",\"C\",\"D\"]", root.GetAttribute("data-categories"));
-        Assert.Equal(["0", "1", "2"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("data-x")));
+        Assert.Equal(["0", "1", "2"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("x")));
         Assert.Equal("1,1 3,2", cut.Find("polyline").GetAttribute("points"));
         Assert.Contains("D", cut.FindAll(".mussel-axis text").Select(static x => x.TextContent));
     }
@@ -55,13 +55,16 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.Category, static x => x.Name)
                 .Add(static p => p.Y, static x => x.Other)));
 
+        var groups = cut.FindAll(".mussel-bars");
+        var left = Double.Parse(groups[0].GetAttribute("data-offset")!, CultureInfo.InvariantCulture);
+        var right = Double.Parse(groups[1].GetAttribute("data-offset")!, CultureInfo.InvariantCulture);
         var bars = cut.FindAll(".mussel-bars rect");
-        var left = Double.Parse(bars[0].GetAttribute("x")!, CultureInfo.InvariantCulture);
         var width = Double.Parse(bars[0].GetAttribute("width")!, CultureInfo.InvariantCulture);
-        var right = Double.Parse(bars[3].GetAttribute("x")!, CultureInfo.InvariantCulture);
+        Assert.Equal(bars[0].GetAttribute("x"), bars[3].GetAttribute("x"));
         Assert.True(left < 0);
-        Assert.True(right > left + width - 0.001);
-        Assert.Equal(0, (left + right + width) / 2, 2);
+        Assert.Equal(-left, right, 4);
+        Assert.True(right - left >= width);
+        Assert.StartsWith("translate(-", groups[0].GetAttribute("transform"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -83,6 +86,8 @@ public sealed class MusselChartKindsTests : BunitContext
         var bars = cut.FindAll(".mussel-bars rect");
         Assert.Equal(6, bars.Count);
         Assert.Equal(bars[0].GetAttribute("x"), bars[3].GetAttribute("x"));
+        var groups = cut.FindAll(".mussel-bars");
+        Assert.Equal(groups[0].GetAttribute("transform"), groups[1].GetAttribute("transform"));
         Assert.Equal("0", bars[0].GetAttribute("y"));
         Assert.True(Double.Parse(bars[0].GetAttribute("height")!, CultureInfo.InvariantCulture) < 10);
         Assert.True(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture) > 10);
@@ -264,7 +269,7 @@ public sealed class MusselChartKindsTests : BunitContext
     [Fact]
     public void BubblesGrowByAreaAndLargerOnesComeFirst()
     {
-        PointItem[] items = [new(1, 1, 25), new(2, 2, 100), new(3, 3, 0)];
+        PointItem[] items = [new(1, 1, 25), new(2, 2, 100), new(3, 3)];
 
         var cut = Render<MusselChartView>(parameters => parameters
             .AddChildContent<BubbleSeries<PointItem>>(series => series
@@ -278,6 +283,27 @@ public sealed class MusselChartKindsTests : BunitContext
         var markers = cut.FindAll(".mussel-markers circle");
         Assert.Equal(["100", "25", "0"], markers.Select(static x => x.GetAttribute("data-size")));
         Assert.Equal(["20", "10", "0"], markers.Select(static x => x.GetAttribute("r")));
+    }
+
+    [Fact]
+    public void TheOldestBubbleLeavesTheBufferWhateverItsSize()
+    {
+        var buffer = new ChartRingBuffer<PointItem>(3);
+        buffer.Push(new PointItem(1, 1, 100));
+        buffer.Push(new PointItem(2, 2, 25));
+        buffer.Push(new PointItem(3, 3, 50));
+        var cut = Render<MusselChartView>(parameters => parameters
+            .AddChildContent<BubbleSeries<PointItem>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)
+                .Add(static p => p.Size, static x => x.Size)));
+        Assert.Equal(["100", "50", "25"], cut.FindAll(".mussel-markers circle").Select(static x => x.GetAttribute("data-size")));
+
+        buffer.Push(new PointItem(4, 4, 75));
+        cut.Render();
+
+        Assert.Equal(["75", "50", "25"], cut.FindAll(".mussel-markers circle").Select(static x => x.GetAttribute("data-size")));
     }
 
     [Fact]

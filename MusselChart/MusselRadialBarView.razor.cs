@@ -37,8 +37,6 @@ public sealed partial class MusselRadialBarView
 
     private SweepView? markerSweep;
 
-    private string viewBox = string.Empty;
-
     private string ringClass = string.Empty;
 
     private string centerX = string.Empty;
@@ -169,7 +167,6 @@ public sealed partial class MusselRadialBarView
             Culture = culture
         }, items);
 
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
         ringClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-rings mussel-rings-hover" : "mussel-rings";
         centerX = ChartGeometry.Text(layout.CenterX);
         thicknessText = ChartGeometry.Text(layout.Thickness);
@@ -257,10 +254,17 @@ public sealed partial class MusselRadialBarView
 
             if (BarGlow)
             {
-                glowArcs.AddRange(arcs.Where(static x => x.Class is null));
-                if (sweep is not null)
+                foreach (var arc in arcs)
                 {
-                    glowSweeps.Add(sweep);
+                    if (arc.Class is null)
+                    {
+                        glowArcs.Add(arc);
+                    }
+                }
+
+                if (sweep is { } value)
+                {
+                    glowSweeps.Add(value);
                 }
             }
         }
@@ -320,8 +324,8 @@ public sealed partial class MusselRadialBarView
         var inner = Math.Max(0, radius - (thickness / 2));
         var end = Sweep * drawn;
         var open = end < 360 - SweepEdge;
-        var builder = new StringBuilder(160);
-        builder.Append("background:conic-gradient(from ").Append(ChartGeometry.Text(ChartGeometry.Normalize(StartAngle))).Append("deg");
+        var builder = ChartStringBuilder.Rent();
+        builder.Append("background:conic-gradient(from ").AppendNumber(ChartGeometry.Normalize(StartAngle)).Append("deg");
         if (open)
         {
             builder.Append(",transparent 0deg");
@@ -332,20 +336,28 @@ public sealed partial class MusselRadialBarView
             var angle = Sweep * positions[i];
             if (angle < end)
             {
-                builder.Append(',').Append(colors[i]).Append(' ').Append(ChartGeometry.Text(Math.Max(angle, open ? SweepEdge : 0))).Append("deg");
+                builder.Append(',').Append(colors[i]).Append(' ').AppendNumber(Math.Max(angle, open ? SweepEdge : 0)).Append("deg");
             }
         }
 
-        builder.Append(',').Append(RadialBarGradient.GetColorAt(colors, positions, drawn)).Append(' ').Append(ChartGeometry.Text(end)).Append("deg");
+        builder.Append(',').Append(RadialBarGradient.GetColorAt(colors, positions, drawn)).Append(' ').AppendNumber(end).Append("deg");
         if (open)
         {
-            builder.Append(",transparent ").Append(ChartGeometry.Text(end + SweepEdge)).Append("deg");
+            builder.Append(",transparent ").AppendNumber(end + SweepEdge).Append("deg");
         }
 
-        builder.Append(");");
-        var mask = String.Create(CultureInfo.InvariantCulture, $"radial-gradient(circle closest-side,transparent {ChartGeometry.Text(Math.Max(inner - 0.5, 0))}px,#000 {ChartGeometry.Text(inner)}px,#000 {ChartGeometry.Text(outer - 0.5)}px,transparent {ChartGeometry.Text(outer)}px)");
-        builder.Append("-webkit-mask:").Append(mask).Append(";mask:").Append(mask);
-        return new SweepView(ChartGeometry.Text(layout.CenterX - outer), ChartGeometry.Text(layout.CenterY - outer), ChartGeometry.Text(outer * 2), builder.ToString());
+        builder.Append(");-webkit-mask:");
+        AppendSweepMask(builder, inner, outer);
+        builder.Append(";mask:");
+        AppendSweepMask(builder, inner, outer);
+        return new SweepView(ChartGeometry.Text(layout.CenterX - outer), ChartGeometry.Text(layout.CenterY - outer), ChartGeometry.Text(outer * 2), ChartStringBuilder.ToStringAndReturn(builder));
+    }
+
+    private static void AppendSweepMask(StringBuilder builder, double inner, double outer)
+    {
+        builder.Append("radial-gradient(circle closest-side,transparent ").AppendNumber(Math.Max(inner - 0.5, 0));
+        builder.Append("px,#000 ").AppendNumber(inner).Append("px,#000 ").AppendNumber(outer - 0.5);
+        builder.Append("px,transparent ").AppendNumber(outer).Append("px)");
     }
 
     private void AddCap(List<CapView> caps, double radius, double fraction, string color)
@@ -408,11 +420,11 @@ public sealed partial class MusselRadialBarView
         }
     }
 
-    private sealed record ArcView(string Path, string? Color, string? Class, string? Cap);
+    private readonly record struct ArcView(string Path, string? Color, string? Class, string? Cap);
 
-    private sealed record CapView(string X, string Y, string Color);
+    private readonly record struct CapView(string X, string Y, string Color);
 
-    private sealed record SweepView(string X, string Y, string Size, string Style);
+    private readonly record struct SweepView(string X, string Y, string Size, string Style);
 
-    private sealed record RingView(int Key, string Tip, IReadOnlyList<ArcView> Arcs, IReadOnlyList<CapView> Caps, SweepView? Sweep);
+    private sealed record RingView(int Key, string Tip, List<ArcView> Arcs, List<CapView> Caps, SweepView? Sweep);
 }

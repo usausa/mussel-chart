@@ -14,7 +14,7 @@ internal static class ChartTip
 {
     public static string Create(string? title, IReadOnlyList<ChartTipRow> rows, IReadOnlyList<ChartTipMark>? marks = null, ChartTipLine? line = null)
     {
-        var builder = new StringBuilder(64);
+        var builder = ChartStringBuilder.Rent();
         builder.Append("{\"t\":");
         AppendString(builder, title);
         builder.Append(",\"r\":[");
@@ -71,12 +71,12 @@ internal static class ChartTip
         }
 
         builder.Append('}');
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     public static string CreateStrings(IReadOnlyList<string> values)
     {
-        var builder = new StringBuilder(values.Count * 8);
+        var builder = ChartStringBuilder.Rent();
         builder.Append('[');
         for (var i = 0; i < values.Count; i++)
         {
@@ -89,11 +89,11 @@ internal static class ChartTip
         }
 
         builder.Append(']');
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     private static void AppendNumber(StringBuilder builder, double value) =>
-        builder.Append(value.ToString("0.#", CultureInfo.InvariantCulture));
+        builder.Append(CultureInfo.InvariantCulture, $"{value:0.#}");
 
     private static void AppendString(StringBuilder builder, string? value)
     {
@@ -118,7 +118,7 @@ internal static class ChartTip
                     builder.Append("\\t");
                     break;
                 case < ' ':
-                    builder.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
+                    builder.Append(CultureInfo.InvariantCulture, $"\\u{(int)c:X4}");
                     break;
                 default:
                     builder.Append(c);

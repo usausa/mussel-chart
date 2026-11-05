@@ -66,33 +66,35 @@ internal static class ChartGeometry
     // A line along a circle, drawn with a stroke
     public static string Arc(double cx, double cy, double radius, double startAngle, double sweep)
     {
-        var builder = new StringBuilder(48);
+        var builder = ChartStringBuilder.Rent();
         if (sweep >= FullCircle - Tolerance)
         {
             AppendCircle(builder, cx, cy, radius, startAngle, true);
-            return builder.ToString();
+        }
+        else
+        {
+            var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
+            var (x2, y2) = GetPoint(cx, cy, radius, startAngle + sweep);
+            builder.Append('M').AppendNumber(x1).Append(' ').AppendNumber(y1);
+            AppendArc(builder, radius, sweep > 180, true, x2, y2);
         }
 
-        var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
-        var (x2, y2) = GetPoint(cx, cy, radius, startAngle + sweep);
-        builder.Append('M').Append(Text(x1)).Append(' ').Append(Text(y1));
-        AppendArc(builder, radius, sweep > 180, true, x2, y2);
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     // A slice of a pie or a donut, with parallel gaps along its two straight edges
     public static string Slice(double cx, double cy, double outer, double inner, double startAngle, double sweep, double startGap, double endGap)
     {
-        var builder = new StringBuilder(96);
         if (sweep >= FullCircle - Tolerance)
         {
-            AppendCircle(builder, cx, cy, outer, startAngle, true);
+            var ring = ChartStringBuilder.Rent();
+            AppendCircle(ring, cx, cy, outer, startAngle, true);
             if (inner > 0)
             {
-                AppendCircle(builder, cx, cy, inner, startAngle, false);
+                AppendCircle(ring, cx, cy, inner, startAngle, false);
             }
 
-            return builder.ToString();
+            return ChartStringBuilder.ToStringAndReturn(ring);
         }
 
         var endAngle = startAngle + sweep;
@@ -103,46 +105,47 @@ internal static class ChartGeometry
             return string.Empty;
         }
 
-        var (x1, y1) = GetPoint(cx, cy, outer, outerStart);
-        var (x2, y2) = GetPoint(cx, cy, outer, outerEnd);
-        builder.Append('M').Append(Text(x1)).Append(' ').Append(Text(y1));
-        AppendArc(builder, outer, outerEnd - outerStart > 180, true, x2, y2);
-
         var innerStart = inner > 0 ? startAngle + GetGapAngle(startGap, inner) : 0;
         var innerEnd = inner > 0 ? endAngle - GetGapAngle(endGap, inner) : 0;
-        if ((inner > 0) && (innerEnd - innerStart > Tolerance))
+        var hasHole = (inner > 0) && (innerEnd - innerStart > Tolerance);
+        var (apexX, apexY) = hasHole ? default : GetApex(startAngle, endAngle, startGap, endGap);
+        if (!hasHole && (Math.Sqrt((apexX * apexX) + (apexY * apexY)) >= outer))
+        {
+            return string.Empty;
+        }
+
+        var builder = ChartStringBuilder.Rent();
+        var (x1, y1) = GetPoint(cx, cy, outer, outerStart);
+        var (x2, y2) = GetPoint(cx, cy, outer, outerEnd);
+        builder.Append('M').AppendNumber(x1).Append(' ').AppendNumber(y1);
+        AppendArc(builder, outer, outerEnd - outerStart > 180, true, x2, y2);
+        if (hasHole)
         {
             var (x3, y3) = GetPoint(cx, cy, inner, innerEnd);
             var (x4, y4) = GetPoint(cx, cy, inner, innerStart);
-            builder.Append('L').Append(Text(x3)).Append(' ').Append(Text(y3));
+            builder.Append('L').AppendNumber(x3).Append(' ').AppendNumber(y3);
             AppendArc(builder, inner, innerEnd - innerStart > 180, false, x4, y4);
         }
         else
         {
-            var (x3, y3) = GetApex(startAngle, endAngle, startGap, endGap);
-            if (Math.Sqrt((x3 * x3) + (y3 * y3)) >= outer)
-            {
-                return string.Empty;
-            }
-
-            builder.Append('L').Append(Text(cx + x3)).Append(' ').Append(Text(cy + y3));
+            builder.Append('L').AppendNumber(cx + apexX).Append(' ').AppendNumber(cy + apexY);
         }
 
         builder.Append('Z');
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     // A wedge from the center, used as the area that reacts to the pointer
     public static string Sector(double cx, double cy, double radius, double startAngle, double sweep)
     {
-        var builder = new StringBuilder(64);
+        var builder = ChartStringBuilder.Rent();
         var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
         var (x2, y2) = GetPoint(cx, cy, radius, startAngle + sweep);
-        builder.Append('M').Append(Text(cx)).Append(' ').Append(Text(cy));
-        builder.Append('L').Append(Text(x1)).Append(' ').Append(Text(y1));
+        builder.Append('M').AppendNumber(cx).Append(' ').AppendNumber(cy);
+        builder.Append('L').AppendNumber(x1).Append(' ').AppendNumber(y1);
         AppendArc(builder, radius, sweep > 180, true, x2, y2);
         builder.Append('Z');
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     public static (double X, double Y) GetPoint(double cx, double cy, double radius, double clockAngle)
@@ -179,7 +182,7 @@ internal static class ChartGeometry
     {
         var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
         var (x2, y2) = GetPoint(cx, cy, radius, startAngle + 180);
-        builder.Append('M').Append(Text(x1)).Append(' ').Append(Text(y1));
+        builder.Append('M').AppendNumber(x1).Append(' ').AppendNumber(y1);
         AppendArc(builder, radius, true, clockwise, x2, y2);
         AppendArc(builder, radius, true, clockwise, x1, y1);
         builder.Append('Z');
@@ -187,9 +190,8 @@ internal static class ChartGeometry
 
     private static void AppendArc(StringBuilder builder, double radius, bool large, bool clockwise, double x, double y)
     {
-        var text = Text(radius);
-        builder.Append('A').Append(text).Append(' ').Append(text).Append(" 0 ");
+        builder.Append('A').AppendNumber(radius).Append(' ').AppendNumber(radius).Append(" 0 ");
         builder.Append(large ? '1' : '0').Append(' ').Append(clockwise ? '1' : '0').Append(' ');
-        builder.Append(Text(x)).Append(' ').Append(Text(y));
+        builder.AppendNumber(x).Append(' ').AppendNumber(y);
     }
 }

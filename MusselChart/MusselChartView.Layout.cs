@@ -1,7 +1,6 @@
 namespace MusselChart;
 
 using System.Globalization;
-using System.Text;
 
 using MusselChart.Internal;
 
@@ -21,7 +20,11 @@ public sealed partial class MusselChartView
 
     private const double HorizontalEndMargin = 12;
 
-    private const double SpacingSamples = 64;
+    private const int SpacingSamples = 64;
+
+    private const int MaxStackAllocatedSlots = 32;
+
+    private static readonly List<string> NoLegendValues = [];
 
     private const double SegmentGap = 2;
 
@@ -59,17 +62,29 @@ public sealed partial class MusselChartView
 
     private readonly List<double> ticks = [];
 
+    private readonly List<SeriesState> visibleStates = [];
+
+    private readonly List<double> valueTicks = [];
+
+    private readonly List<string> valueTexts = [];
+
+    private readonly List<string> categoryTexts = [];
+
+    private readonly List<ChartThreshold> sortedThresholds = [];
+
+    private readonly List<ChartLegendValues> legendValueColumns = [];
+
+    private readonly Dictionary<string, int> barGroups = new(StringComparer.Ordinal);
+
     private readonly List<(double Fraction, string Text)> positionTicks = [];
 
     private readonly List<LabelExtent> labelExtents = [];
 
     private readonly List<int> selectedLabels = [];
 
-    private string viewBox = string.Empty;
-
     private string transform = string.Empty;
 
-    private string baseText = string.Empty;
+    private string baseText = "0";
 
     private string clipX = string.Empty;
 
@@ -131,19 +146,35 @@ public sealed partial class MusselChartView
         seriesViews.Clear();
 
         var palette = Palette ?? ChartPalettes.DefaultLight;
-        var colors = new Dictionary<ChartSeries, string>(ReferenceEqualityComparer.Instance);
+        var visible = visibleStates;
+        visible.Clear();
+        var hasData = false;
+        var live = false;
+        var markerMargin = 0d;
         for (var i = 0; i < seriesList.Count; i++)
         {
             var series = seriesList[i];
-            colors[series] = series.Color ?? (palette.Count > 0 ? palette[i % palette.Count] : "#808080");
+            var state = states[series];
+            state.Color = series.Color ?? (palette.Count > 0 ? palette[i % palette.Count] : "#808080");
+            if (!state.Visible)
+            {
+                continue;
+            }
+
+            var options = series.Options;
+            state.ApplyOptions(options);
+            visible.Add(state);
+            hasData = hasData || state.Points.Exists(static x => Double.IsFinite(x.Value));
+            live = live || options.Live;
+            if (series.Kind == ChartSeriesKind.Scatter)
+            {
+                markerMargin = Math.Max(markerMargin, (options.Thickness / 2) + MarkerOutline);
+            }
         }
 
-        var visible = seriesList.Select(x => states[x]).Where(static x => x.Visible).ToList();
-        var hasData = visible.Exists(static x => x.Points.Exists(static p => Double.IsFinite(p.Value)));
         var horizontal = Orientation == ChartOrientation.Horizontal;
         var positionLabelsVisible = (xAxis?.IsVisible ?? true) && (xAxis?.LabelsVisible ?? true);
         var valueLabelsVisible = (yAxis?.IsVisible ?? true) && (yAxis?.LabelsVisible ?? true);
-        var live = visible.Exists(static x => x.Series.CreateOptions().Live);
 
         SizeBubbles(visible);
         var window = ResolveWindow(visible, hasData);
@@ -166,13 +197,19 @@ public sealed partial class MusselChartView
             plotLeft = PlotPadding + labelWidth;
             plotRight = Math.Max(Width - PlotPadding - (live ? LiveRadius : HorizontalEndMargin), plotLeft + 1);
             scale = ResolveValueScale(visible, window, plotRight - plotLeft, TickGenerator.HorizontalLabelSpacing);
+            FormatValueTicks(scale, percent, valueLabelsVisible);
         }
         else
         {
             plotBottom = Height - (positionLabelsVisible ? XLabelHeight : PlotPadding);
             scale = ResolveValueScale(visible, window, Math.Max(plotBottom - plotTop, 1), TickGenerator.VerticalLabelSpacing);
-            TickGenerator.Numeric(scale, ticks);
-            var longest = valueLabelsVisible && (ticks.Count > 0) ? ticks.Max(x => FormatAxisValue(x, percent).Length) : 0;
+            FormatValueTicks(scale, percent, valueLabelsVisible);
+            var longest = 0;
+            foreach (var text in valueTexts)
+            {
+                longest = Math.Max(longest, text.Length);
+            }
+
             var labelWidth = longest > 0 ? (longest * LabelCharWidth) + LabelGap : 0;
             plotLeft = PlotPadding + labelWidth;
             plotRight = Math.Max(Width - PlotPadding - (live ? LiveRadius : 0), plotLeft + 1);
@@ -191,10 +228,7 @@ public sealed partial class MusselChartView
             : new PlotMap(false, scaleP, plotLeft - (position.Start * scaleP), scaleV, plotBottom + (scale.Minimum * scaleV));
         transform = map.Matrix;
 
-        var markerMargin = visible.Where(static x => x.Series.Kind == ChartSeriesKind.Scatter).Select(static x => (x.Series.CreateOptions().Thickness / 2) + MarkerOutline).DefaultIfEmpty(0).Max();
         var clipMargin = Math.Max(markerMargin, MarkerClipMargin);
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
-        baseText = (baseTicks / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture);
         plotLeftText = ChartFormat.Pixel(plotLeft);
         plotRightText = ChartFormat.Pixel(plotRight);
         plotTopText = ChartFormat.Pixel(plotTop);
@@ -207,32 +241,23 @@ public sealed partial class MusselChartView
         xLabelY = ChartFormat.Pixel(Height - 6);
         emptyText = hasData ? string.Empty : EmptyText ?? string.Empty;
 
-        ArrangeValueAxis(scale, map, percent, valueLabelsVisible);
+        ArrangeValueAxis(map, valueLabelsVisible);
         ArrangePositionAxis(horizontal, plotLeft, plotTop, plotWidth, plotHeight, positionLabelsVisible);
         ArrangeThresholds(scale, map, plotLeft, plotRight, plotTop, plotBottom);
 
-        var slots = ArrangeBars(visible, position, scaleP);
+        ArrangeBars(visible, position, scaleP);
         foreach (var state in visible)
         {
-            var options = state.Series.CreateOptions();
-            var color = colors[state.Series];
-            var kind = state.Series.Kind;
-            var format = options.ValueFormat ?? yAxis?.LabelFormat ?? string.Empty;
-            var slot = slots.GetValueOrDefault(state);
-            var stacked = IsBarKind(kind) && (state.Series.StackKey is not null);
-            var tops = stacked ? stacks.GetValueOrDefault((kind, state.Series.StackKey!)) : null;
+            var series = state.Series;
+            var options = series.Options;
+            var kind = series.Kind;
+            var stacked = IsBarKind(kind) && (series.StackKey is not null);
             seriesViews.Add(new SeriesView(
                 state,
                 kind,
-                color,
-                ChartFormat.Pixel(options.Thickness),
-                options.Opacity.ToString("0.###", CultureInfo.InvariantCulture),
-                slot.Offset,
-                slot.Width / 2,
-                FormatX(slot.Width),
-                format,
+                options.ValueFormat ?? yAxis?.LabelFormat ?? string.Empty,
                 stacked ? SegmentGap / scaleV : 0,
-                tops,
+                stacked ? stacks.GetValueOrDefault((kind, series.StackKey!)) : null,
                 IsMarkerKind(kind) ? CreateMarkers(state, options, map, position) : null));
 
             if (options.Live && !IsBarKind(kind) && !IsMarkerKind(kind))
@@ -241,13 +266,13 @@ public sealed partial class MusselChartView
                 if (last.Sequence > 0)
                 {
                     var (x, y) = map.Map(last.X, last.Top);
-                    livePoints.Add(new LivePoint(ChartFormat.Pixel(x), ChartFormat.Pixel(y), color));
+                    livePoints.Add(new LivePoint(ChartFormat.Pixel(x), ChartFormat.Pixel(y), state.Color));
                 }
             }
         }
 
         ArrangeTracking(visible, position);
-        ArrangeLegend(colors, position, percent);
+        ArrangeLegend(position, percent);
     }
 
     private void SizeBubbles(List<SeriesState> visible)
@@ -276,7 +301,7 @@ public sealed partial class MusselChartView
                 continue;
             }
 
-            var options = state.Series.CreateOptions();
+            var options = state.Series.Options;
             foreach (var marker in state.Markers)
             {
                 bubbleExtent = Math.Max(bubbleExtent, (GetBubbleSize(marker.Size, options) / 2) + MarkerOutline);
@@ -345,7 +370,7 @@ public sealed partial class MusselChartView
             end += TimeSpan.TicksPerSecond;
         }
 
-        var barSpacing = visible.Where(static x => IsBarKind(x.Series.Kind)).Select(MeasureSpacing).DefaultIfEmpty(0).Max();
+        var barSpacing = MeasureBarSpacing(visible);
         if (barSpacing > 0)
         {
             var half = (long)(barSpacing * TimeSpan.TicksPerSecond / 2);
@@ -356,7 +381,21 @@ public sealed partial class MusselChartView
         return new PositionWindow(ToSeconds(start), ToSeconds(end));
     }
 
-    private double ToSeconds(long ticks) => (ticks - baseTicks) / (double)TimeSpan.TicksPerSecond;
+    private static double MeasureBarSpacing(List<SeriesState> visible)
+    {
+        var spacing = 0d;
+        foreach (var state in visible)
+        {
+            if (IsBarKind(state.Series.Kind))
+            {
+                spacing = Math.Max(spacing, MeasureSpacing(state));
+            }
+        }
+
+        return spacing;
+    }
+
+    private double ToSeconds(long value) => (value - baseTicks) / (double)TimeSpan.TicksPerSecond;
 
     private long ToTicks(double seconds) => baseTicks + (long)Math.Round(seconds * TimeSpan.TicksPerSecond);
 
@@ -394,7 +433,7 @@ public sealed partial class MusselChartView
             }
         }
 
-        var gap = visible.Where(static x => IsBarKind(x.Series.Kind)).Select(MeasureSpacing).DefaultIfEmpty(0).Max();
+        var gap = MeasureBarSpacing(visible);
         if (gap > 0)
         {
             minimum -= gap / 2;
@@ -458,11 +497,11 @@ public sealed partial class MusselChartView
         var axis = xAxis as CategoryAxis;
         var span = position.End - position.Start;
         labelExtents.Clear();
-        var texts = new List<string>(categories.Count);
+        categoryTexts.Clear();
         for (var i = 0; i < categories.Count; i++)
         {
             var text = FormatCategory(categories[i], axis);
-            texts.Add(text);
+            categoryTexts.Add(text);
             var center = (i - position.Start) / span * length;
             var half = (vertical ? ChartText.LineHeight(LabelFontSize) : ChartText.Measure(text, LabelFontSize)) / 2;
             labelExtents.Add(new LabelExtent(center - half, center + half));
@@ -471,7 +510,7 @@ public sealed partial class MusselChartView
         LabelThinning.Select(labelExtents, CategoryLabelSpacing, axis?.MaxLabelCount ?? Int32.MaxValue, selectedLabels);
         foreach (var index in selectedLabels)
         {
-            positionTicks.Add(((index - position.Start) / span, texts[index]));
+            positionTicks.Add(((index - position.Start) / span, categoryTexts[index]));
         }
     }
 
@@ -528,22 +567,36 @@ public sealed partial class MusselChartView
     private double MeasurePositionLabels()
     {
         var limit = Width * MaxLabelWidthRatio;
-        var widest = positionTicks.Select(static x => ChartText.Measure(x.Text, LabelFontSize)).DefaultIfEmpty(0).Max();
+        var widest = 0d;
         for (var i = 0; i < positionTicks.Count; i++)
         {
-            positionTicks[i] = (positionTicks[i].Fraction, ChartText.Truncate(positionTicks[i].Text, LabelFontSize, limit));
+            var (fraction, text) = positionTicks[i];
+            widest = Math.Max(widest, ChartText.Measure(text, LabelFontSize));
+            positionTicks[i] = (fraction, ChartText.Truncate(text, LabelFontSize, limit));
         }
 
         return widest > 0 ? Math.Min(widest, limit) + LabelGap : 0;
     }
 
-    private void ArrangeValueAxis(in AxisScale scale, in PlotMap map, bool percent, bool labelsVisible)
+    private void FormatValueTicks(in AxisScale scale, bool percent, bool labelsVisible)
     {
-        TickGenerator.Numeric(scale, ticks);
-        var grid = yAxis?.GridLinesVisible ?? true;
-        foreach (var tick in ticks)
+        TickGenerator.Numeric(scale, valueTicks);
+        valueTexts.Clear();
+        if (labelsVisible)
         {
-            var (x, y) = map.Map(0, tick);
+            foreach (var tick in valueTicks)
+            {
+                valueTexts.Add(FormatAxisValue(tick, percent));
+            }
+        }
+    }
+
+    private void ArrangeValueAxis(in PlotMap map, bool labelsVisible)
+    {
+        var grid = yAxis?.GridLinesVisible ?? true;
+        for (var i = 0; i < valueTicks.Count; i++)
+        {
+            var (x, y) = map.Map(0, valueTicks[i]);
             var position = ChartFormat.Pixel(map.Horizontal ? x : y);
             if (grid)
             {
@@ -552,7 +605,7 @@ public sealed partial class MusselChartView
 
             if (labelsVisible)
             {
-                (map.Horizontal ? xLabels : yLabels).Add(new AxisLabel(position, FormatAxisValue(tick, percent)));
+                (map.Horizontal ? xLabels : yLabels).Add(new AxisLabel(position, valueTexts[i]));
             }
         }
     }
@@ -586,7 +639,21 @@ public sealed partial class MusselChartView
         var right = ChartFormat.Pixel(plotRight);
         var top = ChartFormat.Pixel(plotTop);
         var bottom = ChartFormat.Pixel(plotBottom);
-        var sorted = Thresholds.OrderBy(static x => x.Value).ToList();
+        var sorted = sortedThresholds;
+        sorted.Clear();
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < Thresholds.Count; i++)
+        {
+            var threshold = Thresholds[i];
+            var index = sorted.Count;
+            while ((index > 0) && (sorted[index - 1].Value > threshold.Value))
+            {
+                index--;
+            }
+
+            sorted.Insert(index, threshold);
+        }
+
         for (var i = 0; i < sorted.Count; i++)
         {
             var threshold = sorted[i];
@@ -616,73 +683,114 @@ public sealed partial class MusselChartView
     }
 
     // Each stack and each bar takes an equal slot of the group, and bars narrowed by the limit are centered in the column
-    private Dictionary<SeriesState, BarSlot> ArrangeBars(List<SeriesState> visible, in PositionRange position, double scaleP)
+    private void ArrangeBars(List<SeriesState> visible, in PositionRange position, double scaleP)
     {
-        var slots = new Dictionary<SeriesState, BarSlot>();
-        var bars = visible.Where(static x => IsBarKind(x.Series.Kind)).ToList();
-        if (bars.Count == 0)
-        {
-            return slots;
-        }
-
-        var groups = new Dictionary<string, int>(StringComparer.Ordinal);
-        var indexes = new List<int>(bars.Count);
+        barGroups.Clear();
         var count = 0;
-        foreach (var state in bars)
+        var spacing = 0d;
+        var ratio = 0d;
+        foreach (var state in visible)
         {
-            if (state.Series.StackKey is { } key)
+            if (!IsBarKind(state.Series.Kind))
             {
-                if (!groups.TryGetValue(key, out var index))
-                {
-                    index = count++;
-                    groups[key] = index;
-                }
+                continue;
+            }
 
-                indexes.Add(index);
+            if (count == 0)
+            {
+                ratio = state.Series.Options.Opacity;
+            }
+
+            if (state.Series.StackKey is not { } key)
+            {
+                state.BarSlot = count++;
             }
             else
             {
-                indexes.Add(count++);
+                if (!barGroups.TryGetValue(key, out var index))
+                {
+                    index = count++;
+                    barGroups[key] = index;
+                }
+
+                state.BarSlot = index;
+            }
+
+            if (xKind != ChartXKind.Category)
+            {
+                spacing = Math.Max(spacing, MeasureSpacing(state));
             }
         }
 
-        var spacing = xKind == ChartXKind.Category ? 1 : bars.Select(MeasureSpacing).DefaultIfEmpty(0).Max();
-        if (!(spacing > 0))
+        if (count == 0)
+        {
+            return;
+        }
+
+        if (xKind == ChartXKind.Category)
+        {
+            spacing = 1;
+        }
+        else if (!(spacing > 0))
         {
             spacing = position.End - position.Start;
         }
 
-        var column = spacing * scaleP;
-        var group = column * Math.Clamp(bars[0].Series.CreateOptions().Opacity, 0.05, 1);
+        var group = spacing * scaleP * Math.Clamp(ratio, 0.05, 1);
         var gap = count > 1 ? Math.Min(SegmentGap, group / count / 3) : 0;
         var slot = Math.Max(0, (group - ((count - 1) * gap)) / count);
-        var widths = new double[count];
-        for (var i = 0; i < bars.Count; i++)
+        var widths = count <= MaxStackAllocatedSlots ? stackalloc double[count] : new double[count];
+        foreach (var state in visible)
         {
-            widths[indexes[i]] = Math.Max(widths[indexes[i]], Math.Min(slot, bars[i].Series.CreateOptions().Thickness));
+            if (IsBarKind(state.Series.Kind))
+            {
+                widths[state.BarSlot] = Math.Max(widths[state.BarSlot], Math.Min(slot, state.Series.Options.Thickness));
+            }
         }
 
-        var total = ((count - 1) * gap) + widths.Sum();
-        for (var i = 0; i < bars.Count; i++)
+        var total = (count - 1) * gap;
+        foreach (var width in widths)
         {
+            total += width;
+        }
+
+        foreach (var state in visible)
+        {
+            if (!IsBarKind(state.Series.Kind))
+            {
+                continue;
+            }
+
             var start = -total / 2;
-            for (var k = 0; k < indexes[i]; k++)
+            for (var k = 0; k < state.BarSlot; k++)
             {
                 start += widths[k] + gap;
             }
 
-            slots[bars[i]] = new BarSlot((start + (widths[indexes[i]] / 2)) / scaleP, widths[indexes[i]] / scaleP);
+            var width = widths[state.BarSlot];
+            state.PlaceBars((start + (width / 2)) / scaleP, width / scaleP, xKind != ChartXKind.Time);
         }
+    }
 
-        return slots;
+    private static int LargerBubbleFirst(SeriesMarker x, SeriesMarker y)
+    {
+        var size = y.Size.CompareTo(x.Size);
+        return size != 0 ? size : x.Key.CompareTo(y.Key);
     }
 
     private List<MarkerView> CreateMarkers(SeriesState state, SeriesOptions options, in PlotMap map, in PositionRange position)
     {
         var bubble = state.Series.Kind == ChartSeriesKind.Bubble;
-        var markers = new List<MarkerView>(state.Markers.Count);
-        IEnumerable<SeriesMarker> ordered = bubble ? state.Markers.OrderByDescending(static x => x.Size) : state.Markers;
-        foreach (var marker in ordered)
+        var markers = state.MarkerViews;
+        markers.Clear();
+        if (bubble && !state.MarkersSorted)
+        {
+            state.Markers.Sort(LargerBubbleFirst);
+            state.MarkersSorted = true;
+        }
+
+        var sharedRadius = bubble ? null : ChartGeometry.Text(options.Thickness / 2);
+        foreach (var marker in state.Markers)
         {
             if ((marker.X < position.Start) || (marker.X > position.End))
             {
@@ -695,12 +803,11 @@ public sealed partial class MusselChartView
             markers.Add(new MarkerView(
                 marker.Key,
                 marker.XText,
-                ChartFormat.Position(marker.Y),
-                bubble ? ChartFormat.Position(marker.Size) : null,
+                marker.YText,
+                marker.SizeText,
                 ChartGeometry.Text(x),
                 ChartGeometry.Text(y),
-                ChartGeometry.Text(radius),
-                ChartGeometry.Text(size),
+                sharedRadius ?? ChartGeometry.Text(radius),
                 CreateMarkerPath(x, y, radius, options.Shape)));
         }
 
@@ -715,24 +822,24 @@ public sealed partial class MusselChartView
         }
 
         var extent = shape == ChartMarkerShape.Diamond ? radius * Math.Sqrt(2) : radius;
-        var builder = new StringBuilder(48);
+        var builder = ChartStringBuilder.Rent();
         if (shape == ChartMarkerShape.Diamond)
         {
-            builder.Append('M').Append(ChartGeometry.Text(x)).Append(' ').Append(ChartGeometry.Text(y - extent));
-            builder.Append('L').Append(ChartGeometry.Text(x + extent)).Append(' ').Append(ChartGeometry.Text(y));
-            builder.Append('L').Append(ChartGeometry.Text(x)).Append(' ').Append(ChartGeometry.Text(y + extent));
-            builder.Append('L').Append(ChartGeometry.Text(x - extent)).Append(' ').Append(ChartGeometry.Text(y));
+            builder.Append('M').AppendNumber(x).Append(' ').AppendNumber(y - extent);
+            builder.Append('L').AppendNumber(x + extent).Append(' ').AppendNumber(y);
+            builder.Append('L').AppendNumber(x).Append(' ').AppendNumber(y + extent);
+            builder.Append('L').AppendNumber(x - extent).Append(' ').AppendNumber(y);
         }
         else
         {
-            builder.Append('M').Append(ChartGeometry.Text(x - extent)).Append(' ').Append(ChartGeometry.Text(y - extent));
-            builder.Append('H').Append(ChartGeometry.Text(x + extent));
-            builder.Append('V').Append(ChartGeometry.Text(y + extent));
-            builder.Append('H').Append(ChartGeometry.Text(x - extent));
+            builder.Append('M').AppendNumber(x - extent).Append(' ').AppendNumber(y - extent);
+            builder.Append('H').AppendNumber(x + extent);
+            builder.Append('V').AppendNumber(y + extent);
+            builder.Append('H').AppendNumber(x - extent);
         }
 
         builder.Append('Z');
-        return builder.ToString();
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
     private void ArrangeTracking(List<SeriesState> visible, in PositionRange position)
@@ -757,63 +864,104 @@ public sealed partial class MusselChartView
         var end = ToTicks(position.End);
         offsetText = ((long)zone.GetUtcOffset(new DateTime(end, DateTimeKind.Utc)).TotalMinutes).ToString(CultureInfo.InvariantCulture);
         var spansDays = (end - start) >= TimeSpan.TicksPerDay;
-        var finest = visible.Select(MeasureSpacing).Where(static x => x > 0).DefaultIfEmpty(60).Min();
+        var finest = Double.PositiveInfinity;
+        foreach (var state in visible)
+        {
+            var spacing = MeasureSpacing(state);
+            if (spacing > 0)
+            {
+                finest = Math.Min(finest, spacing);
+            }
+        }
+
+        finest = Double.IsInfinity(finest) ? 60 : finest;
         timeFormat = TimeInterval.GetTrackingFormat(finest < 60 ? TimeLabelPrecision.Second : finest < 86400 ? TimeLabelPrecision.Minute : TimeLabelPrecision.Day, spansDays);
     }
 
-    private void ArrangeLegend(Dictionary<ChartSeries, string> colors, in PositionRange position, bool percent)
+    private static bool IsListed(ChartSeries series) => series.LegendVisible && !String.IsNullOrEmpty(series.Title);
+
+    private void ArrangeLegend(in PositionRange position, bool percent)
     {
-        var listed = seriesList.Where(static x => x.LegendVisible && !String.IsNullOrEmpty(x.Title)).ToList();
-        legendVisible = LegendVisible ?? (listed.Count >= 2);
+        var listed = 0;
+        foreach (var series in seriesList)
+        {
+            listed += IsListed(series) ? 1 : 0;
+        }
+
+        legendVisible = LegendVisible ?? (listed >= 2);
         if (!legendVisible)
         {
             return;
         }
 
-        var columns = new List<ChartLegendValues>();
+        legendValueColumns.Clear();
         if (LegendMode == ChartLegendMode.Table)
         {
             foreach (var value in (ReadOnlySpan<ChartLegendValues>)[ChartLegendValues.Last, ChartLegendValues.Min, ChartLegendValues.Max, ChartLegendValues.Mean])
             {
                 if ((LegendValues & value) != 0)
                 {
-                    columns.Add(value);
+                    legendValueColumns.Add(value);
                     legendColumns.Add(value == ChartLegendValues.Last ? "Last *" : value.ToString());
                 }
             }
         }
 
-        foreach (var series in listed)
+        foreach (var series in seriesList)
         {
-            var state = states[series];
-            var options = series.CreateOptions();
-            var values = new List<string>(columns.Count);
-            if (columns.Count > 0)
+            if (IsListed(series))
             {
-                var low = position.Start;
-                var high = position.End;
-                var window = state.Points.Where(x => Double.IsFinite(x.Value) && (x.X >= low) && (x.X <= high)).Select(static x => x.Value).ToList();
-                foreach (var column in columns)
-                {
-                    if (window.Count == 0)
-                    {
-                        values.Add(string.Empty);
-                        continue;
-                    }
+                var state = states[series];
+                legendRows.Add(new LegendRow(series, series.Title!, state.Color, !state.Visible, series.Kind is not (ChartSeriesKind.Line or ChartSeriesKind.Area), CreateLegendValues(state, position, percent)));
+            }
+        }
+    }
 
-                    var value = column switch
-                    {
-                        ChartLegendValues.Last => window[^1],
-                        ChartLegendValues.Min => window.Min(),
-                        ChartLegendValues.Max => window.Max(),
-                        _ => window.Average()
-                    };
-                    values.Add(ChartFormat.Value(value, options.ValueFormat ?? (percent ? null : yAxis?.LabelFormat), options.ValueFormatter ?? (percent ? null : yAxis?.LabelFormatter), culture));
-                }
+    private List<string> CreateLegendValues(SeriesState state, in PositionRange position, bool percent)
+    {
+        if (legendValueColumns.Count == 0)
+        {
+            return NoLegendValues;
+        }
+
+        var values = new List<string>(legendValueColumns.Count);
+        var count = 0;
+        var last = 0d;
+        var minimum = Double.PositiveInfinity;
+        var maximum = Double.NegativeInfinity;
+        var sum = 0d;
+        foreach (var point in state.Points)
+        {
+            if (Double.IsFinite(point.Value) && (point.X >= position.Start) && (point.X <= position.End))
+            {
+                count++;
+                last = point.Value;
+                minimum = Math.Min(minimum, point.Value);
+                maximum = Math.Max(maximum, point.Value);
+                sum += point.Value;
+            }
+        }
+
+        var options = state.Series.Options;
+        foreach (var column in legendValueColumns)
+        {
+            if (count == 0)
+            {
+                values.Add(string.Empty);
+                continue;
             }
 
-            legendRows.Add(new LegendRow(series, series.Title!, colors[series], !state.Visible, series.Kind is not (ChartSeriesKind.Line or ChartSeriesKind.Area), values));
+            var value = column switch
+            {
+                ChartLegendValues.Last => last,
+                ChartLegendValues.Min => minimum,
+                ChartLegendValues.Max => maximum,
+                _ => sum / count
+            };
+            values.Add(ChartFormat.Value(value, options.ValueFormat ?? (percent ? null : yAxis?.LabelFormat), options.ValueFormatter ?? (percent ? null : yAxis?.LabelFormatter), culture));
         }
+
+        return values;
     }
 
     private string FormatAxisValue(double value, bool percent)
@@ -829,19 +977,19 @@ public sealed partial class MusselChartView
     private static double MeasureSpacing(SeriesState state)
     {
         var points = state.Points;
-        var count = (int)Math.Min(points.Count - 1, SpacingSamples);
+        var count = Math.Min(points.Count - 1, SpacingSamples);
         if (count <= 0)
         {
             return 0;
         }
 
-        var spacings = new double[count];
+        Span<double> spacings = stackalloc double[count];
         for (var i = 0; i < count; i++)
         {
             spacings[i] = points[points.Count - 1 - i].X - points[points.Count - 2 - i].X;
         }
 
-        Array.Sort(spacings);
+        spacings.Sort();
         return spacings[count / 2];
     }
 
@@ -849,14 +997,12 @@ public sealed partial class MusselChartView
 
     private readonly record struct PositionRange(double Start, double End, AxisScale Scale);
 
-    private readonly record struct BarSlot(double Offset, double Width);
-
     // Data goes into the SVG as it is, and this transform moves it to the plot, so that new points cost only themselves
     private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV)
     {
         public string Matrix => Horizontal
-            ? FormattableString.Invariant($"matrix(0 {ScaleP:0.######} {ScaleV:0.######} 0 {OffsetV:0.###} {OffsetP:0.###})")
-            : FormattableString.Invariant($"matrix({ScaleP:0.######} 0 0 {-ScaleV:0.######} {OffsetP:0.###} {OffsetV:0.###})");
+            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:0.######} {ScaleV:0.######} 0 {OffsetV:0.###} {OffsetP:0.###})")
+            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:0.######} 0 0 {-ScaleV:0.######} {OffsetP:0.###} {OffsetV:0.###})");
 
         public (double X, double Y) Map(double position, double value) => Horizontal
             ? (OffsetV + (value * ScaleV), OffsetP + (position * ScaleP))

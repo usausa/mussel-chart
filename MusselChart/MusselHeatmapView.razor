@@ -6,7 +6,7 @@
 }
 
 <ChartFrame Owner="this" ViewClass="mussel-heatmap" Attributes="AdditionalAttributes">
-    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox">
         <g class="mussel-heat-cells">
             @foreach (var cell in cells)
             {

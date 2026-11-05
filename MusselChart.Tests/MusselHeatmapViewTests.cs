@@ -205,7 +205,7 @@ public sealed class MusselHeatmapViewTests : BunitContext
         culture.DateTimeFormat.FirstDayOfWeek = DayOfWeek.Monday;
         var layout = new HeatmapLayout();
 
-        layout.Update(600, 200, new HeatmapLayoutOptions { LayoutMode = ChartHeatmapLayoutMode.Calendar, Culture = culture }, [new HeatmapEntry(0, null, null, new DateTime(2026, 3, 4, 0, 0, 0, DateTimeKind.Unspecified), 1), new HeatmapEntry(1, null, null, new DateTime(2026, 3, 17, 0, 0, 0, DateTimeKind.Unspecified), 2)]);
+        layout.Update(600, 200, new HeatmapLayoutOptions { LayoutMode = ChartHeatmapLayoutMode.Calendar, Culture = culture }, [new HeatmapEntry(null, null, new DateTime(2026, 3, 4, 0, 0, 0, DateTimeKind.Unspecified), 1), new HeatmapEntry(null, null, new DateTime(2026, 3, 17, 0, 0, 0, DateTimeKind.Unspecified), 2)]);
 
         Assert.Equal(new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Unspecified), layout.CalendarStart);
         Assert.Equal(7, layout.RowCount);

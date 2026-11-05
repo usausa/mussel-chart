@@ -29,6 +29,10 @@ internal sealed record StateTimelineLayoutOptions
 
 internal sealed class StateTimelineLayout
 {
+    private static readonly string[] Continuous = [ChartColor.Level(ChartThresholdLevel.Good), ChartColor.Level(ChartThresholdLevel.Warning), ChartColor.Level(ChartThresholdLevel.Critical)];
+
+    private static readonly (int R, int G, int B)[] ContinuousStops = HeatmapPalette.Parse(Continuous);
+
     private readonly List<(int Row, StateTimelineEntry Entry)> sorted = [];
 
     private readonly List<string?> rowNames = [];
@@ -54,8 +58,6 @@ internal sealed class StateTimelineLayout
     private readonly List<string> stepColors = [];
 
     private readonly List<(string Text, string Color)> legend = [];
-
-    private readonly string[] continuous = [ChartColor.Level(ChartThresholdLevel.Good), ChartColor.Level(ChartThresholdLevel.Warning), ChartColor.Level(ChartThresholdLevel.Critical)];
 
     private bool hasNumbers;
 
@@ -105,7 +107,7 @@ internal sealed class StateTimelineLayout
         }
 
         var rest = Math.Round((milliseconds % 1000) * 1000) / 1000;
-        var builder = new StringBuilder();
+        var builder = ChartStringBuilder.Rent();
         if (years > 0)
         {
             AppendPart(builder, years, "y");
@@ -149,10 +151,19 @@ internal sealed class StateTimelineLayout
             AppendPart(builder, rest, "ms");
         }
 
-        return builder.Length > 0 ? builder.ToString(0, builder.Length - 1) : "0";
+        if (builder.Length > 0)
+        {
+            builder.Length--;
+        }
+        else
+        {
+            builder.Append('0');
+        }
+
+        return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
-    public void Update(StateTimelineLayoutOptions layoutOptions, IReadOnlyList<StateTimelineEntry> entries)
+    public void Update(StateTimelineLayoutOptions layoutOptions, List<StateTimelineEntry> entries)
     {
         options = layoutOptions;
         PrepareColors();
@@ -165,7 +176,7 @@ internal sealed class StateTimelineLayout
     {
         if (value > 0)
         {
-            builder.Append(value.ToString(CultureInfo.InvariantCulture)).Append(unit).Append(' ');
+            builder.Append(CultureInfo.InvariantCulture, $"{value}{unit} ");
         }
     }
 
@@ -185,24 +196,33 @@ internal sealed class StateTimelineLayout
     private void PrepareColors()
     {
         mappings.Clear();
-        foreach (var mapping in options.Mappings ?? [])
+        if (options.Mappings is { } mappingList)
         {
-            if (ToKey(mapping.Value) is { } key)
+            // ReSharper disable once ForCanBeConvertedToForeach
+            for (var i = 0; i < mappingList.Count; i++)
             {
-                mappings.TryAdd(key, mapping);
+                if (ToKey(mappingList[i].Value) is { } key)
+                {
+                    mappings.TryAdd(key, mappingList[i]);
+                }
             }
         }
 
         steps.Clear();
-        foreach (var threshold in options.Thresholds ?? [])
+        if (options.Thresholds is { } thresholds)
         {
-            var j = steps.Count;
-            while ((j > 0) && (steps[j - 1].Value > threshold.Value))
+            // ReSharper disable once ForCanBeConvertedToForeach
+            for (var i = 0; i < thresholds.Count; i++)
             {
-                j--;
-            }
+                var threshold = thresholds[i];
+                var j = steps.Count;
+                while ((j > 0) && (steps[j - 1].Value > threshold.Value))
+                {
+                    j--;
+                }
 
-            steps.Insert(j, threshold);
+                steps.Insert(j, threshold);
+            }
         }
 
         stepLabels.Clear();
@@ -232,7 +252,7 @@ internal sealed class StateTimelineLayout
         return index;
     }
 
-    private void BuildRows(IReadOnlyList<StateTimelineEntry> entries)
+    private void BuildRows(List<StateTimelineEntry> entries)
     {
         sorted.Clear();
         rowNames.Clear();
@@ -332,7 +352,7 @@ internal sealed class StateTimelineLayout
     {
         if (entry.Text is not null)
         {
-            return steps.Count > 0 ? stepColors[0] : continuous[0];
+            return steps.Count > 0 ? stepColors[0] : Continuous[0];
         }
 
         if (steps.Count > 0)
@@ -342,7 +362,7 @@ internal sealed class StateTimelineLayout
 
         var range = rowMaximums[row] - rowMinimums[row];
         var percent = range > 0 ? (entry.Number - rowMinimums[row]) / range : 0;
-        return HeatmapPalette.GetColor(continuous, percent);
+        return HeatmapPalette.GetColor(ContinuousStops, percent);
     }
 
     private int FindStep(double value)

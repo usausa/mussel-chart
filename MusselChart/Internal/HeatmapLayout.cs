@@ -2,7 +2,7 @@ namespace MusselChart.Internal;
 
 using System.Globalization;
 
-internal readonly record struct HeatmapEntry(int DataIndex, string? Row, string? Column, DateTime? Date, double Value);
+internal readonly record struct HeatmapEntry(string? Row, string? Column, DateTime? Date, double Value);
 
 internal readonly record struct HeatmapLabel(string Text, double X, double Y, string Anchor);
 
@@ -76,9 +76,23 @@ internal sealed class HeatmapLayout
 
     private readonly List<HeatmapLabel> scaleLabels = [];
 
+    private readonly List<HeatmapLabel> labelCandidates = [];
+
+    private readonly List<LabelExtent> labelExtents = [];
+
+    private readonly List<int> selectedLabels = [];
+
+    private readonly List<(string Text, double X, double Width)> monthCandidates = [];
+
+    private readonly List<string> scaleTexts = [];
+
     private double[] values = [];
 
     private bool[] present = [];
+
+    private bool[] assigned = [];
+
+    private double cellGap;
 
     private int firstDay;
 
@@ -160,7 +174,7 @@ internal sealed class HeatmapLayout
     {
         var column = GetColumn(cell);
         var row = GetRow(cell);
-        var gap = Math.Round(options.CellGap);
+        var gap = Math.Round(cellGap);
         var left = Math.Round(GridBounds.X + (column * CellWidth));
         var top = Math.Round(GridBounds.Y + (row * CellHeight));
         var right = Math.Max(left + 1, Math.Round(GridBounds.X + ((column + 1) * CellWidth)) - gap);
@@ -168,9 +182,10 @@ internal sealed class HeatmapLayout
         return new HeatmapRect(left, top, right - left, bottom - top);
     }
 
-    public void Update(double width, double height, HeatmapLayoutOptions layoutOptions, IReadOnlyList<HeatmapEntry> entries)
+    public void Update(double width, double height, HeatmapLayoutOptions layoutOptions, List<HeatmapEntry> entries)
     {
-        options = layoutOptions with { CellGap = Math.Max(layoutOptions.CellGap, 0) };
+        options = layoutOptions;
+        cellGap = Math.Max(layoutOptions.CellGap, 0);
         bounds = new HeatmapRect(Padding, Padding, Math.Max(0, width - (Padding * 2)), Math.Max(0, height - (Padding * 2)));
         if (options.LayoutMode == ChartHeatmapLayoutMode.Calendar)
         {
@@ -215,10 +230,12 @@ internal sealed class HeatmapLayout
         {
             values = new double[size];
             present = new bool[size];
+            assigned = new bool[size];
         }
 
         Array.Fill(values, Double.NaN, 0, size);
         Array.Fill(present, filled, 0, size);
+        Array.Clear(assigned, 0, size);
     }
 
     private void Clear()
@@ -231,7 +248,7 @@ internal sealed class HeatmapLayout
         ColumnCount = 0;
     }
 
-    private void BuildMatrix(IReadOnlyList<HeatmapEntry> entries)
+    private void BuildMatrix(List<HeatmapEntry> entries)
     {
         Clear();
         foreach (var entry in entries)
@@ -259,20 +276,19 @@ internal sealed class HeatmapLayout
             return;
         }
 
-        var filled = new bool[CellCount];
         foreach (var entry in entries)
         {
             var column = GetIndex(entry.Column, columnIndexes, columnNames);
             var cell = ((options.HasRows ? GetIndex(entry.Row, rowIndexes, rowNames) : 0) * ColumnCount) + column;
-            if (!filled[cell])
+            if (!assigned[cell])
             {
-                filled[cell] = true;
+                assigned[cell] = true;
                 values[cell] = entry.Value;
             }
         }
     }
 
-    private void BuildCalendar(IReadOnlyList<HeatmapEntry> entries)
+    private void BuildCalendar(List<HeatmapEntry> entries)
     {
         Clear();
         firstDayOfWeek = options.Culture.DateTimeFormat.FirstDayOfWeek;
@@ -306,7 +322,6 @@ internal sealed class HeatmapLayout
             present[GetCalendarCell(day)] = true;
         }
 
-        var filled = new bool[CellCount];
         foreach (var entry in entries)
         {
             if (entry.Date is not { } value)
@@ -321,9 +336,9 @@ internal sealed class HeatmapLayout
             }
 
             var cell = GetCalendarCell(day);
-            if (!filled[cell])
+            if (!assigned[cell])
             {
-                filled[cell] = true;
+                assigned[cell] = true;
                 values[cell] = entry.Value;
             }
         }
@@ -449,25 +464,25 @@ internal sealed class HeatmapLayout
 
     private void PlaceRowLabels(double maxWidth)
     {
-        var candidates = new List<HeatmapLabel>();
-        var extents = new List<LabelExtent>();
+        labelCandidates.Clear();
+        labelExtents.Clear();
         for (var r = 0; r < RowCount; r++)
         {
             if (rowNames[r] is { } name)
             {
-                var center = GridBounds.Y + (r * CellHeight) + ((CellHeight - options.CellGap) / 2);
-                candidates.Add(new HeatmapLabel(ChartText.Truncate(name, LabelFontSize, maxWidth), GridBounds.X - LabelGap, center, "end"));
-                extents.Add(new LabelExtent(center - (LabelHeight / 2), center + (LabelHeight / 2)));
+                var center = GridBounds.Y + (r * CellHeight) + ((CellHeight - cellGap) / 2);
+                labelCandidates.Add(new HeatmapLabel(ChartText.Truncate(name, LabelFontSize, maxWidth), GridBounds.X - LabelGap, center, "end"));
+                labelExtents.Add(new LabelExtent(center - (LabelHeight / 2), center + (LabelHeight / 2)));
             }
         }
 
-        SelectLabels(candidates, extents, rowLabels);
+        SelectLabels(rowLabels);
     }
 
     private void PlaceColumnLabels()
     {
-        var candidates = new List<HeatmapLabel>();
-        var extents = new List<LabelExtent>();
+        labelCandidates.Clear();
+        labelExtents.Clear();
         for (var c = 0; c < ColumnCount; c++)
         {
             if (columnNames[c] is not { } name)
@@ -476,22 +491,21 @@ internal sealed class HeatmapLayout
             }
 
             var labelWidth = ChartText.Measure(name, LabelFontSize);
-            var center = GridBounds.X + (c * CellWidth) + ((CellWidth - options.CellGap) / 2);
+            var center = GridBounds.X + (c * CellWidth) + ((CellWidth - cellGap) / 2);
             var x = Math.Clamp(center - (labelWidth / 2), bounds.X, Math.Max(bounds.X, bounds.Right - labelWidth));
-            candidates.Add(new HeatmapLabel(name, x + (labelWidth / 2), GridBounds.Bottom + LabelGap + (LabelHeight / 2), "middle"));
-            extents.Add(new LabelExtent(x, x + labelWidth));
+            labelCandidates.Add(new HeatmapLabel(name, x + (labelWidth / 2), GridBounds.Bottom + LabelGap + (LabelHeight / 2), "middle"));
+            labelExtents.Add(new LabelExtent(x, x + labelWidth));
         }
 
-        SelectLabels(candidates, extents, columnLabels);
+        SelectLabels(columnLabels);
     }
 
-    private static void SelectLabels(List<HeatmapLabel> candidates, List<LabelExtent> extents, List<HeatmapLabel> destination)
+    private void SelectLabels(List<HeatmapLabel> destination)
     {
-        var selected = new List<int>();
-        LabelThinning.Select(extents, LabelSpacing, Int32.MaxValue, selected);
-        foreach (var index in selected)
+        LabelThinning.Select(labelExtents, LabelSpacing, Int32.MaxValue, selectedLabels);
+        foreach (var index in selectedLabels)
         {
-            destination.Add(candidates[index]);
+            destination.Add(labelCandidates[index]);
         }
     }
 
@@ -550,7 +564,7 @@ internal sealed class HeatmapLayout
             {
                 if (IsLabeledDay(r))
                 {
-                    var center = GridBounds.Y + (r * pitch) + ((pitch - options.CellGap) / 2);
+                    var center = GridBounds.Y + (r * pitch) + ((pitch - cellGap) / 2);
                     rowLabels.Add(new HeatmapLabel(rowNames[r]!, GridBounds.X - LabelGap, center, "end"));
                 }
             }
@@ -563,7 +577,7 @@ internal sealed class HeatmapLayout
 
     private void PlaceMonthLabels(double top)
     {
-        var candidates = new List<(string Text, double X, double Width)>();
+        monthCandidates.Clear();
         var previous = -1;
         for (var c = 0; c < ColumnCount; c++)
         {
@@ -576,13 +590,13 @@ internal sealed class HeatmapLayout
 
             previous = month;
             var text = options.Culture.DateTimeFormat.GetAbbreviatedMonthName(date.Month);
-            candidates.Add((text, GridBounds.X + (c * CellWidth), ChartText.Measure(text, LabelFontSize)));
+            monthCandidates.Add((text, GridBounds.X + (c * CellWidth), ChartText.Measure(text, LabelFontSize)));
         }
 
-        for (var i = 0; i < candidates.Count; i++)
+        for (var i = 0; i < monthCandidates.Count; i++)
         {
-            var (text, x, width) = candidates[i];
-            var limit = i < candidates.Count - 1 ? candidates[i + 1].X - LabelSpacing : bounds.Right;
+            var (text, x, width) = monthCandidates[i];
+            var limit = i < monthCandidates.Count - 1 ? monthCandidates[i + 1].X - LabelSpacing : bounds.Right;
             if (x + width <= limit)
             {
                 columnLabels.Add(new HeatmapLabel(text, x, top + (LabelHeight / 2), "start"));
@@ -600,8 +614,8 @@ internal sealed class HeatmapLayout
         }
 
         ScaleBounds = IsScaleVertical
-            ? ScaleBounds with { Y = GridBounds.Y, Height = Math.Max(0, GridBounds.Height - options.CellGap) }
-            : ScaleBounds with { X = GridBounds.X, Width = Math.Max(0, GridBounds.Width - options.CellGap) };
+            ? ScaleBounds with { Y = GridBounds.Y, Height = Math.Max(0, GridBounds.Height - cellGap) }
+            : ScaleBounds with { X = GridBounds.X, Width = Math.Max(0, GridBounds.Width - cellGap) };
         var length = IsScaleVertical ? ScaleBounds.Height : ScaleBounds.Width;
         if (!(length > 0))
         {
@@ -610,7 +624,6 @@ internal sealed class HeatmapLayout
 
         var span = Maximum - Minimum;
         var count = 1;
-        var texts = new List<string>();
         if (span > 0)
         {
             var widest = Math.Max(ChartText.Measure(FormatValue(Minimum), LabelFontSize), ChartText.Measure(FormatValue(Maximum), LabelFontSize));
@@ -620,11 +633,12 @@ internal sealed class HeatmapLayout
                 count--;
             }
 
-            CreateScaleTexts(count, texts);
+            CreateScaleTexts(count);
         }
         else
         {
-            texts.Add(FormatValue(Minimum));
+            scaleTexts.Clear();
+            scaleTexts.Add(FormatValue(Minimum));
         }
 
         for (var i = 0; i < count; i++)
@@ -632,8 +646,8 @@ internal sealed class HeatmapLayout
             var ratio = count > 1 ? (GetScaleValue(i, count) - Minimum) / span : 0;
             var edge = i == 0 ? "start" : i == count - 1 ? "end" : "middle";
             scaleLabels.Add(IsScaleVertical
-                ? new HeatmapLabel(texts[i], ScaleBounds.Right + LabelGap, ScaleBounds.Bottom - (ratio * length) - (i == 0 ? LabelHeight / 2 : i == count - 1 ? -LabelHeight / 2 : 0), "start")
-                : new HeatmapLabel(texts[i], ScaleBounds.X + (ratio * length), ScaleBounds.Bottom + ScaleLabelGap + (LabelHeight / 2), edge));
+                ? new HeatmapLabel(scaleTexts[i], ScaleBounds.Right + LabelGap, ScaleBounds.Bottom - (ratio * length) - (i == 0 ? LabelHeight / 2 : i == count - 1 ? -LabelHeight / 2 : 0), "start")
+                : new HeatmapLabel(scaleTexts[i], ScaleBounds.X + (ratio * length), ScaleBounds.Bottom + ScaleLabelGap + (LabelHeight / 2), edge));
         }
     }
 
@@ -643,26 +657,25 @@ internal sealed class HeatmapLayout
         return Double.IsInteger(Minimum) && Double.IsInteger(Maximum) ? Math.Floor(value + 0.5) : value;
     }
 
-    private void CreateScaleTexts(int count, List<string> texts)
+    private void CreateScaleTexts(int count)
     {
-        texts.Clear();
+        scaleTexts.Clear();
         for (var i = 0; i < count; i++)
         {
-            texts.Add(FormatValue(GetScaleValue(i, count)));
+            scaleTexts.Add(FormatValue(GetScaleValue(i, count)));
         }
     }
 
     private bool FitsScale(int count, double length)
     {
-        var texts = new List<string>(count);
-        CreateScaleTexts(count, texts);
+        CreateScaleTexts(count);
         var widest = 0d;
         for (var i = 0; i < count; i++)
         {
-            widest = Math.Max(widest, ChartText.Measure(texts[i], LabelFontSize));
+            widest = Math.Max(widest, ChartText.Measure(scaleTexts[i], LabelFontSize));
             for (var j = 0; j < i; j++)
             {
-                if (String.Equals(texts[i], texts[j], StringComparison.Ordinal))
+                if (String.Equals(scaleTexts[i], scaleTexts[j], StringComparison.Ordinal))
                 {
                     return false;
                 }

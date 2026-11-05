@@ -20,8 +20,6 @@ public sealed partial class MusselPieChartView
 
     private readonly List<OutsideLabel> outsideLabels = [];
 
-    private string viewBox = string.Empty;
-
     private string sliceClass = string.Empty;
 
     private string centerX = string.Empty;
@@ -128,7 +126,6 @@ public sealed partial class MusselPieChartView
             Culture = culture
         }, Items ?? []);
 
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
         sliceClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-slices mussel-slices-hover" : "mussel-slices";
         centerX = ChartGeometry.Text(layout.CenterX);
         emptyText = layout.Slices.Count > 0 ? string.Empty : EmptyText ?? string.Empty;
@@ -150,7 +147,7 @@ public sealed partial class MusselPieChartView
 
         foreach (var label in layout.OutsideLabels)
         {
-            var line = FormattableString.Invariant($"{ChartGeometry.Text(label.EdgeX)},{ChartGeometry.Text(label.EdgeY)} {ChartGeometry.Text(label.ElbowX)},{ChartGeometry.Text(label.ElbowY)} {ChartGeometry.Text(label.EndX)},{ChartGeometry.Text(label.ElbowY)}");
+            var line = String.Create(CultureInfo.InvariantCulture, $"{label.EdgeX:0.##},{label.EdgeY:0.##} {label.ElbowX:0.##},{label.ElbowY:0.##} {label.EndX:0.##},{label.ElbowY:0.##}");
             outsideLabels.Add(new OutsideLabel(line, ChartGeometry.Text(label.X), ChartGeometry.Text(label.Y), label.Right ? "start" : "end", label.Slice.LabelText!, GetColor(label.Slice, palette)));
         }
 
@@ -196,9 +193,9 @@ public sealed partial class MusselPieChartView
         }
     }
 
-    private sealed record SliceView(int Key, string Path, string Color, string Tip);
+    private readonly record struct SliceView(int Key, string Path, string Color, string Tip);
 
-    private sealed record InsideLabel(string X, string Y, string Text, string Color);
+    private readonly record struct InsideLabel(string X, string Y, string Text, string Color);
 
-    private sealed record OutsideLabel(string Line, string X, string Y, string Anchor, string Text, string Color);
+    private readonly record struct OutsideLabel(string Line, string X, string Y, string Anchor, string Text, string Color);
 }

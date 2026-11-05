@@ -6,7 +6,7 @@
 }
 
 <ChartFrame Owner="this" ViewClass="mussel-timeline" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition">
-    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox">
         @foreach (var x in gridLines)
         {
             <line class="mussel-grid-line" x1="@x" x2="@x" y1="@plotTop" y2="@plotBottom" />

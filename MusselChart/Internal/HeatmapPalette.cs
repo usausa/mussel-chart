@@ -18,8 +18,6 @@ internal static class HeatmapPalette
         return colors;
     }
 
-    public static string GetColor(IReadOnlyList<string> stops, double t) => GetColor(Parse(stops), t);
-
     public static int GetIndex(double value, double minimum, double maximum, int count)
     {
         var range = maximum - minimum;
@@ -36,7 +34,7 @@ internal static class HeatmapPalette
         return value > maximum ? count - 1 : Math.Min(count - 1, (int)Math.Floor(count * (value - minimum) / range));
     }
 
-    private static (int R, int G, int B)[] Parse(IReadOnlyList<string> stops)
+    public static (int R, int G, int B)[] Parse(IReadOnlyList<string> stops)
     {
         var parsed = new (int R, int G, int B)[Math.Max(stops.Count, 2)];
         for (var i = 0; i < parsed.Length; i++)
@@ -47,7 +45,7 @@ internal static class HeatmapPalette
         return parsed;
     }
 
-    private static string GetColor((int R, int G, int B)[] stops, double t) =>
+    public static string GetColor((int R, int G, int B)[] stops, double t) =>
         ChartColor.ToHex((Interpolate(stops, t, 0), Interpolate(stops, t, 1), Interpolate(stops, t, 2)));
 
     private static int Interpolate((int R, int G, int B)[] stops, double t, int channel)

@@ -18,11 +18,13 @@ public sealed partial class MusselHeatmapView<TItem>
 
     private readonly List<StepView> scaleSteps = [];
 
+    private readonly List<HeatmapEntry> entries = [];
+
+    private readonly List<ChartTipRow> tipRows = [];
+
     private IReadOnlyList<string>? paletteSource;
 
     private string[] palette = [];
-
-    private string viewBox = string.Empty;
 
     private string emptyText = string.Empty;
 
@@ -92,7 +94,6 @@ public sealed partial class MusselHeatmapView<TItem>
             Culture = culture
         }, ReadEntries());
 
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
         emptyText = layout.HasValues ? string.Empty : EmptyText ?? string.Empty;
         ArrangeCells();
         ArrangeLabels();
@@ -101,18 +102,19 @@ public sealed partial class MusselHeatmapView<TItem>
 
     private List<HeatmapEntry> ReadEntries()
     {
-        var entries = new List<HeatmapEntry>(Items?.Count ?? 0);
+        entries.Clear();
         if (Items is null)
         {
             return entries;
         }
 
+        // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < Items.Count; i++)
         {
             var item = Items[i];
             var label = (item as ChartEntry)?.Label;
-            var value = Value is not null ? Value(item) : (item as ChartEntry)?.Value ?? Double.NaN;
-            entries.Add(new HeatmapEntry(i, Row?.Invoke(item), Column is not null ? Column(item) : label, Date?.Invoke(item), value));
+            var value = Value?.Invoke(item) ?? (item as ChartEntry)?.Value ?? Double.NaN;
+            entries.Add(new HeatmapEntry(Row?.Invoke(item), Column is not null ? Column(item) : label, Date?.Invoke(item), value));
         }
 
         return entries;
@@ -138,7 +140,18 @@ public sealed partial class MusselHeatmapView<TItem>
             var value = layout.GetValue(cell);
             var finite = Double.IsFinite(value);
             var color = finite ? palette[HeatmapPalette.GetIndex(value, layout.Minimum, layout.Maximum, palette.Length)] : null;
-            var tip = !hover ? null : ChartTip.Create(layout.GetCellText(cell), finite ? [new ChartTipRow(color, null, layout.FormatValue(value))] : []);
+            string? tip = null;
+            if (hover)
+            {
+                tipRows.Clear();
+                if (finite)
+                {
+                    tipRows.Add(new ChartTipRow(color, null, layout.FormatValue(value)));
+                }
+
+                tip = ChartTip.Create(layout.GetCellText(cell), tipRows);
+            }
+
             cells.Add(new CellView(ChartFormat.Pixel(rect.X), ChartFormat.Pixel(rect.Y), ChartFormat.Pixel(rect.Width), ChartFormat.Pixel(rect.Height), finite ? null : EmptyCellClass, color, tip));
         }
     }
@@ -153,8 +166,10 @@ public sealed partial class MusselHeatmapView<TItem>
 
     private void AddLabels(IReadOnlyList<HeatmapLabel> source)
     {
-        foreach (var label in source)
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < source.Count; i++)
         {
+            var label = source[i];
             labels.Add(new LabelView(ChartFormat.Pixel(label.X), ChartFormat.Pixel(label.Y), label.Anchor, label.Text));
         }
     }
@@ -190,9 +205,9 @@ public sealed partial class MusselHeatmapView<TItem>
         }
     }
 
-    private sealed record CellView(string X, string Y, string Width, string Height, string? Class, string? Color, string? Tip);
+    private readonly record struct CellView(string X, string Y, string Width, string Height, string? Class, string? Color, string? Tip);
 
-    private sealed record LabelView(string X, string Y, string Anchor, string Text);
+    private readonly record struct LabelView(string X, string Y, string Anchor, string Text);
 
-    private sealed record StepView(string X, string Y, string Width, string Height, string Color);
+    private readonly record struct StepView(string X, string Y, string Width, string Height, string Color);
 }

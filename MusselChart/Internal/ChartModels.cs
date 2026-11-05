@@ -59,6 +59,8 @@ internal static class ChartTime
 
 internal static class ChartFormat
 {
+    private static readonly string?[] WholePixels = new string?[4096];
+
     public static string Value(double value, string? format, Func<double, string>? formatter, CultureInfo culture)
     {
         if (formatter is not null)
@@ -92,7 +94,16 @@ internal static class ChartFormat
     public static string MergeClass(string own, IReadOnlyDictionary<string, object>? attributes) =>
         (attributes is not null) && attributes.TryGetValue("class", out var value) && (value is string { Length: > 0 } text) ? $"{own} {text}" : own;
 
-    public static string Pixel(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+    public static string Pixel(double value)
+    {
+        var whole = (int)value;
+        if ((whole >= 0) && (whole < WholePixels.Length) && value.Equals(whole))
+        {
+            return WholePixels[whole] ??= whole.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return value.ToString("0.#", CultureInfo.InvariantCulture);
+    }
 
     public static string Coordinate(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 

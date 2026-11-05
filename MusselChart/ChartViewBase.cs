@@ -17,6 +17,10 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     private ElementReference attached;
 
+    private double viewBoxWidth;
+
+    private double viewBoxHeight;
+
     [Inject]
     private IJSRuntime Runtime { get; set; } = default!;
 
@@ -47,6 +51,21 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     private protected double Width { get; private set; } = DefaultWidth;
 
     private protected bool Disposed { get; private set; }
+
+    private protected string ViewBox
+    {
+        get
+        {
+            if ((field is null) || !viewBoxWidth.Equals(Width) || !viewBoxHeight.Equals(Height))
+            {
+                viewBoxWidth = Width;
+                viewBoxHeight = Height;
+                field = String.Create(CultureInfo.InvariantCulture, $"0 0 {Width:0.#} {Height:0.#}");
+            }
+
+            return field;
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {

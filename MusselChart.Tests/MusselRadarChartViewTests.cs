@@ -71,7 +71,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public void ValuesReachTheOuterRingAtTheMaximum()
     {
         var layout = new RadarLayout();
-        IReadOnlyList<RadarPoint>[] series = [[new RadarPoint("A", 100), new RadarPoint("B", 0), new RadarPoint("C", 50)]];
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 100), new RadarPoint("B", 0), new RadarPoint("C", 50)]];
 
         layout.Update(320, 320, new RadarLayoutOptions { Minimum = 0, Maximum = 100, Culture = CultureInfo.InvariantCulture }, series, [true], 5);
 
@@ -87,7 +87,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public void ItemsWithoutANameTakeAxesByPosition()
     {
         var layout = new RadarLayout();
-        IReadOnlyList<RadarPoint>[] series = [[new RadarPoint(null, 1), new RadarPoint(null, 2), new RadarPoint(null, 3)]];
+        List<List<RadarPoint>> series = [[new RadarPoint(null, 1), new RadarPoint(null, 2), new RadarPoint(null, 3)]];
 
         layout.Update(320, 320, new RadarLayoutOptions { Culture = CultureInfo.InvariantCulture }, series, [true], 5);
 
@@ -100,7 +100,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public void AnItemRepeatedInASeriesKeepsItsFirstValue()
     {
         var layout = new RadarLayout();
-        IReadOnlyList<RadarPoint>[] series = [[new RadarPoint("A", 1), new RadarPoint("A", 9), new RadarPoint("B", 3)]];
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 1), new RadarPoint("A", 9), new RadarPoint("B", 3)]];
 
         layout.Update(320, 320, new RadarLayoutOptions { Culture = CultureInfo.InvariantCulture }, series, [true], 5);
 
@@ -112,7 +112,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public void FewerThanThreeAxesUseCircles()
     {
         var layout = new RadarLayout();
-        IReadOnlyList<RadarPoint>[] series = [[new RadarPoint("A", 1), new RadarPoint("B", 3)]];
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 1), new RadarPoint("B", 3)]];
 
         layout.Update(320, 320, new RadarLayoutOptions { Culture = CultureInfo.InvariantCulture }, series, [true], 5);
 
@@ -124,7 +124,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public void PolygonGridHasARingForEachLevel()
     {
         var layout = new RadarLayout();
-        IReadOnlyList<RadarPoint>[] series = [[new RadarPoint("A", 100), new RadarPoint("B", 50), new RadarPoint("C", 20)]];
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 100), new RadarPoint("B", 50), new RadarPoint("C", 20)]];
 
         layout.Update(320, 320, new RadarLayoutOptions { Minimum = 0, Maximum = 100, LevelCount = 4, Culture = CultureInfo.InvariantCulture }, series, [true], 5);
 

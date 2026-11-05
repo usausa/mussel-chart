@@ -1,6 +1,7 @@
 namespace MusselChart.Internal;
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 internal sealed record PieLayoutOptions
 {
@@ -101,6 +102,16 @@ internal sealed class PieLayout
     private readonly List<PieSlice> legendSlices = [];
 
     private readonly List<PieOutsideLabel> outsideLabels = [];
+
+    private readonly List<PieCandidate> candidates = [];
+
+    private readonly List<PieCandidate> hiddenCandidates = [];
+
+    private readonly List<PieCandidate> allCandidates = [];
+
+    private readonly List<OutsideCandidate> outsideCandidates = [];
+
+    private int[] ranks = [];
 
     private PieLayoutOptions options = new();
 
@@ -238,19 +249,19 @@ internal sealed class PieLayout
 
     private static int DataOrder(PieCandidate x, PieCandidate y) => x.Index.CompareTo(y.Index);
 
-    private int CountKept(List<PieCandidate> sorted, double total)
+    private int CountKept(ReadOnlySpan<PieCandidate> sorted, double total)
     {
         var small = 0;
         if (options.OthersThreshold > 0)
         {
-            for (var k = sorted.Count - 1; (k >= 0) && (sorted[k].Value / total < options.OthersThreshold); k--)
+            for (var k = sorted.Length - 1; (k >= 0) && (sorted[k].Value / total < options.OthersThreshold); k--)
             {
                 small++;
             }
         }
 
-        var kept = small >= 2 ? sorted.Count - small : sorted.Count;
-        var count = kept + (kept < sorted.Count ? 1 : 0);
+        var kept = small >= 2 ? sorted.Length - small : sorted.Length;
+        var count = kept + (kept < sorted.Length ? 1 : 0);
         return count > options.MaxSlices ? options.MaxSlices - 1 : kept;
     }
 
@@ -261,36 +272,51 @@ internal sealed class PieLayout
     {
         slices.Clear();
         hiddenSlices.Clear();
-        var shown = new List<PieCandidate>();
-        var hidden = new List<PieCandidate>();
+        candidates.Clear();
+        hiddenCandidates.Clear();
+        var total = 0d;
         for (var i = 0; i < items.Count; i++)
         {
             var value = items[i].Value;
             if (Double.IsFinite(value) && (value > 0))
             {
-                (IsHidden(items[i].Label) ? hidden : shown).Add(new PieCandidate(value, i));
+                if (IsHidden(items[i].Label))
+                {
+                    hiddenCandidates.Add(new PieCandidate(value, i));
+                }
+                else
+                {
+                    candidates.Add(new PieCandidate(value, i));
+                    total += value;
+                }
             }
         }
 
-        if (shown.Count == 0)
+        if (candidates.Count == 0)
         {
-            shown.AddRange(hidden);
-            hidden.Clear();
+            foreach (var candidate in hiddenCandidates)
+            {
+                candidates.Add(candidate);
+                total += candidate.Value;
+            }
+
+            hiddenCandidates.Clear();
         }
 
-        var total = shown.Sum(static x => x.Value);
         Total = Double.IsFinite(total) ? total : 0;
-        if ((shown.Count == 0) || (Total <= 0))
+        if ((candidates.Count == 0) || (Total <= 0))
         {
             Total = 0;
             return;
         }
 
-        var ranks = RankByData(items.Count, shown, hidden);
-        shown.Sort(LargerFirst);
-        var kept = CountKept(shown, total);
-        var drawn = shown.GetRange(0, kept);
-        var merged = shown.GetRange(kept, shown.Count - kept);
+        RankByData(items.Count);
+        var sorted = CollectionsMarshal.AsSpan(candidates);
+        sorted.Sort(LargerFirst);
+        var kept = CountKept(sorted, total);
+        var drawn = sorted[..kept];
+        var merged = sorted[kept..];
+        var hidden = CollectionsMarshal.AsSpan(hiddenCandidates);
         drawn.Sort(DataOrder);
         hidden.Sort(DataOrder);
         Sort(drawn);
@@ -303,51 +329,57 @@ internal sealed class PieLayout
         }
 
         var cumulative = 0d;
-        for (var k = 0; k < drawn.Count; k++)
+        for (var k = 0; k < drawn.Length; k++)
         {
             var item = drawn[k];
             var start = cumulative / total;
             cumulative += item.Value;
-            var end = (k == drawn.Count - 1) && (merged.Count == 0) ? 1 : Math.Min(1, cumulative / total);
+            var end = (k == drawn.Length - 1) && merged.IsEmpty ? 1 : Math.Min(1, cumulative / total);
             slices.Add(CreateSlice(item.Index, item.Value, start, end, ranks[item.Index], items[item.Index].Color, items[item.Index].Label, total));
         }
 
-        if (merged.Count > 0)
+        if (!merged.IsEmpty)
         {
-            slices.Add(CreateSlice(-1, merged.Sum(static x => x.Value), Math.Min(1, cumulative / total), 1, -1, null, options.OthersLabel, total));
+            var others = 0d;
+            foreach (var item in merged)
+            {
+                others += item.Value;
+            }
+
+            slices.Add(CreateSlice(-1, others, Math.Min(1, cumulative / total), 1, -1, null, options.OthersLabel, total));
         }
     }
 
     // Colors follow the data order of the slices drawn when nothing is hidden, followed by what hiding brings out of the merged slice
-    private int[] RankByData(int count, List<PieCandidate> shown, List<PieCandidate> hidden)
+    private void RankByData(int count)
     {
-        var ranks = new int[count];
-        Array.Fill(ranks, -1);
-        var all = new List<PieCandidate>(shown.Count + hidden.Count);
-        all.AddRange(shown);
-        all.AddRange(hidden);
-        var total = all.Sum(static x => x.Value);
+        if (ranks.Length < count)
+        {
+            ranks = new int[count];
+        }
+
+        Array.Fill(ranks, -1, 0, count);
+        allCandidates.Clear();
+        allCandidates.AddRange(candidates);
+        allCandidates.AddRange(hiddenCandidates);
+        var total = 0d;
+        foreach (var item in allCandidates)
+        {
+            total += item.Value;
+        }
+
+        var all = CollectionsMarshal.AsSpan(allCandidates);
         all.Sort(LargerFirst);
         var kept = CountKept(all, total);
-        var first = all.GetRange(0, kept);
-        var rest = all.GetRange(kept, all.Count - kept);
-        first.Sort(DataOrder);
-        rest.Sort(DataOrder);
-        var rank = 0;
-        foreach (var item in first)
+        all[..kept].Sort(DataOrder);
+        all[kept..].Sort(DataOrder);
+        for (var k = 0; k < all.Length; k++)
         {
-            ranks[item.Index] = rank++;
+            ranks[all[k].Index] = k;
         }
-
-        foreach (var item in rest)
-        {
-            ranks[item.Index] = rank++;
-        }
-
-        return ranks;
     }
 
-    private void Sort(List<PieCandidate> items)
+    private void Sort(Span<PieCandidate> items)
     {
         if (options.SortMode == ChartSortMode.Descending)
         {
@@ -506,7 +538,7 @@ internal sealed class PieLayout
         var reach = OuterRadius + OutsideLineLength;
         var end = right ? CenterX + reach + OutsideLineRun : CenterX - reach - OutsideLineRun;
         var half = LabelHeight / 2;
-        var candidates = new List<OutsideCandidate>();
+        outsideCandidates.Clear();
         foreach (var slice in slices)
         {
             if ((slice.LabelText is null) || (IsRightSide(slice) != right))
@@ -522,20 +554,20 @@ internal sealed class PieLayout
 
             var (_, y) = ChartGeometry.GetDirection(GetAngle((slice.Start + slice.End) / 2));
             var desired = CenterY + (reach * y) - half;
-            candidates.Add(new OutsideCandidate(slice, desired, desired));
+            outsideCandidates.Add(new OutsideCandidate(slice, desired, desired));
         }
 
-        candidates.Sort(static (x, y) =>
+        outsideCandidates.Sort(static (x, y) =>
         {
             var value = x.Desired.CompareTo(y.Desired);
             return value != 0 ? value : x.Slice.Start.CompareTo(y.Slice.Start);
         });
-        while (!SpreadOutsideLabels(candidates))
+        while (!SpreadOutsideLabels())
         {
-            RemoveSmallest(candidates);
+            RemoveSmallestOutsideLabel();
         }
 
-        foreach (var candidate in candidates)
+        foreach (var candidate in outsideCandidates)
         {
             var slice = candidate.Slice;
             var middle = candidate.Top + half;
@@ -547,44 +579,45 @@ internal sealed class PieLayout
         }
     }
 
-    private bool SpreadOutsideLabels(List<OutsideCandidate> candidates)
+    private bool SpreadOutsideLabels()
     {
-        if (candidates.Count == 0)
+        if (outsideCandidates.Count == 0)
         {
             return true;
         }
 
+        var outside = CollectionsMarshal.AsSpan(outsideCandidates);
         var next = area.Y;
-        for (var k = 0; k < candidates.Count; k++)
+        for (var k = 0; k < outside.Length; k++)
         {
-            var top = Math.Max(candidates[k].Desired, next);
-            candidates[k] = candidates[k] with { Top = top };
+            var top = Math.Max(outside[k].Desired, next);
+            outside[k] = outside[k] with { Top = top };
             next = top + LabelHeight + OutsideLabelGap;
         }
 
         var limit = area.Y + area.Height;
-        for (var k = candidates.Count - 1; k >= 0; k--)
+        for (var k = outside.Length - 1; k >= 0; k--)
         {
-            var top = Math.Min(candidates[k].Top, limit - LabelHeight);
-            candidates[k] = candidates[k] with { Top = top };
+            var top = Math.Min(outside[k].Top, limit - LabelHeight);
+            outside[k] = outside[k] with { Top = top };
             limit = top - OutsideLabelGap;
         }
 
-        return candidates[0].Top >= area.Y - Tolerance;
+        return outside[0].Top >= area.Y - Tolerance;
     }
 
-    private static void RemoveSmallest(List<OutsideCandidate> candidates)
+    private void RemoveSmallestOutsideLabel()
     {
         var smallest = 0;
-        for (var k = 1; k < candidates.Count; k++)
+        for (var k = 1; k < outsideCandidates.Count; k++)
         {
-            if (candidates[k].Slice.Value <= candidates[smallest].Slice.Value)
+            if (outsideCandidates[k].Slice.Value <= outsideCandidates[smallest].Slice.Value)
             {
                 smallest = k;
             }
         }
 
-        candidates.RemoveAt(smallest);
+        outsideCandidates.RemoveAt(smallest);
     }
 
     private void PrepareCenter()

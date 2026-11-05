@@ -111,6 +111,4 @@ public class NumericAxis : ChartAxis
         (IsVisible, LabelsVisible, LabelFormat, MaxLabelCount, GridLinesVisible, Minimum, Maximum, SoftMinimum, SoftMaximum, IncludeZero, NiceRange, LabelFormatter);
 }
 
-public sealed class NumericXAxis : NumericAxis
-{
-}
+public sealed class NumericXAxis : NumericAxis;

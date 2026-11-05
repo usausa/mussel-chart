@@ -8,7 +8,7 @@
     @ChildContent
 </CascadingValue>
 <div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-time-format="@timeFormat" data-x-kind="@xKindText" data-x-format="@xFormatText" data-categories="@categoriesText" data-orientation="@(Orientation == ChartOrientation.Horizontal ? "horizontal" : "vertical")">
-    <svg class="@(Measured ? "mussel-chart-svg" : "mussel-chart-svg mussel-unmeasured")" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox" data-base="@baseText">
+    <svg class="@(Measured ? "mussel-chart-svg" : "mussel-chart-svg mussel-unmeasured")" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox" data-base="@baseText">
         <defs>
             <clipPath id="@clipId">
                 <rect x="@clipX" y="@clipY" width="@clipWidth" height="@clipHeight" />
@@ -37,19 +37,19 @@
                         continue;
                     }
 
-                    <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.Color" data-kind="@view.Kind" data-format="@view.Format">
+                    <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.State.Color" data-kind="@view.Kind" data-format="@view.Format">
                         @if (view.Kind == ChartSeriesKind.Area)
                         {
                             <g class="mussel-fill">
                                 @foreach (var chunk in view.State.Chunks)
                                 {
-                                    <polygon @key="chunk.Key" points="@chunk.AreaPoints" fill="@view.Color" fill-opacity="@view.Opacity" />
+                                    <polygon @key="chunk.Key" points="@chunk.AreaPoints" fill="@view.State.Color" fill-opacity="@view.State.OpacityText" />
                                 }
                             </g>
                         }
                         @if (view.Kind is ChartSeriesKind.Bar or ChartSeriesKind.RangeBar)
                         {
-                            <g class="mussel-bars">
+                            <g class="mussel-bars" fill="@view.State.Color" transform="@view.State.BarTransform" data-offset="@view.State.BarOffsetText">
                                 @foreach (var bar in view.State.Bars)
                                 {
                                     var extent = view.GetBarExtent(bar);
@@ -58,7 +58,7 @@
                                         continue;
                                     }
 
-                                    <rect @key="bar.Key" x="@FormatX(bar.X + view.Offset - view.HalfWidth)" y="@extent.Y" width="@view.Width" height="@extent.Height" fill="@view.Color" data-x="@bar.XText" data-v="@ChartFormat.Data(bar.Value)" />
+                                    <rect @key="bar.Key" x="@bar.XText" y="@extent.Y" width="@view.State.BarWidthText" height="@extent.Height" data-v="@bar.ValueText" />
                                 }
                             </g>
                         }
@@ -67,7 +67,7 @@
                             <g class="mussel-stroke">
                                 @foreach (var chunk in view.State.Chunks)
                                 {
-                                    <polyline @key="chunk.Key" points="@chunk.LinePoints" stroke="@view.Color" stroke-width="@view.Thickness" data-values="@chunk.Values" />
+                                    <polyline @key="chunk.Key" points="@chunk.LinePoints" stroke="@view.State.Color" stroke-width="@view.State.ThicknessText" data-values="@chunk.Values" />
                                 }
                             </g>
                         }
@@ -81,8 +81,8 @@
                     continue;
                 }
 
-                <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.Color" data-kind="@view.Kind" data-format="@view.Format">
-                    <g class="mussel-markers" fill="@view.Color" fill-opacity="@view.Opacity" stroke="@view.Color">
+                <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.State.Color" data-kind="@view.Kind" data-format="@view.Format">
+                    <g class="mussel-markers" fill="@view.State.Color" fill-opacity="@view.State.OpacityText" stroke="@view.State.Color">
                         @foreach (var marker in view.Markers)
                         {
                             if (marker.Path is null)

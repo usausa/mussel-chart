@@ -1,6 +1,7 @@
 namespace MusselChart;
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 using Microsoft.AspNetCore.Components;
 
@@ -46,7 +47,9 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private readonly List<int> selected = [];
 
-    private string viewBox = string.Empty;
+    private readonly List<StateTimelineEntry> entries = [];
+
+    private readonly List<double> times = [];
 
     private string emptyText = string.Empty;
 
@@ -137,7 +140,6 @@ public sealed partial class MusselStateTimelineView<TItem>
             Culture = culture
         }, ReadEntries(zone));
 
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
         fillOpacity = Math.Clamp(FillOpacity, 0, 1).ToString("0.###", CultureInfo.InvariantCulture);
         lineWidth = LineWidth > 0 ? ChartFormat.Pixel(LineWidth) : null;
 
@@ -181,7 +183,7 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private List<StateTimelineEntry> ReadEntries(TimeZoneInfo zone)
     {
-        var entries = new List<StateTimelineEntry>(Items?.Count ?? 0);
+        entries.Clear();
         if ((Items is null) || (Start is null) || (State is null))
         {
             return entries;
@@ -238,7 +240,13 @@ public sealed partial class MusselStateTimelineView<TItem>
             return 0;
         }
 
-        var widest = layout.RowNames.Select(static x => ChartText.Measure(x, LabelFontSize)).DefaultIfEmpty(0).Max();
+        var widest = 0d;
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < layout.RowNames.Count; i++)
+        {
+            widest = Math.Max(widest, ChartText.Measure(layout.RowNames[i], LabelFontSize));
+        }
+
         return Math.Min(widest, Width * LabelWidthRatio);
     }
 
@@ -296,9 +304,11 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private TimeLabelPrecision GetTimePrecision()
     {
-        var times = new List<double>(layout.Segments.Count * 2);
-        foreach (var segment in layout.Segments)
+        times.Clear();
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < layout.Segments.Count; i++)
         {
+            var segment = layout.Segments[i];
             times.Add(segment.Start);
             if (Double.IsFinite(segment.End))
             {
@@ -306,7 +316,7 @@ public sealed partial class MusselStateTimelineView<TItem>
             }
         }
 
-        return TimeInterval.GetValuePrecision(times.ToArray(), TimeLabelPrecision.Month);
+        return TimeInterval.GetValuePrecision(CollectionsMarshal.AsSpan(times), TimeLabelPrecision.Month);
     }
 
     private void AddBandText(in StateTimelineState state, double from, double width, double middle)
@@ -362,9 +372,9 @@ public sealed partial class MusselStateTimelineView<TItem>
         }
     }
 
-    private sealed record BandView(string X, string Y, string Width, string Height, string Color, string? Stroke, string? Tip);
+    private readonly record struct BandView(string X, string Y, string Width, string Height, string Color, string? Stroke, string? Tip);
 
-    private sealed record BandText(string X, string Y, string Anchor, string Text, string Color);
+    private readonly record struct BandText(string X, string Y, string Anchor, string Text, string Color);
 
-    private sealed record RowLabel(string X, string Y, string Text);
+    private readonly record struct RowLabel(string X, string Y, string Text);
 }

@@ -30,7 +30,15 @@ public sealed partial class MusselRadarChartView
 
     private readonly List<AxisAreaView> axisAreas = [];
 
-    private string viewBox = string.Empty;
+    private readonly List<List<RadarPoint>> points = [];
+
+    private readonly List<bool> visible = [];
+
+    private readonly List<ChartTipRow> tipRows = [];
+
+    private readonly List<ChartTipMark> tipMarks = [];
+
+    private string[] colors = [];
 
     private string gridPath = string.Empty;
 
@@ -102,26 +110,33 @@ public sealed partial class MusselRadarChartView
             Culture = culture
         };
 
-        var points = new List<IReadOnlyList<RadarPoint>>(seriesList.Count);
-        var visible = new List<bool>(seriesList.Count);
-        foreach (var series in seriesList)
+        visible.Clear();
+        while (points.Count < seriesList.Count)
         {
-            var list = new List<RadarPoint>();
-            series.ReadPoints(list);
-            points.Add(list);
-            visible.Add(IsSeriesVisible(series));
+            points.Add([]);
+        }
+
+        points.RemoveRange(seriesList.Count, points.Count - seriesList.Count);
+        for (var s = 0; s < seriesList.Count; s++)
+        {
+            points[s].Clear();
+            seriesList[s].ReadPoints(points[s]);
+            visible.Add(IsSeriesVisible(seriesList[s]));
         }
 
         layout.Update(Width, Height, options, points, visible, RingMargin);
 
-        viewBox = FormattableString.Invariant($"0 0 {ChartFormat.Pixel(Width)} {ChartFormat.Pixel(Height)}");
         gridPath = layout.AxisCount > 0 ? layout.CreateGridPath() : string.Empty;
         centerX = ChartGeometry.Text(layout.CenterX);
-        var hasData = points.Exists(static x => x.Any(static p => Double.IsFinite(p.Value)));
+        var hasData = points.Exists(static x => x.Exists(static p => Double.IsFinite(p.Value)));
         emptyText = hasData ? string.Empty : EmptyText ?? string.Empty;
 
         var palette = Palette ?? ChartPalettes.DefaultLight;
-        var colors = new string[seriesList.Count];
+        if (colors.Length != seriesList.Count)
+        {
+            colors = new string[seriesList.Count];
+        }
+
         for (var i = 0; i < colors.Length; i++)
         {
             colors[i] = seriesList[i].Color ?? (i < palette.Count ? palette[i] : ChartColor.Other);
@@ -138,8 +153,8 @@ public sealed partial class MusselRadarChartView
         }
 
         ArrangeLabels();
-        ArrangeAreas(colors, visible, culture);
-        ArrangeLegend(colors);
+        ArrangeAreas(culture);
+        ArrangeLegend();
     }
 
     private void ArrangeLabels()
@@ -173,7 +188,7 @@ public sealed partial class MusselRadarChartView
         }
     }
 
-    private void ArrangeAreas(string[] colors, List<bool> visible, CultureInfo culture)
+    private void ArrangeAreas(CultureInfo culture)
     {
         axisAreas.Clear();
         if (TrackballMode != ChartTrackballMode.Hover)
@@ -183,8 +198,8 @@ public sealed partial class MusselRadarChartView
 
         for (var k = 0; k < layout.AxisCount; k++)
         {
-            var rows = new List<ChartTipRow>();
-            var marks = new List<ChartTipMark>();
+            tipRows.Clear();
+            tipMarks.Clear();
             for (var s = 0; s < seriesList.Count; s++)
             {
                 var value = layout.GetValue(s, k);
@@ -195,22 +210,27 @@ public sealed partial class MusselRadarChartView
 
                 var series = seriesList[s];
                 var text = ChartFormat.Value(value, series.ValueFormat ?? ValueFormat, series.ValueFormatter ?? ValueFormatter, culture);
-                rows.Add(new ChartTipRow(colors[s], series.Title, text));
+                tipRows.Add(new ChartTipRow(colors[s], series.Title, text));
                 var (x, y) = layout.GetPoint(k, layout.GetRatio(value));
-                marks.Add(new ChartTipMark(x, y, colors[s]));
+                tipMarks.Add(new ChartTipMark(x, y, colors[s]));
             }
 
             var (endX, endY) = layout.GetPoint(k, 1);
-            var tip = ChartTip.Create(layout.Axes[k].Header, rows, marks, new ChartTipLine(layout.CenterX, layout.CenterY, endX, endY));
+            var tip = ChartTip.Create(layout.Axes[k].Header, tipRows, tipMarks, new ChartTipLine(layout.CenterX, layout.CenterY, endX, endY));
             axisAreas.Add(new AxisAreaView(layout.CreateAxisArea(k), tip));
         }
     }
 
-    private void ArrangeLegend(string[] colors)
+    private void ArrangeLegend()
     {
         legendItems.Clear();
-        var listed = seriesList.Where(static x => x.LegendVisible && !String.IsNullOrEmpty(x.Title)).ToList();
-        if (!(LegendVisible ?? (listed.Count >= 2)))
+        var listed = 0;
+        foreach (var series in seriesList)
+        {
+            listed += series.LegendVisible && !String.IsNullOrEmpty(series.Title) ? 1 : 0;
+        }
+
+        if (!(LegendVisible ?? (listed >= 2)))
         {
             return;
         }
@@ -239,11 +259,11 @@ public sealed partial class MusselRadarChartView
         }
     }
 
-    private sealed record PolygonView(string Points, string Color, string Opacity, string Thickness);
+    private readonly record struct PolygonView(string Points, string Color, string Opacity, string Thickness);
 
-    private sealed record AxisLabelView(string X, string Y, string Anchor, string Text);
+    private readonly record struct AxisLabelView(string X, string Y, string Anchor, string Text);
 
-    private sealed record LevelLabelView(string Y, string Text, string BoxX, string BoxY, string BoxWidth, string BoxHeight);
+    private readonly record struct LevelLabelView(string Y, string Text, string BoxX, string BoxY, string BoxWidth, string BoxHeight);
 
-    private sealed record AxisAreaView(string Path, string Tip);
+    private readonly record struct AxisAreaView(string Path, string Tip);
 }

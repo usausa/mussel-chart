@@ -8,7 +8,7 @@
     @ChildContent
 </CascadingValue>
 <ChartFrame Owner="this" ViewClass="mussel-radar" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition" LegendToggleEnabled="LegendToggleEnabled" OnLegendClick="ToggleSeries">
-    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox">
         <defs>
             <mask id="@maskId" maskUnits="userSpaceOnUse" x="0" y="0" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)">
                 <rect width="100%" height="100%" fill="#FFFFFF" />

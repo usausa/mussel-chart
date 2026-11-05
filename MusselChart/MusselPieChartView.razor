@@ -5,7 +5,7 @@
 }
 
 <ChartFrame Owner="this" ViewClass="mussel-pie" Attributes="AdditionalAttributes" LegendItems="legendItems" LegendPosition="LegendPosition" LegendToggleEnabled="LegendToggleEnabled" OnLegendClick="ToggleSlice">
-    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@viewBox">
+    <svg class="mussel-view-svg" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox">
         <g class="@sliceClass">
             @foreach (var slice in sliceViews)
             {

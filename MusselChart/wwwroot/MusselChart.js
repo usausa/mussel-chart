@@ -133,11 +133,11 @@ function readSeries(chart) {
         }
 
         for (const rect of group.querySelectorAll('.mussel-bars rect')) {
+            const x = Number(rect.getAttribute('x'));
             const low = Number(rect.getAttribute('y'));
             const high = low + Number(rect.getAttribute('height'));
             const value = Number(rect.dataset.v);
-            const center = Number(rect.getAttribute('x')) + (Number(rect.getAttribute('width')) / 2);
-            values.set(Number(rect.dataset.x), { y: value < 0 ? low : high, value, low, high, center });
+            values.set(x, { y: value < 0 ? low : high, value, low, high, center: x + Number(rect.parentNode.dataset.offset) });
         }
 
         for (const marker of group.querySelectorAll('.mussel-markers > *')) {

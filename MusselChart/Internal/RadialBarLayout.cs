@@ -99,6 +99,8 @@ internal sealed class RadialBarLayout
 
     private readonly List<RadialBarRow> rows = [];
 
+    private double valueTotal;
+
     public IReadOnlyList<RadialBarRow> Rows => rows;
 
     public double CenterX { get; private set; }
@@ -127,8 +129,8 @@ internal sealed class RadialBarLayout
         var sweep = options.SweepAngle > 0 ? Math.Min(options.SweepAngle, 360) : 360;
         var inner = Math.Clamp(options.InnerRadius, 0, 0.95);
         BuildRows(options, items);
-        PlaceRings(new Area(Padding, Padding, Math.Max(0, width - (Padding * 2)), Math.Max(0, height - (Padding * 2))), options with { SweepAngle = sweep, InnerRadius = inner });
-        PrepareCenter(options, items);
+        PlaceRings(new Area(Padding, Padding, Math.Max(0, width - (Padding * 2)), Math.Max(0, height - (Padding * 2))), options, sweep, inner);
+        PrepareCenter(options);
     }
 
     public static int GetSegmentCount(double radius, double thickness, double sweepAngle, int segmentCount, double segmentGap)
@@ -166,10 +168,12 @@ internal sealed class RadialBarLayout
     private void BuildRows(RadialBarLayoutOptions options, IReadOnlyList<ChartEntry> items)
     {
         rows.Clear();
+        valueTotal = 0;
         var wrap = (options.OverflowMode == ChartOverflowMode.Wrap) && (options.DisplayMode != ChartRadialBarMode.Segmented);
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
+            valueTotal += Double.IsFinite(item.Value) ? item.Value : 0;
             var maximum = item.Maximum ?? options.Maximum;
             var range = maximum - options.Minimum;
             var valid = Double.IsFinite(item.Value) && (range > 0);
@@ -181,7 +185,7 @@ internal sealed class RadialBarLayout
         }
     }
 
-    private void PlaceRings(Area area, RadialBarLayoutOptions options)
+    private void PlaceRings(Area area, RadialBarLayoutOptions options, double sweep, double inner)
     {
         if (options.BarGlow)
         {
@@ -190,13 +194,13 @@ internal sealed class RadialBarLayout
         }
 
         var count = rows.Count;
-        var (left, top, right, bottom) = ChartGeometry.GetUnitBounds(options.StartAngle, options.SweepAngle, options.InnerRadius);
+        var (left, top, right, bottom) = ChartGeometry.GetUnitBounds(options.StartAngle, sweep, inner);
         var radius = Math.Max(0, Math.Min(area.Width / Math.Max(right - left, MinExtent), area.Height / Math.Max(bottom - top, MinExtent)));
-        var thickness = ResolveThickness(radius, options.InnerRadius, options.RingThickness, Spacing, count);
-        if ((options.CapStyle == ChartCapStyle.Round) && (options.SweepAngle < 360))
+        var thickness = ResolveThickness(radius, inner, options.RingThickness, Spacing, count);
+        if ((options.CapStyle == ChartCapStyle.Round) && (sweep < 360))
         {
             radius = Math.Max(0, radius - (thickness / 2));
-            thickness = ResolveThickness(radius, options.InnerRadius, options.RingThickness, Spacing, count);
+            thickness = ResolveThickness(radius, inner, options.RingThickness, Spacing, count);
         }
 
         CenterX = area.X + (area.Width / 2) - (radius * (left + right) / 2);
@@ -216,13 +220,13 @@ internal sealed class RadialBarLayout
         if (ring > 0)
         {
             OuterRadius = ring;
-            Thickness = ResolveThickness(ring, options.InnerRadius, options.RingThickness, Spacing, count);
+            Thickness = ResolveThickness(ring, inner, options.RingThickness, Spacing, count);
             MarkerRadius = radius - (width / 2);
             MarkerWidth = width;
         }
     }
 
-    private void PrepareCenter(RadialBarLayoutOptions options, IReadOnlyList<ChartEntry> items)
+    private void PrepareCenter(RadialBarLayoutOptions options)
     {
         Center = null;
         var edge = rows.Count > 0 ? GetRingRadius(rows.Count - 1) - (Thickness / 2) : OuterRadius;
@@ -246,8 +250,7 @@ internal sealed class RadialBarLayout
         }
         else if (options.CenterValueMode == ChartCenterValueMode.Total)
         {
-            var total = items.Where(static x => Double.IsFinite(x.Value)).Sum(static x => x.Value);
-            Center = FitCenter(ChartFormat.Value(total, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, available);
+            Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, available);
         }
     }
 

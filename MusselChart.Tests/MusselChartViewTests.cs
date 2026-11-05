@@ -243,6 +243,93 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal("3", bars[0].GetAttribute("height"));
     }
 
+    [Fact]
+    public void BarsInTheBufferKeepTheirAttributesWhenAPointIsAdded()
+    {
+        var buffer = CreateBuffer(100, 6);
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<DateTimeAxis>(axis => axis.Add(static p => p.WindowSize, TimeSpan.FromSeconds(60)))
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value + 1)));
+        var first = cut.FindAll(".mussel-bars rect")[0];
+        var (x, y, height, value) = (first.GetAttribute("x"), first.GetAttribute("y"), first.GetAttribute("height"), first.GetAttribute("data-v"));
+
+        buffer.Push(new Sample(Start.AddSeconds(6), 5));
+        cut.Render();
+
+        var bars = cut.FindAll(".mussel-bars rect");
+        Assert.Equal(7, bars.Count);
+        Assert.Equal(x, bars[0].GetAttribute("x"));
+        Assert.Equal(y, bars[0].GetAttribute("y"));
+        Assert.Equal(height, bars[0].GetAttribute("height"));
+        Assert.Equal(value, bars[0].GetAttribute("data-v"));
+        Assert.Equal("6", bars[^1].GetAttribute("x"));
+    }
+
+    [Fact]
+    public void StackedBarsLeaveTheBufferTogether()
+    {
+        var first = CreateBuffer(3, 3);
+        var second = CreateBuffer(3, 3);
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, first)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value + 1)
+                .Add(static p => p.StackGroup, "total"))
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, second)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value + 1)
+                .Add(static p => p.StackGroup, "total")));
+
+        for (var i = 3; i < 6; i++)
+        {
+            first.Push(new Sample(Start.AddSeconds(i), i));
+            second.Push(new Sample(Start.AddSeconds(i), i));
+            cut.Render();
+        }
+
+        var bars = cut.FindAll(".mussel-bars rect");
+        Assert.Equal(6, bars.Count);
+        Assert.Equal(["3", "4", "5"], bars.Take(3).Select(static x => x.GetAttribute("x")));
+        Assert.Equal(["4", "5", "6"], bars.Take(3).Select(static x => x.GetAttribute("data-v")));
+        Assert.InRange(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture), 4, 5);
+    }
+
+    [Fact]
+    public void ChangedThicknessReachesTheLines()
+    {
+        var cut = RenderLine(CreateBuffer(10, 3));
+        Assert.Equal("2", cut.Find("polyline").GetAttribute("stroke-width"));
+
+        cut.FindComponent<LineSeries<Sample>>().Render(static parameters => parameters.Add(static p => p.Thickness, 5d));
+
+        Assert.Equal("5", cut.Find("polyline").GetAttribute("stroke-width"));
+    }
+
+    [Fact]
+    public void ChangedBarWidthMovesAllBars()
+    {
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, CreateBuffer(10, 6))
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value + 1)));
+        var transform = cut.Find(".mussel-bars").GetAttribute("transform");
+        var width = Double.Parse(cut.Find(".mussel-bars rect").GetAttribute("width")!, CultureInfo.InvariantCulture);
+
+        cut.FindComponent<BarSeries<Sample>>().Render(static parameters => parameters.Add(static p => p.MaxBarWidth, 8d));
+
+        Assert.NotEqual(transform, cut.Find(".mussel-bars").GetAttribute("transform"));
+        Assert.True(Double.Parse(cut.Find(".mussel-bars rect").GetAttribute("width")!, CultureInfo.InvariantCulture) < width);
+    }
+
     private IRenderedComponent<MusselChartView> RenderLine(ChartRingBuffer<Sample> buffer) =>
         Render<MusselChartView>(parameters => parameters
             .Add(static p => p.TimeZone, TimeZoneInfo.Utc)

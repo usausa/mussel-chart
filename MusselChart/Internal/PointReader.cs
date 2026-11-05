@@ -2,9 +2,7 @@ namespace MusselChart.Internal;
 
 internal sealed class PointReader<TItem>
 {
-    private readonly List<TItem> buffer = [];
-
-    public IReadOnlyList<TItem> Items => buffer;
+    public List<TItem> Items { get; } = [];
 
     public static ChartXKind GetKind(Func<TItem, double>? xValue, Func<TItem, string?>? category)
     {
@@ -17,19 +15,20 @@ internal sealed class PointReader<TItem>
     }
 
     public static ChartPointData CreatePoint(TItem item, Func<TItem, DateTime>? x, Func<TItem, double>? xValue, Func<TItem, string?>? category, TimeZoneInfo zone, double value, double low, double size) =>
-        new(x is null ? 0 : ChartTime.ToUtcTicks(x(item), zone), xValue is null ? Double.NaN : xValue(item), category?.Invoke(item), value, low, size);
+        new(x is null ? 0 : ChartTime.ToUtcTicks(x(item), zone), xValue?.Invoke(item) ?? Double.NaN, category?.Invoke(item), value, low, size);
 
+    // ReSharper disable once ParameterTypeCanBeEnumerable.Global
     public ChartBufferRead Fill(IReadOnlyList<TItem> items, long afterSequence, int afterGeneration)
     {
-        buffer.Clear();
+        Items.Clear();
         if (items is ChartRingBuffer<TItem> ring)
         {
-            return ring.Read(afterSequence, afterGeneration, buffer);
+            return ring.Read(afterSequence, afterGeneration, Items);
         }
 
-        buffer.AddRange(items);
-        return new ChartBufferRead(false, buffer.Count, 0, buffer.Count);
+        Items.AddRange(items);
+        return new ChartBufferRead(false, Items.Count, 0, Items.Count);
     }
 
-    public void Clear() => buffer.Clear();
+    public void Clear() => Items.Clear();
 }
