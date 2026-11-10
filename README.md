@@ -105,4 +105,5 @@ See the [API reference](Document/API.md).
 ## 🌊 Mussel family
 
 - [MusselChart](https://github.com/usausa/mussel-chart) - Charts
-- [MusselSheet ](https://github.com/usausa/mussel-sheet) - Input sheet
+- [MusselSheet](https://github.com/usausa/mussel-sheet) - Input sheet
+- [MusselCalendar](https://github.com/usausa/mussel-calendar) - Calendar
