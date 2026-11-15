@@ -184,10 +184,13 @@ internal static class ChartColor
     private static int ToChannel(double p, double q, double t)
     {
         t = t < 0 ? t + 1 : t > 1 ? t - 1 : t;
-        var value = t < 1d / 6 ? p + ((q - p) * 6 * t)
-            : t < 1d / 2 ? q
-            : t < 2d / 3 ? p + ((q - p) * ((2d / 3) - t) * 6)
-            : p;
+        var value = t < 1d / 6
+            ? p + ((q - p) * 6 * t)
+            : t < 1d / 2
+                ? q
+                : t < 2d / 3
+                    ? p + ((q - p) * ((2d / 3) - t) * 6)
+                    : p;
         return (int)Math.Round(Math.Clamp(value, 0, 1) * 255);
     }
 }

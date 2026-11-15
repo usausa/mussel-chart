@@ -56,7 +56,11 @@ internal static class ChartText
                 break;
             }
 
+#if NET11_0_OR_GREATER
+            builder.Append(rune);
+#else
             builder.Append(rune.ToString());
+#endif
         }
 
         return builder.Length > 0 ? builder.ToString().TrimEnd() + Ellipsis : string.Empty;

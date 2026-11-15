@@ -141,7 +141,7 @@ public sealed class MusselChartKindsTests : BunitContext
         var top = Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture) + Double.Parse(bars[3].GetAttribute("height")!, CultureInfo.InvariantCulture);
         Assert.Equal(100, top, 3);
         var labels = cut.FindAll(".mussel-axis text").Select(static x => x.TextContent).ToList();
-        Assert.Contains(labels, static x => x.StartsWith("100", StringComparison.Ordinal) && x.EndsWith('%'));
+        Assert.Contains(labels, static x => x.StartsWith("100", StringComparison.Ordinal) && x.EndsWith('%', StringComparison.Ordinal));
     }
 
     [Fact]
