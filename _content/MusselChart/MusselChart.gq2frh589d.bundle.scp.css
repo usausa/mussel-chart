@@ -1,0 +1,668 @@
+/* _content/MusselChart/Internal/ChartFrame.razor.rz.scp.css */
+.mussel-view[b-10s5948pbk] {
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
+}
+
+.mussel-view-plot[b-10s5948pbk] {
+    position: relative;
+    min-width: 0;
+    touch-action: pan-y;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-view-svg {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+}
+
+/* The width comes from the browser after the first render, and pages that never measure show the chart after a while */
+.mussel-unmeasured[b-10s5948pbk]  .mussel-view-svg {
+    visibility: hidden;
+    animation: mussel-reveal-b-10s5948pbk 0s linear 1s forwards;
+}
+
+@keyframes mussel-reveal-b-10s5948pbk {
+    to {
+        visibility: visible;
+    }
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-view-label {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 11px;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-empty text {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 12px;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-grid-line {
+    fill: none;
+    stroke: var(--mussel-grid-line, #E1E0D9);
+    stroke-width: 1;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-cross {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-hover {
+    pointer-events: none;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-mark-frame {
+    fill: none;
+    stroke: var(--mussel-primary-text, #0B0B0B);
+    stroke-width: 2;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-mark-overlay {
+    fill: #FFFFFF;
+    fill-opacity: 0.2;
+}
+
+.mussel-view-plot[b-10s5948pbk]  .mussel-mark-line {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+}
+
+.mussel-view-legend[b-10s5948pbk] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 4px;
+    color: var(--mussel-secondary-text, #52514E);
+    font-size: 12px;
+}
+
+.mussel-view-legend-item[b-10s5948pbk] {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.mussel-view-legend-marker[b-10s5948pbk] {
+    flex: none;
+}
+
+.mussel-view-legend-name[b-10s5948pbk] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mussel-view-legend-value[b-10s5948pbk] {
+    flex: none;
+}
+
+.mussel-view-legend-hidden[b-10s5948pbk] {
+    opacity: 0.45;
+}
+
+.mussel-view-toggle .mussel-view-legend-item[b-10s5948pbk] {
+    cursor: pointer;
+}
+
+.mussel-view-legend-top[b-10s5948pbk] {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.mussel-view-legend-top .mussel-view-legend[b-10s5948pbk] {
+    margin: 0 0 4px;
+}
+
+.mussel-view-legend-left[b-10s5948pbk], .mussel-view-legend-right[b-10s5948pbk] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.mussel-view-legend-left[b-10s5948pbk] {
+    flex-direction: row-reverse;
+}
+
+.mussel-view-legend-left .mussel-view-plot[b-10s5948pbk], .mussel-view-legend-right .mussel-view-plot[b-10s5948pbk] {
+    flex: 1 1 160px;
+}
+
+.mussel-view-legend-left .mussel-view-legend[b-10s5948pbk], .mussel-view-legend-right .mussel-view-legend[b-10s5948pbk] {
+    flex: 0 1 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    min-width: 0;
+    margin: 0;
+}
+
+.mussel-view-legend-left .mussel-view-legend-item[b-10s5948pbk], .mussel-view-legend-right .mussel-view-legend-item[b-10s5948pbk] {
+    display: flex;
+}
+
+.mussel-view-legend-left .mussel-view-legend-value[b-10s5948pbk], .mussel-view-legend-right .mussel-view-legend-value[b-10s5948pbk] {
+    margin-left: auto;
+    padding-left: 12px;
+}
+/* _content/MusselChart/Internal/ChartTooltip.razor.rz.scp.css */
+.mussel-tooltip[b-x66uz5q9q2] {
+    position: absolute;
+    z-index: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--mussel-tooltip-border, rgba(11, 11, 11, 0.1));
+    border-radius: 2px;
+    background: var(--mussel-tooltip-background, #FFFFFF);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: var(--mussel-tooltip-text, #0B0B0B);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.mussel-tooltip[b-x66uz5q9q2]  .mussel-tooltip-time {
+    margin-bottom: 2px;
+    color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-tooltip[b-x66uz5q9q2]  .mussel-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mussel-tooltip[b-x66uz5q9q2]  .mussel-tooltip-row i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.mussel-tooltip[b-x66uz5q9q2]  .mussel-tooltip-row b {
+    margin-left: auto;
+    padding-left: 12px;
+    font-weight: 500;
+}
+/* _content/MusselChart/MusselBarGaugeView.razor.rz.scp.css */
+.mussel-gauge[b-pijqqqn7zp] {
+    display: grid;
+    gap: 12px;
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-size: 12px;
+}
+
+.mussel-gauge-row[b-pijqqqn7zp] {
+    display: grid;
+    grid-template-areas: "label label" "bar value";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.mussel-gauge-left[b-pijqqqn7zp] {
+    grid-template-columns: fit-content(40%) minmax(0, 1fr) auto;
+    column-gap: 8px;
+}
+
+.mussel-gauge-left .mussel-gauge-row[b-pijqqqn7zp] {
+    grid-column: 1 / -1;
+    grid-template-areas: "label bar value";
+    grid-template-columns: subgrid;
+}
+
+.mussel-gauge-label[b-pijqqqn7zp] {
+    grid-area: label;
+    color: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-gauge-left .mussel-gauge-label[b-pijqqqn7zp] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mussel-gauge-bar[b-pijqqqn7zp] {
+    display: block;
+    grid-area: bar;
+}
+
+.mussel-gauge-value[b-pijqqqn7zp] {
+    grid-area: value;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.mussel-gauge-track[b-pijqqqn7zp] {
+    fill: var(--mussel-track, rgba(0, 0, 0, 0.07));
+}
+
+.mussel-gauge-target[b-pijqqqn7zp] {
+    fill: var(--mussel-primary-text, #0B0B0B);
+}
+/* _content/MusselChart/MusselChartView.razor.rz.scp.css */
+.mussel-chart[b-l3hntfj6kl] {
+    position: relative;
+    color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
+    touch-action: pan-y;
+}
+
+.mussel-chart-svg[b-l3hntfj6kl] {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+}
+
+/* The width comes from the browser after the first render, and pages that never measure show the chart after a while */
+.mussel-unmeasured[b-l3hntfj6kl] {
+    visibility: hidden;
+    animation: mussel-reveal-b-l3hntfj6kl 0s linear 1s forwards;
+}
+
+@keyframes mussel-reveal-b-l3hntfj6kl {
+    to {
+        visibility: visible;
+    }
+}
+
+.mussel-grid line[b-l3hntfj6kl] {
+    stroke: var(--mussel-grid-line, #E1E0D9);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.mussel-axis text[b-l3hntfj6kl] {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-stroke polyline[b-l3hntfj6kl] {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-bars rect[b-l3hntfj6kl] {
+    shape-rendering: crispEdges;
+}
+
+.mussel-markers > *[b-l3hntfj6kl] {
+    stroke-width: 1;
+}
+
+.mussel-threshold[b-l3hntfj6kl] {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 2;
+    stroke-dasharray: 10 10;
+    stroke-opacity: 0.7;
+}
+
+.mussel-threshold-label[b-l3hntfj6kl] {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-band[b-l3hntfj6kl] {
+    fill-opacity: 0.15;
+}
+
+.mussel-good .mussel-threshold[b-l3hntfj6kl], .mussel-band.mussel-good[b-l3hntfj6kl] {
+    stroke: var(--mussel-good, #56A64B);
+    fill: var(--mussel-good, #56A64B);
+}
+
+.mussel-warning .mussel-threshold[b-l3hntfj6kl], .mussel-band.mussel-warning[b-l3hntfj6kl] {
+    stroke: var(--mussel-warning, #F2CC0C);
+    fill: var(--mussel-warning, #F2CC0C);
+}
+
+.mussel-serious .mussel-threshold[b-l3hntfj6kl], .mussel-band.mussel-serious[b-l3hntfj6kl] {
+    stroke: var(--mussel-serious, #FF780A);
+    fill: var(--mussel-serious, #FF780A);
+}
+
+.mussel-critical .mussel-threshold[b-l3hntfj6kl], .mussel-band.mussel-critical[b-l3hntfj6kl] {
+    stroke: var(--mussel-critical, #E02F44);
+    fill: var(--mussel-critical, #E02F44);
+}
+
+.mussel-good .mussel-threshold-label[b-l3hntfj6kl] {
+    fill: var(--mussel-good, #56A64B);
+}
+
+.mussel-warning .mussel-threshold-label[b-l3hntfj6kl] {
+    fill: var(--mussel-warning, #F2CC0C);
+}
+
+.mussel-serious .mussel-threshold-label[b-l3hntfj6kl] {
+    fill: var(--mussel-serious, #FF780A);
+}
+
+.mussel-critical .mussel-threshold-label[b-l3hntfj6kl] {
+    fill: var(--mussel-critical, #E02F44);
+}
+
+.mussel-live-ring[b-l3hntfj6kl] {
+    animation: mussel-live-b-l3hntfj6kl 1.8s ease-out infinite;
+}
+
+@keyframes mussel-live-b-l3hntfj6kl {
+    from {
+        r: 4px;
+        opacity: 0.45;
+    }
+
+    to {
+        r: 12px;
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mussel-live-ring[b-l3hntfj6kl] {
+        animation: none;
+        opacity: 0;
+    }
+}
+
+.mussel-empty text[b-l3hntfj6kl] {
+    fill: var(--mussel-muted-text, #898781);
+    font-size: 12px;
+}
+
+.mussel-cross[b-l3hntfj6kl] {
+    stroke: var(--mussel-secondary-text, #52514E);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+}
+
+.mussel-hover[b-l3hntfj6kl] {
+    pointer-events: none;
+}
+
+.mussel-legend[b-l3hntfj6kl] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+.mussel-legend-item[b-l3hntfj6kl] {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mussel-legend-marker[b-l3hntfj6kl] {
+    flex: none;
+    vertical-align: middle;
+}
+
+.mussel-legend-hidden[b-l3hntfj6kl] {
+    opacity: 0.45;
+}
+
+.mussel-toggle .mussel-legend-item[b-l3hntfj6kl], .mussel-toggle .mussel-legend-row[b-l3hntfj6kl] {
+    cursor: pointer;
+}
+
+.mussel-legend-table[b-l3hntfj6kl] {
+    width: 100%;
+    margin-top: 4px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.mussel-legend-table th[b-l3hntfj6kl] {
+    padding: 2px 6px;
+    border-bottom: 1px solid var(--mussel-grid-line, #E1E0D9);
+    color: var(--mussel-secondary-text, #52514E);
+    font-weight: 500;
+    text-align: right;
+}
+
+.mussel-legend-table td[b-l3hntfj6kl] {
+    padding: 2px 6px;
+    border-bottom: 1px solid var(--mussel-grid-line, #E1E0D9);
+    text-align: right;
+}
+
+.mussel-legend-table th:first-child[b-l3hntfj6kl], .mussel-legend-table td:first-child[b-l3hntfj6kl] {
+    text-align: left;
+}
+
+.mussel-legend-table td:first-child .mussel-legend-marker[b-l3hntfj6kl] {
+    margin-right: 6px;
+}
+/* _content/MusselChart/MusselHeatmapView.razor.rz.scp.css */
+.mussel-heat-empty[b-wrbvslzpw3] {
+    fill: var(--mussel-track, rgba(0, 0, 0, 0.07));
+}
+
+.mussel-heat-scale rect[b-wrbvslzpw3] {
+    shape-rendering: crispEdges;
+}
+/* _content/MusselChart/MusselPieChartView.razor.rz.scp.css */
+.mussel-slice[b-0uurp07v8b] {
+    transition: opacity 150ms;
+}
+
+.mussel-slices-hover:hover .mussel-slice:not(:hover)[b-0uurp07v8b] {
+    opacity: 0.35;
+}
+
+.mussel-pie-label[b-0uurp07v8b] {
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.mussel-pie-leader[b-0uurp07v8b] {
+    fill: none;
+    stroke-width: 1;
+}
+
+.mussel-pie-outside[b-0uurp07v8b] {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-pie-center[b-0uurp07v8b] {
+    fill: var(--mussel-primary-text, #0B0B0B);
+    pointer-events: none;
+}
+
+.mussel-pie-caption[b-0uurp07v8b] {
+    fill: var(--mussel-secondary-text, #52514E);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mussel-slice[b-0uurp07v8b] {
+        transition: none;
+    }
+}
+/* _content/MusselChart/MusselRadarChartView.razor.rz.scp.css */
+.mussel-radar-axis[b-x9bk5jtb12] {
+    fill: var(--mussel-secondary-text, #52514E);
+    font-size: 11px;
+}
+
+.mussel-radar-fill[b-x9bk5jtb12] {
+    stroke-linejoin: round;
+}
+
+.mussel-radar-areas path[b-x9bk5jtb12] {
+    fill: transparent;
+    stroke: none;
+}
+/* _content/MusselChart/MusselRadialBarView.razor.rz.scp.css */
+.mussel-rings path[b-hrgw2yc2vx], .mussel-radial-glow path[b-hrgw2yc2vx], .mussel-radial-markers path[b-hrgw2yc2vx] {
+    fill: none;
+}
+
+.mussel-ring[b-hrgw2yc2vx] {
+    transition: opacity 150ms;
+}
+
+.mussel-rings-hover:hover .mussel-ring:not(:hover)[b-hrgw2yc2vx] {
+    opacity: 0.35;
+}
+
+.mussel-radial-glow[b-hrgw2yc2vx] {
+    pointer-events: none;
+}
+
+.mussel-radial-sweep[b-hrgw2yc2vx] {
+    pointer-events: none;
+}
+
+.mussel-radial-sweep div[b-hrgw2yc2vx] {
+    width: 100%;
+    height: 100%;
+}
+
+.mussel-radial-hit[b-hrgw2yc2vx] {
+    stroke: transparent;
+    pointer-events: stroke;
+}
+
+.mussel-radial-track[b-hrgw2yc2vx] {
+    stroke: var(--mussel-track, rgba(0, 0, 0, 0.07));
+}
+
+.mussel-radial-unlit[b-hrgw2yc2vx] {
+    stroke: var(--mussel-unlit, rgba(36, 41, 46, 0.3));
+}
+
+.mussel-radial-center[b-hrgw2yc2vx] {
+    fill: var(--mussel-primary-text, #0B0B0B);
+    pointer-events: none;
+}
+
+.mussel-radial-caption[b-hrgw2yc2vx] {
+    fill: var(--mussel-secondary-text, #52514E);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mussel-ring[b-hrgw2yc2vx] {
+        transition: none;
+    }
+}
+/* _content/MusselChart/MusselSparklineView.razor.rz.scp.css */
+.mussel-sparkline[b-4ig32i1kme] {
+    display: block;
+    overflow: visible;
+}
+
+.mussel-sparkline-line[b-4ig32i1kme] {
+    fill: none;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-sparkline-area[b-4ig32i1kme] {
+    stroke: none;
+    fill-opacity: 0.2;
+}
+
+.mussel-sparkline-loss[b-4ig32i1kme] {
+    fill: var(--mussel-critical, #E02F44);
+}
+/* _content/MusselChart/MusselStateTimelineView.razor.rz.scp.css */
+.mussel-timeline-bands rect[b-wisx5pdkp1] {
+    shape-rendering: crispEdges;
+}
+
+.mussel-timeline-text[b-wisx5pdkp1] {
+    font-size: 11px;
+    pointer-events: none;
+}
+/* _content/MusselChart/MusselStatView.razor.rz.scp.css */
+.mussel-stat[b-gwcj9vh36u] {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 86px;
+    overflow: hidden;
+    border-radius: 2px;
+    color: var(--mussel-primary-text, #0B0B0B);
+}
+
+.mussel-stat-background[b-gwcj9vh36u], .mussel-stat-indicator[b-gwcj9vh36u] {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.mussel-stat-trend-background[b-gwcj9vh36u] {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+}
+
+.mussel-stat-trend-line[b-gwcj9vh36u] {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.mussel-stat-content[b-gwcj9vh36u] {
+    position: relative;
+    padding: 8px 12px;
+}
+
+.mussel-stat-title[b-gwcj9vh36u] {
+    color: var(--mussel-secondary-text, #52514E);
+    font-size: 12px;
+}
+
+.mussel-stat-value[b-gwcj9vh36u] {
+    margin-top: 4px;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.mussel-stat-unit[b-gwcj9vh36u] {
+    margin-left: 2px;
+    font-size: 14px;
+}
+
+.mussel-stat-horizontal .mussel-stat-header[b-gwcj9vh36u] {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.mussel-stat-horizontal .mussel-stat-value[b-gwcj9vh36u] {
+    margin-top: 0;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.mussel-stat-trend[b-gwcj9vh36u] {
+    display: block;
+    margin-top: 4px;
+}
+
+.mussel-stat-light-text[b-gwcj9vh36u], .mussel-stat-light-text .mussel-stat-title[b-gwcj9vh36u] {
+    color: #F7F8FA;
+}
+
+.mussel-stat-dark-text[b-gwcj9vh36u], .mussel-stat-dark-text .mussel-stat-title[b-gwcj9vh36u] {
+    color: #202226;
+}
+
+.mussel-stat-empty .mussel-stat-value[b-gwcj9vh36u] {
+    color: var(--mussel-muted-text, #898781);
+}
