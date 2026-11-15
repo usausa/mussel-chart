@@ -1,4 +1,4 @@
-namespace Example.Components.Pages;
+namespace Example.Client.Components.Pages;
 
 public sealed partial class RadarPage
 {

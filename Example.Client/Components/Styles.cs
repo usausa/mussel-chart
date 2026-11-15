@@ -1,4 +1,4 @@
-namespace Example.Components;
+namespace Example.Client.Components;
 
 using MudBlazor;
 

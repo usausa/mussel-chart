@@ -3,6 +3,17 @@
     max-width: 400px;
 }
 
+/* Render mode switch */
+.mode-switch {
+    display: flex;
+    gap: 4px;
+}
+
+.mode-switch .active {
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-primary);
+}
+
 /* Charts and widgets */
 .grid {
     display: grid;

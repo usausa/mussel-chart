@@ -1,7 +1,9 @@
 namespace Example.Application;
 
+using Example.Client.Components;
+using Example.Client.Monitor;
 using Example.Components;
-using Example.Monitor;
+using Example.Endpoints;
 
 using MudBlazor.Services;
 
@@ -19,7 +21,8 @@ public static class ApplicationExtensions
             .AddInteractiveServerComponents(options =>
             {
                 options.DetailedErrors = builder.Environment.IsDevelopment();
-            });
+            })
+            .AddInteractiveWebAssemblyComponents();
 
         // MudBlazor
         builder.Services.AddMudServices();
@@ -34,8 +37,7 @@ public static class ApplicationExtensions
     public static IHostApplicationBuilder ConfigureMonitor(this IHostApplicationBuilder builder)
     {
         builder.Services.AddSingleton(TimeProvider.System);
-        builder.Services.AddSingleton<MonitorFeed>();
-        builder.Services.AddHostedService(static p => p.GetRequiredService<MonitorFeed>());
+        builder.Services.AddScoped<MonitorFeed>();
 
         return builder;
     }
@@ -65,7 +67,12 @@ public static class ApplicationExtensions
 
         // Blazor
         app.MapRazorComponents<App>()
-            .AddInteractiveServerRenderMode();
+            .AddInteractiveServerRenderMode()
+            .AddInteractiveWebAssemblyRenderMode()
+            .AddAdditionalAssemblies(typeof(Routes).Assembly);
+
+        // Settings
+        app.MapSettingEndpoints();
 
         return app;
     }

@@ -1,6 +1,6 @@
-namespace Example.Monitor;
+namespace Example.Client.Monitor;
 
-public sealed class MonitorFeed : BackgroundService
+public sealed class MonitorFeed : IDisposable
 {
     private const int HistoryCount = 190;
 
@@ -8,11 +8,44 @@ public sealed class MonitorFeed : BackgroundService
 
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
 
+    private readonly Lock sync = new();
+
     private readonly TimeProvider timeProvider;
 
     private readonly SystemMonitor monitor = new();
 
-    public event EventHandler? Updated;
+    private EventHandler? updated;
+
+    private ITimer? timer;
+
+    public event EventHandler? Updated
+    {
+        add
+        {
+            lock (sync)
+            {
+                if (timer is null)
+                {
+                    Fill();
+                    timer = timeProvider.CreateTimer(_ => Tick(), null, Interval, Interval);
+                }
+
+                updated += value;
+            }
+        }
+        remove
+        {
+            lock (sync)
+            {
+                updated -= value;
+                if (updated is null)
+                {
+                    timer?.Dispose();
+                    timer = null;
+                }
+            }
+        }
+    }
 
     public ChartRingBuffer<MonitorSample> Samples { get; } = new(HistoryCount);
 
@@ -37,6 +70,24 @@ public sealed class MonitorFeed : BackgroundService
     public MonitorFeed(TimeProvider timeProvider)
     {
         this.timeProvider = timeProvider;
+    }
+
+    public void Dispose()
+    {
+        lock (sync)
+        {
+            timer?.Dispose();
+            timer = null;
+        }
+    }
+
+    private void Fill()
+    {
+        Samples.Clear();
+        CpuTrend.Clear();
+        MemoryTrend.Clear();
+        TemperatureTrend.Clear();
+        NetworkTrend.Clear();
 
         var time = timeProvider.GetUtcNow().UtcDateTime - (Interval * (HistoryCount - 1));
         for (var i = 0; i < HistoryCount; i++)
@@ -46,20 +97,19 @@ public sealed class MonitorFeed : BackgroundService
         }
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    private void Tick()
     {
-        using var timer = new PeriodicTimer(Interval, timeProvider);
-        try
+        lock (sync)
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            if (timer is null)
             {
-                Add(monitor.Next(timeProvider.GetUtcNow().UtcDateTime));
-                Updated?.Invoke(this, EventArgs.Empty);
+                return;
             }
+
+            Add(monitor.Next(timeProvider.GetUtcNow().UtcDateTime));
         }
-        catch (OperationCanceledException)
-        {
-        }
+
+        updated?.Invoke(this, EventArgs.Empty);
     }
 
     private void Add(MonitorSample sample)

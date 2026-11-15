@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MudBlazor" Version="9.13.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MusselChart\MusselChart.csproj" />
+    <ProjectReference Include="..\Example.Client\Example.Client.csproj" />
   </ItemGroup>
 
 </Project>

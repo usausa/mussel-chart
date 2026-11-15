@@ -1,6 +1,7 @@
 # MusselChart - Charts for Blazor
 
 [![NuGet](https://img.shields.io/nuget/v/MusselChart.svg)](https://www.nuget.org/packages/MusselChart/)
+[![Demo](https://img.shields.io/badge/demo-WebAssembly-blue.svg)](https://usausa.github.io/mussel-chart/)
 
 ## 🐚 What is this?
 

@@ -1,4 +1,4 @@
-namespace Example.Monitor;
+namespace Example.Client.Monitor;
 
 public sealed class SystemMonitor
 {

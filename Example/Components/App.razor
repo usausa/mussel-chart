@@ -34,5 +34,13 @@
 </html>
 
 @code {
-    private static readonly IComponentRenderMode PageRenderMode = new InteractiveServerRenderMode(prerender: false);
+    [CascadingParameter]
+    public HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        !HttpContext.AcceptsInteractiveRouting()
+            ? null
+            : HttpContext.Request.Cookies[RenderModes.CookieName] == RenderModes.WebAssembly
+                ? InteractiveWebAssembly
+                : InteractiveServer;
 }
