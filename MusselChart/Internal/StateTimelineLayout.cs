@@ -292,7 +292,6 @@ internal sealed class StateTimelineLayout
         });
     }
 
-    // Each state lasts until the next start of its row, or its own end when that comes first
     private void BuildSegments()
     {
         segments.Clear();

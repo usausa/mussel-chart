@@ -167,8 +167,9 @@ public sealed partial class MusselStateTimelineView<TItem>
         var pitch = rows > 1 ? rowHeight + (plotHeight * (1 - ratio) / (rows - 1)) : rowHeight;
         if (end > start)
         {
-            ArrangeAxis(start, end, left, plotWidth, culture);
-            ArrangeBands(start, end, left, plotWidth, rowHeight, pitch, culture);
+            var dayFirst = ChartFormat.IsDayFirst(culture);
+            ArrangeAxis(start, end, left, plotWidth, culture, dayFirst);
+            ArrangeBands(start, end, left, plotWidth, rowHeight, pitch, dayFirst);
         }
 
         ArrangeRowLabels(labelWidth, rowHeight, pitch);
@@ -202,7 +203,6 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private static double ToLocalTicks(DateTime value, TimeZoneInfo zone) => ChartTime.ToZoneTicks(ChartTime.ToUtcTicks(value, zone), zone);
 
-    // Numbers take the thresholds and the color scale, and everything else is a text state
     private static (string? Text, double Number) ReadState(object? value) => value switch
     {
         null => (null, Double.NaN),
@@ -250,7 +250,7 @@ public sealed partial class MusselStateTimelineView<TItem>
         return Math.Min(widest, Width * LabelWidthRatio);
     }
 
-    private void ArrangeAxis(double start, double end, double left, double plotWidth, CultureInfo culture)
+    private void ArrangeAxis(double start, double end, double left, double plotWidth, CultureInfo culture, bool dayFirst)
     {
         var span = end - start;
         var divisions = TickGenerator.GetMaxDivisions(plotWidth, TickGenerator.HorizontalLabelSpacing, null);
@@ -261,17 +261,17 @@ public sealed partial class MusselStateTimelineView<TItem>
         {
             var x = ChartFormat.Pixel(left + ((tick - start) / span * plotWidth));
             gridLines.Add(x);
-            axisLabels.Add(new AxisLabel(x, new DateTime((long)tick, DateTimeKind.Unspecified).ToString(interval.GetTickFormat(tick), culture)));
+            axisLabels.Add(new AxisLabel(x, new DateTime((long)tick, DateTimeKind.Unspecified).ToString(interval.GetTickFormat(tick, dayFirst), CultureInfo.InvariantCulture)));
         }
     }
 
-    private void ArrangeBands(double start, double end, double left, double plotWidth, double rowHeight, double pitch, CultureInfo culture)
+    private void ArrangeBands(double start, double end, double left, double plotWidth, double rowHeight, double pitch, bool dayFirst)
     {
         var span = end - start;
         var right = left + plotWidth;
         var precision = GetTimePrecision();
         var spansDays = (long)(start / TimeSpan.TicksPerDay) != (long)(end / TimeSpan.TicksPerDay);
-        var format = TimeInterval.GetTrackingFormat(precision, spansDays);
+        var format = TimeInterval.GetTrackingFormat(precision, spansDays, dayFirst);
         var hover = TrackballMode == ChartTrackballMode.Hover;
         foreach (var segment in layout.Segments)
         {
@@ -290,7 +290,7 @@ public sealed partial class MusselStateTimelineView<TItem>
             string? tip = null;
             if (hover)
             {
-                var title = FormatTime(segment.Start, format, culture) + " – " + FormatTime(segmentEnd, format, culture);
+                var title = FormatTime(segment.Start, format) + " – " + FormatTime(segmentEnd, format);
                 tip = ChartTip.Create(title, [new ChartTipRow(state.Color, layout.RowNames[segment.Row], state.Text), new ChartTipRow(null, null, StateTimelineLayout.FormatDuration(segmentEnd - segment.Start))]);
             }
 
@@ -299,8 +299,8 @@ public sealed partial class MusselStateTimelineView<TItem>
         }
     }
 
-    private static string FormatTime(double ticks, string format, CultureInfo culture) =>
-        new DateTime((long)ticks, DateTimeKind.Unspecified).ToString(format, culture);
+    private static string FormatTime(double ticks, string format) =>
+        ChartDateTime.FromTicks(ticks).ToString(format, CultureInfo.InvariantCulture);
 
     private TimeLabelPrecision GetTimePrecision()
     {

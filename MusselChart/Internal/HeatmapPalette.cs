@@ -1,6 +1,5 @@
 namespace MusselChart.Internal;
 
-// The colors are spread with the B-spline of d3 (interpolateRgbBasis), which gives the colors of the Grafana heatmap
 internal static class HeatmapPalette
 {
     public const int Steps = 64;

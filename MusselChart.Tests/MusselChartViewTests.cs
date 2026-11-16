@@ -87,6 +87,41 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
+    public void AreasOfOneBufferStackOnTheSamePoints()
+    {
+        var buffer = new ChartRingBuffer<Sample>(10);
+        buffer.Push(new(Start, 1, 2));
+        var pushed = false;
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(p => p.Y, x =>
+                {
+                    if (!pushed)
+                    {
+                        pushed = true;
+                        buffer.Push(new(Start.AddSeconds(1), 1, 2));
+                    }
+
+                    return x.Value;
+                })
+                .Add(static p => p.StackGroup, "total"))
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Other)
+                .Add(static p => p.StackGroup, "total")));
+        cut.Render();
+
+        var lines = cut.FindAll("polyline");
+        Assert.Equal("0,1 1,1", lines[0].GetAttribute("points"));
+        Assert.Equal("0,3 1,3", lines[1].GetAttribute("points"));
+    }
+
+    [Fact]
     public void LegendTableShowsSelectedValues()
     {
         Sample[] items = [new(Start, 10), new(Start.AddSeconds(1), 30), new(Start.AddSeconds(2), 20)];
@@ -328,6 +363,63 @@ public sealed class MusselChartViewTests : BunitContext
 
         Assert.NotEqual(transform, cut.Find(".mussel-bars").GetAttribute("transform"));
         Assert.True(Double.Parse(cut.Find(".mussel-bars rect").GetAttribute("width")!, CultureInfo.InvariantCulture) < width);
+    }
+
+    [Fact]
+    public void TheInvariantCultureGoesToTheTooltipAsAFixedLanguage()
+    {
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, CreateBuffer(10, 10))
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal("en-US", cut.Find(".mussel-chart").GetAttribute("data-culture"));
+    }
+
+    [Theory]
+    [InlineData("de-DE", "^[0-9]+/7$", "d/M")]
+    [InlineData("en-US", "^7/[0-9]+$", "M/d")]
+    public void DefaultTimeLabelsFollowTheOrderOfTheCultureWithTheSeparatorsOfTheTooltip(string culture, string pattern, string format)
+    {
+        var items = Enumerable.Range(0, 7).Select(static x => new Sample(new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(x), x + 1)).ToArray();
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .Add(static p => p.Culture, new CultureInfo(culture))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        var dates = cut.FindAll(".mussel-axis text").Select(static x => x.TextContent).Where(static x => x.Contains('/', StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(dates);
+        Assert.All(dates, x => Assert.Matches(pattern, x));
+        Assert.Equal(format, cut.Find(".mussel-chart").GetAttribute("data-time-format"));
+    }
+
+    [Fact]
+    public void TimesSkippedBySummerTimeMoveForward()
+    {
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+            DateTime.MinValue.Date,
+            DateTime.MaxValue.Date,
+            TimeSpan.FromHours(1),
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0), 3, 5, DayOfWeek.Sunday),
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 3, 0, 0), 10, 5, DayOfWeek.Sunday));
+        var zone = TimeZoneInfo.CreateCustomTimeZone("Summer", TimeSpan.FromHours(1), "Summer", "Winter", "Summer", [rule]);
+        Sample[] items = [new(new DateTime(2026, 3, 29, 1, 30, 0), 1), new(new DateTime(2026, 3, 29, 2, 30, 0), 2), new(new DateTime(2026, 3, 29, 3, 30, 0), 3)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, zone)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal("0,1 3600,2 3600,3", cut.Find("polyline").GetAttribute("points"));
     }
 
     private IRenderedComponent<MusselChartView> RenderLine(ChartRingBuffer<Sample> buffer) =>

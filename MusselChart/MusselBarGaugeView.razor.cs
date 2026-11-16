@@ -105,7 +105,7 @@ public sealed partial class MusselBarGaugeView
                 _ => FormatValue(item.Value, culture)
             };
             longest = Math.Max(longest, text.Length);
-            var target = item.Target is { } goal && (range > 0) ? ToPercent((goal - Minimum) / range) : null;
+            var target = (item.Target is { } goal) && (range > 0) ? ToPercent((goal - Minimum) / range) : null;
             rows.Add(new GaugeRow(
                 item.Label,
                 ToPercent(ratio)!,
@@ -133,6 +133,13 @@ public sealed partial class MusselBarGaugeView
     {
         var stops = new List<GaugeStop>();
         var sorted = Thresholds!.OrderBy(static x => x.Value).ToList();
+        if (!Double.IsNegativeInfinity(sorted[0].Value))
+        {
+            var first = Double.IsFinite(sorted[0].Value) ? Math.Clamp(sorted[0].Value / 100, 0, 1) : 0;
+            stops.Add(new GaugeStop("0", fallback));
+            stops.Add(new GaugeStop(first.ToString("0.####", CultureInfo.InvariantCulture), fallback));
+        }
+
         for (var i = 0; i < sorted.Count; i++)
         {
             var threshold = sorted[i];

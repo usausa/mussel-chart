@@ -9,7 +9,6 @@ internal readonly record struct ChartTipMark(double X, double Y, string Color);
 
 internal readonly record struct ChartTipLine(double X1, double Y1, double X2, double Y2);
 
-// The text of a tooltip travels in a data attribute, so that hovering needs no call to the server
 internal static class ChartTip
 {
     public static string Create(string? title, IReadOnlyList<ChartTipRow> rows, IReadOnlyList<ChartTipMark>? marks = null, ChartTipLine? line = null)

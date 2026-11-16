@@ -180,7 +180,6 @@ public sealed partial class MusselChartView
         var window = ResolveWindow(visible, hasData);
         var percent = IsPercentAxis(visible);
 
-        // The plot: labels of the value axis on the left and of the position axis at the bottom, or the other way around
         var plotTop = PlotPadding;
         double plotBottom;
         double plotLeft;
@@ -309,7 +308,6 @@ public sealed partial class MusselChartView
         }
     }
 
-    // The area grows from 0, or from the smallest value, to the largest value among all of the bubble series
     private double GetBubbleSize(double value, SeriesOptions options)
     {
         var minimum = options.MinSize;
@@ -328,7 +326,6 @@ public sealed partial class MusselChartView
         return Math.Sqrt((minimum * minimum) + (((maximum * maximum) - (minimum * minimum)) * ratio));
     }
 
-    // The part of the position axis fixed by the settings, which limits the values that decide the value axis
     private PositionWindow ResolveWindow(List<SeriesState> visible, bool hasData)
     {
         if (xKind == ChartXKind.Number)
@@ -405,7 +402,7 @@ public sealed partial class MusselChartView
         {
             case ChartXKind.Category:
                 var count = Math.Max(categories.Count, 1);
-                return xAxis is CategoryAxis { LabelPlacement: ChartLabelPlacement.OnTicks } && (count > 1)
+                return (xAxis is CategoryAxis { LabelPlacement: ChartLabelPlacement.OnTicks }) && (count > 1)
                     ? new PositionRange(0, count - 1, default)
                     : new PositionRange(-0.5, count - 0.5, default);
             case ChartXKind.Number:
@@ -557,9 +554,10 @@ public sealed partial class MusselChartView
         var widths = vertical ? new TimeLabelWidths(height, height, height, height) : new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
         var interval = TickGenerator.SelectTimeInterval(span, length, divisions, LabelGap * 2, widths);
         TickGenerator.Time(localStart, localEnd, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks);
+        var dayFirst = ChartFormat.IsDayFirst(culture);
         foreach (var tick in ticks)
         {
-            var text = ChartFormat.Time(new DateTime((long)tick, DateTimeKind.Unspecified), axis?.LabelFormat, axis?.LabelFormatter, interval.GetTickFormat(tick), culture);
+            var text = ChartFormat.Time(new DateTime((long)tick, DateTimeKind.Unspecified), axis?.LabelFormat, axis?.LabelFormatter, interval.GetTickFormat(tick, dayFirst), culture);
             positionTicks.Add(((tick - localStart) / span, text));
         }
     }
@@ -682,7 +680,6 @@ public sealed partial class MusselChartView
         }
     }
 
-    // Each stack and each bar takes an equal slot of the group, and bars narrowed by the limit are centered in the column
     private void ArrangeBars(List<SeriesState> visible, in PositionRange position, double scaleP)
     {
         barGroups.Clear();
@@ -844,7 +841,7 @@ public sealed partial class MusselChartView
 
     private void ArrangeTracking(List<SeriesState> visible, in PositionRange position)
     {
-        cultureName = culture.Name;
+        cultureName = culture.Name.Length > 0 ? culture.Name : "en-US";
         xKindText = xKind switch
         {
             ChartXKind.Number => "number",
@@ -875,7 +872,7 @@ public sealed partial class MusselChartView
         }
 
         finest = Double.IsInfinity(finest) ? 60 : finest;
-        timeFormat = TimeInterval.GetTrackingFormat(finest < 60 ? TimeLabelPrecision.Second : finest < 86400 ? TimeLabelPrecision.Minute : TimeLabelPrecision.Day, spansDays);
+        timeFormat = TimeInterval.GetTrackingFormat(finest < 60 ? TimeLabelPrecision.Second : finest < 86400 ? TimeLabelPrecision.Minute : TimeLabelPrecision.Day, spansDays, ChartFormat.IsDayFirst(culture));
     }
 
     private static bool IsListed(ChartSeries series) => series.LegendVisible && !String.IsNullOrEmpty(series.Title);
@@ -997,7 +994,6 @@ public sealed partial class MusselChartView
 
     private readonly record struct PositionRange(double Start, double End, AxisScale Scale);
 
-    // Data goes into the SVG as it is, and this transform moves it to the plot, so that new points cost only themselves
     private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV)
     {
         public string Matrix => Horizontal

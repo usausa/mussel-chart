@@ -5,6 +5,8 @@ using Example.Client.Monitor;
 using Example.Components;
 using Example.Endpoints;
 
+using Microsoft.AspNetCore.Localization;
+
 using MudBlazor.Services;
 
 public static class ApplicationExtensions
@@ -40,6 +42,22 @@ public static class ApplicationExtensions
         builder.Services.AddScoped<MonitorFeed>();
 
         return builder;
+    }
+
+    //--------------------------------------------------------------------------------
+    // Localization
+    //--------------------------------------------------------------------------------
+
+    public static WebApplication UseLocalization(this WebApplication app)
+    {
+        app.UseRequestLocalization(new RequestLocalizationOptions
+        {
+            DefaultRequestCulture = new RequestCulture("en-US"),
+            SupportedCultures = [CultureInfo.GetCultureInfo("en-US")],
+            SupportedUICultures = [CultureInfo.GetCultureInfo("en-US")]
+        });
+
+        return app;
     }
 
     //--------------------------------------------------------------------------------

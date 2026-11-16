@@ -44,6 +44,10 @@
                     {
                         <circle cx="@cap.X" cy="@cap.Y" r="@capRadius" fill="@cap.Color" />
                     }
+                    @if (ring.Wrap is { } wrap)
+                    {
+                        <path d="@wrap.Path" stroke="@wrap.Color" stroke-linecap="@wrap.Cap" />
+                    }
                 </g>
             }
         </g>

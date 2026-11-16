@@ -110,7 +110,6 @@ internal sealed class RadarLayout
         PlaceLevels(options);
     }
 
-    // The rings of every level and a line from the center to each axis
     public string CreateGridPath()
     {
         if (Radius <= 0)
@@ -162,7 +161,6 @@ internal sealed class RadarLayout
         return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
-    // The wedge around an axis that reacts to the pointer
     public string CreateAxisArea(int axis)
     {
         var step = 360d / AxisCount;
@@ -201,7 +199,6 @@ internal sealed class RadarLayout
         builder.Append('Z');
     }
 
-    // Each item name becomes one axis in the order it first appears; items without a name take axes by position
     private void MergeAxes(List<List<RadarPoint>> series)
     {
         indexes.Clear();
@@ -351,7 +348,6 @@ internal sealed class RadarLayout
         return (radius, GetCenter(false, count, area.X, area.X + area.Width, radius), GetCenter(true, count, area.Y, area.Y + area.Height, radius));
     }
 
-    // The largest radius at which every ring vertex and every name stays inside the area
     private double Solve(bool vertical, int count, double low, double high)
     {
         var upper = Double.PositiveInfinity;

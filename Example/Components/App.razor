@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
 
 <head>
     <meta charset="utf-8" />
@@ -34,6 +34,10 @@
 </html>
 
 @code {
+    private static readonly IComponentRenderMode ServerMode = new InteractiveServerRenderMode(prerender: false);
+
+    private static readonly IComponentRenderMode WebAssemblyMode = new InteractiveWebAssemblyRenderMode(prerender: false);
+
     [CascadingParameter]
     public HttpContext HttpContext { get; set; } = default!;
 
@@ -41,6 +45,6 @@
         !HttpContext.AcceptsInteractiveRouting()
             ? null
             : HttpContext.Request.Cookies[RenderModes.CookieName] == RenderModes.WebAssembly
-                ? InteractiveWebAssembly
-                : InteractiveServer;
+                ? WebAssemblyMode
+                : ServerMode;
 }

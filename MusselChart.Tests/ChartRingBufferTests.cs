@@ -25,11 +25,11 @@ public sealed class ChartRingBufferTests
         var buffer = new ChartRingBuffer<int>(4);
         buffer.Push(1);
         buffer.Push(2);
-        var first = buffer.Read(-1, 0, []);
+        var first = buffer.Read(-1, 0, null, []);
 
         buffer.Push(3);
         var items = new List<int>();
-        var read = buffer.Read(first.Sequence, first.Generation, items);
+        var read = buffer.Read(first.Sequence, first.Generation, null, items);
 
         Assert.False(first.Appended);
         Assert.True(read.Appended);
@@ -43,14 +43,14 @@ public sealed class ChartRingBufferTests
     {
         var buffer = new ChartRingBuffer<int>(3);
         buffer.Push(1);
-        var first = buffer.Read(-1, 0, []);
+        var first = buffer.Read(-1, 0, null, []);
         for (var i = 2; i <= 6; i++)
         {
             buffer.Push(i);
         }
 
         var items = new List<int>();
-        var read = buffer.Read(first.Sequence, first.Generation, items);
+        var read = buffer.Read(first.Sequence, first.Generation, null, items);
 
         Assert.False(read.Appended);
         Assert.Equal([4, 5, 6], items);
@@ -61,12 +61,12 @@ public sealed class ChartRingBufferTests
     {
         var buffer = new ChartRingBuffer<int>(3);
         buffer.Push(1);
-        var first = buffer.Read(-1, 0, []);
+        var first = buffer.Read(-1, 0, null, []);
 
         buffer.Clear();
         buffer.Push(7);
         var items = new List<int>();
-        var read = buffer.Read(first.Sequence, first.Generation, items);
+        var read = buffer.Read(first.Sequence, first.Generation, null, items);
 
         Assert.False(read.Appended);
         Assert.Equal([7], items);

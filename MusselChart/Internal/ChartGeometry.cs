@@ -3,7 +3,6 @@ namespace MusselChart.Internal;
 using System.Globalization;
 using System.Text;
 
-// Angles are degrees clockwise from 12 o'clock
 internal static class ChartGeometry
 {
     private const double FullCircle = 360;
@@ -63,18 +62,17 @@ internal static class ChartGeometry
         return (left, top, right, bottom);
     }
 
-    // A line along a circle, drawn with a stroke
     public static string Arc(double cx, double cy, double radius, double startAngle, double sweep)
     {
         var builder = ChartStringBuilder.Rent();
-        if (sweep >= FullCircle - Tolerance)
+        var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
+        var (x2, y2) = GetPoint(cx, cy, radius, startAngle + sweep);
+        if ((sweep >= FullCircle - Tolerance) || ((sweep > 180) && Coincide(x1, y1, x2, y2)))
         {
             AppendCircle(builder, cx, cy, radius, startAngle, true);
         }
         else
         {
-            var (x1, y1) = GetPoint(cx, cy, radius, startAngle);
-            var (x2, y2) = GetPoint(cx, cy, radius, startAngle + sweep);
             builder.Append('M').AppendNumber(x1).Append(' ').AppendNumber(y1);
             AppendArc(builder, radius, sweep > 180, true, x2, y2);
         }
@@ -82,10 +80,14 @@ internal static class ChartGeometry
         return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
-    // A slice of a pie or a donut, with parallel gaps along its two straight edges
     public static string Slice(double cx, double cy, double outer, double inner, double startAngle, double sweep, double startGap, double endGap)
     {
-        if (sweep >= FullCircle - Tolerance)
+        var endAngle = startAngle + sweep;
+        var outerStart = startAngle + GetGapAngle(startGap, outer);
+        var outerEnd = endAngle - GetGapAngle(endGap, outer);
+        var (x1, y1) = GetPoint(cx, cy, outer, outerStart);
+        var (x2, y2) = GetPoint(cx, cy, outer, outerEnd);
+        if ((sweep >= FullCircle - Tolerance) || ((outerEnd - outerStart > 180) && Coincide(x1, y1, x2, y2)))
         {
             var ring = ChartStringBuilder.Rent();
             AppendCircle(ring, cx, cy, outer, startAngle, true);
@@ -97,9 +99,6 @@ internal static class ChartGeometry
             return ChartStringBuilder.ToStringAndReturn(ring);
         }
 
-        var endAngle = startAngle + sweep;
-        var outerStart = startAngle + GetGapAngle(startGap, outer);
-        var outerEnd = endAngle - GetGapAngle(endGap, outer);
         if (outerEnd - outerStart <= Tolerance)
         {
             return string.Empty;
@@ -115,8 +114,6 @@ internal static class ChartGeometry
         }
 
         var builder = ChartStringBuilder.Rent();
-        var (x1, y1) = GetPoint(cx, cy, outer, outerStart);
-        var (x2, y2) = GetPoint(cx, cy, outer, outerEnd);
         builder.Append('M').AppendNumber(x1).Append(' ').AppendNumber(y1);
         AppendArc(builder, outer, outerEnd - outerStart > 180, true, x2, y2);
         if (hasHole)
@@ -135,7 +132,6 @@ internal static class ChartGeometry
         return ChartStringBuilder.ToStringAndReturn(builder);
     }
 
-    // A wedge from the center, used as the area that reacts to the pointer
     public static string Sector(double cx, double cy, double radius, double startAngle, double sweep)
     {
         var builder = ChartStringBuilder.Rent();
@@ -160,10 +156,12 @@ internal static class ChartGeometry
         return (rounded == 0 ? 0 : rounded).ToString("0.##", CultureInfo.InvariantCulture);
     }
 
+    private static bool Coincide(double x1, double y1, double x2, double y2) =>
+        (Math.Abs(Math.Round(x1, 2) - Math.Round(x2, 2)) < 0.005) && (Math.Abs(Math.Round(y1, 2) - Math.Round(y2, 2)) < 0.005);
+
     private static double GetGapAngle(double gap, double radius) =>
         (gap > 0) && (radius > 0) ? Math.Asin(Math.Min(1, gap / radius)) * 180 / Math.PI : 0;
 
-    // The point where the two edges meet after each of them moved by its gap
     private static (double X, double Y) GetApex(double startAngle, double endAngle, double startGap, double endGap)
     {
         var (startX, startY) = GetDirection(startAngle + 90);

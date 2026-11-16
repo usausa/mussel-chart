@@ -169,7 +169,6 @@ internal sealed class HeatmapLayout
         return String.IsNullOrEmpty(column) ? row : row + " " + column;
     }
 
-    // Edges are rounded to whole pixels and each cell leaves the gap on its right and bottom
     public HeatmapRect GetCellRect(int cell)
     {
         var column = GetColumn(cell);

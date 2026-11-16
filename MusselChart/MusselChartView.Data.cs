@@ -18,6 +18,8 @@ public sealed partial class MusselChartView
 
     private readonly List<(SeriesState State, ChartBufferRead Read, int Start, int Count)> reads = [];
 
+    private readonly Dictionary<IChartBuffer, ChartBufferMark> marks = [];
+
     private readonly Dictionary<(ChartSeriesKind Kind, string Group), Dictionary<long, StackTop>> stacks = [];
 
     private readonly Dictionary<(ChartSeriesKind Kind, string Group), Dictionary<long, StackTop>> totals = [];
@@ -70,7 +72,6 @@ public sealed partial class MusselChartView
             rebuildRequired = true;
         }
 
-        // Only a time axis in absolute values can be appended to: the others depend on all of the data
         var appendable = (xKind == ChartXKind.Time) && (stackMode == ChartStackMode.Normal);
         var rebuild = rebuildRequired || !appendable || !Read(ordered, false);
         if (!rebuild && (reading.Count > 0) && (reading[^1].Ticks - baseTicks > RebaseTicks))
@@ -142,11 +143,21 @@ public sealed partial class MusselChartView
     {
         reading.Clear();
         reads.Clear();
+        marks.Clear();
+        foreach (var state in ordered)
+        {
+            if (state.Series.Source is IChartBuffer buffer)
+            {
+                marks.TryAdd(buffer, buffer.Mark());
+            }
+        }
+
         var appended = true;
         foreach (var state in ordered)
         {
             var start = reading.Count;
-            var read = state.Series.ReadPoints(full ? -1 : state.Sequence, state.Generation, zone, reading);
+            ChartBufferMark? until = state.Series.Source is IChartBuffer buffer ? marks[buffer] : null;
+            var read = state.Series.ReadPoints(full ? -1 : state.Sequence, state.Generation, until, zone, reading);
             appended &= read.Appended;
             reads.Add((state, read, start, reading.Count - start));
         }
@@ -292,7 +303,6 @@ public sealed partial class MusselChartView
         state.Gap = false;
     }
 
-    // The texts of a bar stay as they are while it is in the buffer, except for the segments of a stack that move with the scale
     private static void AppendBar(SeriesState state, string text, long sequence, double bottom, double top, double value, long slot, bool stacked)
     {
         var low = Math.Min(bottom, top);
@@ -302,7 +312,6 @@ public sealed partial class MusselChartView
         state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Data(value), lowText, heightText, low, high, value, slot));
     }
 
-    // Positive values stack up from 0 and negative values down from 0, each scaled to its own total in Percent
     private (double Top, double Bottom) Stack((ChartSeriesKind Kind, string Group) key, long slot, double value)
     {
         if (!stacks.TryGetValue(key, out var tops))
@@ -344,7 +353,6 @@ public sealed partial class MusselChartView
                 }
             }
 
-            // A dictionary allows removing while it is enumerated
             foreach (var slot in tops.Keys)
             {
                 if (slot < minimum)

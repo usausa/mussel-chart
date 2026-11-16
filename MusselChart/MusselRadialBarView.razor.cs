@@ -220,6 +220,7 @@ public sealed partial class MusselRadialBarView
         var arcs = new List<ArcView>();
         var caps = new List<CapView>();
         SweepView? sweep = null;
+        ArcView? wrap = null;
         if ((radius > 0) && (layout.Thickness > 0))
         {
             var ratio = Double.IsNaN(row.Percent) ? 0 : row.Ratio;
@@ -236,18 +237,20 @@ public sealed partial class MusselRadialBarView
 
                 if (ratio > Tolerance)
                 {
+                    var lapColor = color;
                     if (FillMode == ChartFillMode.Gradient)
                     {
-                        sweep = AddGradient(arcs, caps, radius, ratio, baseColor);
+                        (sweep, lapColor) = AddGradient(arcs, caps, radius, ratio, baseColor);
                     }
                     else
                     {
                         arcs.Add(new ArcView(CreateArc(radius, 0, Math.Min(ratio, 1)), color, null, CapText));
-                        var laps = Math.Max(0, Math.Ceiling(ratio) - 1);
-                        if (laps > 0)
-                        {
-                            arcs.Add(new ArcView(CreateArc(radius, 0, ratio - laps), ChartColor.Shift(color, 0, WrapLightness), null, CapText));
-                        }
+                    }
+
+                    var laps = Math.Max(0, Math.Ceiling(ratio) - 1);
+                    if (laps > 0)
+                    {
+                        wrap = new ArcView(CreateArc(radius, 0, ratio - laps), ChartColor.Shift(lapColor, 0, WrapLightness), null, CapText);
                     }
                 }
             }
@@ -262,6 +265,11 @@ public sealed partial class MusselRadialBarView
                     }
                 }
 
+                if (wrap is { } lap)
+                {
+                    glowArcs.Add(lap);
+                }
+
                 if (sweep is { } value)
                 {
                     glowSweeps.Add(value);
@@ -270,10 +278,9 @@ public sealed partial class MusselRadialBarView
         }
 
         var tip = ChartTip.Create(null, [new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})")]);
-        return new RingView(row.Slot, tip, arcs, caps, sweep);
+        return new RingView(row.Slot, tip, arcs, caps, sweep, wrap);
     }
 
-    // Each cell takes the threshold color at its start and is lit when its start is before the value
     private void AddSegments(List<ArcView> arcs, double radius, double ratio, string baseColor)
     {
         var gapAngle = SegmentGap / radius * 180 / Math.PI;
@@ -293,14 +300,13 @@ public sealed partial class MusselRadialBarView
         }
     }
 
-    private SweepView AddGradient(List<ArcView> arcs, List<CapView> caps, double radius, double ratio, string baseColor)
+    private (SweepView Sweep, string LastColor) AddGradient(List<ArcView> arcs, List<CapView> caps, double radius, double ratio, string baseColor)
     {
         var (colors, positions) = HasThresholds
             ? RadialBarGradient.GetThresholdStops(GetSteps(baseColor), baseColor)
             : RadialBarGradient.GetColorStops(baseColor, ratio);
         var drawn = Math.Min(ratio, 1);
 
-        // The sweep takes no pointer events, so this keeps the value part of the ring under the pointer
         arcs.Add(new ArcView(CreateArc(radius, 0, drawn), null, HitClass, null));
         if (CapStyle == ChartCapStyle.Round)
         {
@@ -308,16 +314,9 @@ public sealed partial class MusselRadialBarView
             AddCap(caps, radius, drawn, RadialBarGradient.GetColorAt(colors, positions, drawn));
         }
 
-        var laps = Math.Max(0, Math.Ceiling(ratio) - 1);
-        if (laps > 0)
-        {
-            arcs.Add(new ArcView(CreateArc(radius, 0, ratio - laps), ChartColor.Shift(colors[^1], 0, WrapLightness), null, CapText));
-        }
-
-        return CreateSweep(radius, layout.Thickness, drawn, colors, positions);
+        return (CreateSweep(radius, layout.Thickness, drawn, colors, positions), colors[^1]);
     }
 
-    // SVG has no sweep gradient, so the ring is a conic gradient of CSS cut out to the band of the ring
     private SweepView CreateSweep(double radius, double thickness, double drawn, string[] colors, double[] positions)
     {
         var outer = radius + (thickness / 2);
@@ -378,7 +377,6 @@ public sealed partial class MusselRadialBarView
         return steps;
     }
 
-    // One thin ring outside the outermost ring: each threshold range takes its color
     private void AddMarkerArcs(string baseColor)
     {
         var radius = layout.MarkerRadius;
@@ -426,5 +424,5 @@ public sealed partial class MusselRadialBarView
 
     private readonly record struct SweepView(string X, string Y, string Size, string Style);
 
-    private sealed record RingView(int Key, string Tip, List<ArcView> Arcs, List<CapView> Caps, SweepView? Sweep);
+    private sealed record RingView(int Key, string Tip, List<ArcView> Arcs, List<CapView> Caps, SweepView? Sweep, ArcView? Wrap);
 }

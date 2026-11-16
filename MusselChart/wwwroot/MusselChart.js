@@ -76,7 +76,6 @@ function track(element, event) {
         return;
     }
 
-    // Series of points sit outside the plot group, because their marks keep their size and shape
     if (element.querySelector('.mussel-plot .mussel-series') === null) {
         showPoint(element, readSeries(element), ctm, event);
         return;
@@ -98,7 +97,6 @@ function readCategories(chart) {
     return text ? JSON.parse(text) : [];
 }
 
-// The place on the position axis, in a form that other charts of the group can follow
 function toPosition(chart, x) {
     const kind = chart.dataset.xKind ?? 'time';
     if (kind === 'category') {
@@ -239,7 +237,6 @@ function show(chart, position, active) {
     tooltip.style.top = '4px';
 }
 
-// A chart of only points snaps to the nearest point in both directions and shows only that point
 function showPoint(chart, series, ctm, event) {
     let best = null;
     let distance = Infinity;
@@ -509,7 +506,7 @@ function formatValue(value, format, culture) {
     return prefix + text + suffix;
 }
 
-function compact(value, culture) {
+export function compact(value, culture) {
     const magnitude = Math.abs(value);
     if (magnitude < 0.005) {
         return '0';
@@ -526,9 +523,19 @@ function compact(value, culture) {
         unit++;
     }
 
-    const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
-    const text = new Intl.NumberFormat(culture || undefined, { maximumFractionDigits: digits }).format(value < 0 ? -scaled : scaled);
+    let rounded = roundCompact(scaled);
+    if (rounded >= 1000 && unit < suffixes.length - 1) {
+        unit++;
+        rounded = roundCompact(rounded / 1000);
+    }
+
+    const text = new Intl.NumberFormat(culture || undefined, { maximumFractionDigits: rounded >= 100 ? 0 : 2 }).format(value < 0 ? -rounded : rounded);
     return text + suffixes[unit];
+}
+
+function roundCompact(value) {
+    const factor = 10 ** (value >= 100 ? 0 : value >= 10 ? 1 : 2);
+    return Math.round(value * factor) / factor;
 }
 
 function formatTime(seconds, offset, format) {

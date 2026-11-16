@@ -18,7 +18,7 @@ Axes and series are written as child components, and every component passes othe
 | `TooltipVisible` | `bool` | `true` | `false` keeps only the crosshair and the points |
 | `TrackingGroup`, `TrackingGroupMode` | `string?`, `ChartTrackingGroupMode` | `null`, `Crosshair` | Charts of the same group follow the chart under the pointer; `Tooltip` also shows their tooltips |
 | `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis |
-| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone |
+| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture |
 | `EmptyText` | `string?` | `null` | Text drawn when there is no data |
 
 A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size.  
@@ -215,6 +215,8 @@ A KPI tile that fills the height of its container.
 | `ChartRingBuffer<T>(capacity)` | Keeps the latest `capacity` items; thread safe |
 | `Push`, `Clear` | Adds an item, or removes every item so that charts read again |
 | `Count`, `Capacity`, `Sequence`, `ToArray` | Items in the buffer, the size, the number of items pushed so far and a copy |
+
+Series of one chart that share a buffer read it up to the same item, and items pushed while the chart reads show at the next update.  
 
 ## 🎨 Theme
 

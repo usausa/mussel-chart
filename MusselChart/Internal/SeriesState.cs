@@ -168,7 +168,6 @@ internal sealed class SeriesState
         }
     }
 
-    // The bars go into the SVG once and this moves all of them, so that a new width does not change the position of each bar
     public void PlaceBars(double offset, double width, bool position)
     {
         if (BarOffset.Equals(offset) && BarWidth.Equals(width))
@@ -219,7 +218,6 @@ internal sealed class SeriesState
 
         Bars.RemoveRange(0, bars);
 
-        // Bubbles are kept in the order of their sizes, so that the oldest markers can be anywhere
         var kept = 0;
         for (var i = 0; i < Markers.Count; i++)
         {

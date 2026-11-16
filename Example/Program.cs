@@ -16,6 +16,9 @@ builder.ConfigureMonitor();
 //--------------------------------------------------------------------------------
 var app = builder.Build();
 
+// Localization
+app.UseLocalization();
+
 // Error handler
 app.UseErrorHandler();
 

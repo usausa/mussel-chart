@@ -2,7 +2,7 @@ namespace MusselChart;
 
 using System.Collections;
 
-public sealed class ChartRingBuffer<T> : IReadOnlyList<T>
+public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer
 {
     private readonly Lock sync = new();
 
@@ -103,19 +103,30 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    internal ChartBufferRead Read(long afterSequence, int afterGeneration, List<T> destination)
+    ChartBufferMark IChartBuffer.Mark()
     {
         lock (sync)
         {
-            var added = sequence - afterSequence;
-            var appended = (afterSequence >= 0) && (afterGeneration == generation) && (added >= 0) && (added <= count);
-            var start = appended ? count - (int)added : 0;
-            for (var i = start; i < count; i++)
+            return new ChartBufferMark(sequence, generation);
+        }
+    }
+
+    internal ChartBufferRead Read(long afterSequence, int afterGeneration, ChartBufferMark? until, List<T> destination)
+    {
+        lock (sync)
+        {
+            var newer = (until is { } mark) && (mark.Generation == generation) ? (int)Math.Clamp(sequence - mark.Sequence, 0, count) : 0;
+            var last = sequence - newer;
+            var available = count - newer;
+            var added = last - afterSequence;
+            var appended = (afterSequence >= 0) && (afterGeneration == generation) && (added >= 0) && (added <= available);
+            var start = appended ? available - (int)added : 0;
+            for (var i = start; i < available; i++)
             {
                 destination.Add(buffer[Position(i)]);
             }
 
-            return new ChartBufferRead(appended, sequence, generation, count);
+            return new ChartBufferRead(appended, last, generation, available);
         }
     }
 
@@ -123,3 +134,10 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>
 }
 
 internal readonly record struct ChartBufferRead(bool Appended, long Sequence, int Generation, int Count);
+
+internal readonly record struct ChartBufferMark(long Sequence, int Generation);
+
+internal interface IChartBuffer
+{
+    ChartBufferMark Mark();
+}

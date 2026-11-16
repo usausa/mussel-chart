@@ -18,12 +18,12 @@ internal sealed class PointReader<TItem>
         new(x is null ? 0 : ChartTime.ToUtcTicks(x(item), zone), xValue?.Invoke(item) ?? Double.NaN, category?.Invoke(item), value, low, size);
 
     // ReSharper disable once ParameterTypeCanBeEnumerable.Global
-    public ChartBufferRead Fill(IReadOnlyList<TItem> items, long afterSequence, int afterGeneration)
+    public ChartBufferRead Fill(IReadOnlyList<TItem> items, long afterSequence, int afterGeneration, ChartBufferMark? until)
     {
         Items.Clear();
         if (items is ChartRingBuffer<TItem> ring)
         {
-            return ring.Read(afterSequence, afterGeneration, Items);
+            return ring.Read(afterSequence, afterGeneration, until, Items);
         }
 
         Items.AddRange(items);

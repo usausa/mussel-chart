@@ -84,6 +84,17 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
+    public void ZerosStayAtTheCenterWithoutARange()
+    {
+        var layout = new RadarLayout();
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 0), new RadarPoint("B", 0), new RadarPoint("C", 0)]];
+
+        layout.Update(320, 320, new RadarLayoutOptions { Culture = CultureInfo.InvariantCulture }, series, [true], 5);
+
+        Assert.Equal(0, layout.GetRatio(0));
+    }
+
+    [Fact]
     public void ItemsWithoutANameTakeAxesByPosition()
     {
         var layout = new RadarLayout();

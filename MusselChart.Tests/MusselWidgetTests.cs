@@ -116,6 +116,18 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void GaugeWithoutABaseStepStartsInItsOwnColor()
+    {
+        var cut = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("C:", 50, "#5794F2")])
+            .Add(static p => p.Thresholds, [new ChartThreshold { Value = 70, Level = ChartThresholdLevel.Warning }, new ChartThreshold { Value = 85, Level = ChartThresholdLevel.Critical }]));
+
+        var stops = cut.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))).ToList();
+        Assert.Equal([("0", "#5794F2"), ("0.7", "#5794F2")], stops[..2]);
+        Assert.Equal("#5794F2", cut.Find(".mussel-gauge-value text").GetAttribute("fill"));
+    }
+
+    [Fact]
     public void SparklineDrawsLineOrBars()
     {
         var line = Render<MusselSparklineView>(parameters => parameters
@@ -127,6 +139,27 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal(4, line.Find("polyline").GetAttribute("points")!.Split(' ').Length);
         Assert.Equal("0 0 3 100", line.Find("svg").GetAttribute("viewBox"));
         Assert.Equal(3, bars.FindAll("rect").Count);
+    }
+
+    [Fact]
+    public void SparklineKeepsTheFixedEndWhenAllValuesAreOutside()
+    {
+        var below = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [-5d, -3, -4])
+            .Add(static p => p.Minimum, 0d));
+        var above = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [102d, 105])
+            .Add(static p => p.Maximum, 100d));
+
+        Assert.Equal("0,96 1,96 2,96", below.Find("polyline").GetAttribute("points"));
+        Assert.Equal("0,4 1,4", above.Find("polyline").GetAttribute("points"));
+    }
+
+    [Fact]
+    public void EightDigitColorsEndWithTheAlpha()
+    {
+        Assert.True(ChartColor.TryParse("#5794F2CC", out var color));
+        Assert.Equal((0x57, 0x94, 0xF2), color);
     }
 
     [Fact]

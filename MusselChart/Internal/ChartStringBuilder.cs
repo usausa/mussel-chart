@@ -3,7 +3,6 @@ namespace MusselChart.Internal;
 using System.Globalization;
 using System.Text;
 
-// Long attribute values are built without a builder for each of them and without a string for each number
 internal static class ChartStringBuilder
 {
     private const int InitialCapacity = 256;

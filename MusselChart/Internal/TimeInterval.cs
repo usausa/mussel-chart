@@ -11,8 +11,6 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
         _ => GetFixedPrecision(MinimumTicks)
     };
 
-    public string DefaultFormat => GetDefaultFormat(LabelPrecision);
-
     private long UnitTicks => Unit switch
     {
         ChartDateTimeIntervalType.Minutes => TimeSpan.TicksPerMinute,
@@ -24,16 +22,16 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
         _ => TimeSpan.TicksPerSecond
     };
 
-    public string GetTickFormat(double value)
+    public string GetTickFormat(double value, bool dayFirst)
     {
         var precision = LabelPrecision;
         var ticks = (long)value;
         if ((precision > TimeLabelPrecision.Minute) || ((ticks / TimeSpan.TicksPerDay) == ((ticks - MinimumTicks) / TimeSpan.TicksPerDay)))
         {
-            return DefaultFormat;
+            return GetDefaultFormat(precision, dayFirst);
         }
 
-        return (ticks % TimeSpan.TicksPerDay) == 0 ? GetDefaultFormat(TimeLabelPrecision.Day) : GetTrackingFormat(precision, true);
+        return (ticks % TimeSpan.TicksPerDay) == 0 ? GetDefaultFormat(TimeLabelPrecision.Day, dayFirst) : GetTrackingFormat(precision, true, dayFirst);
     }
 
     public static TimeInterval FromUnits(ChartDateTimeIntervalType unit, double count)
@@ -52,19 +50,19 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
         return new TimeInterval(unit, (int)Math.Clamp(Math.Round(count, MidpointRounding.AwayFromZero), 1, Int32.MaxValue));
     }
 
-    public static string GetDefaultFormat(TimeLabelPrecision precision) => precision switch
+    public static string GetDefaultFormat(TimeLabelPrecision precision, bool dayFirst) => precision switch
     {
         TimeLabelPrecision.Second => "HH:mm:ss",
         TimeLabelPrecision.Minute => "HH:mm",
-        TimeLabelPrecision.Day => "M/d",
+        TimeLabelPrecision.Day => dayFirst ? "d/M" : "M/d",
         _ => "yyyy/M"
     };
 
-    public static string GetTrackingFormat(TimeLabelPrecision precision, bool spansDays) => precision switch
+    public static string GetTrackingFormat(TimeLabelPrecision precision, bool spansDays, bool dayFirst) => precision switch
     {
-        TimeLabelPrecision.Second => spansDays ? "M/d HH:mm:ss" : "HH:mm:ss",
-        TimeLabelPrecision.Minute => spansDays ? "M/d HH:mm" : "HH:mm",
-        _ => GetDefaultFormat(precision)
+        TimeLabelPrecision.Second => spansDays ? (dayFirst ? "d/M HH:mm:ss" : "M/d HH:mm:ss") : "HH:mm:ss",
+        TimeLabelPrecision.Minute => spansDays ? (dayFirst ? "d/M HH:mm" : "M/d HH:mm") : "HH:mm",
+        _ => GetDefaultFormat(precision, dayFirst)
     };
 
     public static TimeLabelPrecision GetValuePrecision(ReadOnlySpan<double> values, TimeLabelPrecision precision)
@@ -78,7 +76,7 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
 
             if (Double.IsFinite(value) && (value >= 0) && (value <= DateTime.MaxValue.Ticks))
             {
-                var current = GetValuePrecision((long)value);
+                var current = GetValuePrecision(ChartDateTime.ClampTicks(value));
                 if (current < precision)
                 {
                     precision = current;

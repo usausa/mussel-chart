@@ -30,7 +30,6 @@ internal sealed class TrendPath
     public string ViewBox(bool bars) =>
         String.Create(CultureInfo.InvariantCulture, $"0 0 {(bars ? Count : Math.Max(Count - 1, 1))} {ViewHeight}");
 
-    // Wins fill the upper half and losses the lower half with a pixel between them, and the rest is not drawn
     public static TrendPath CreateWinLoss(IEnumerable<double>? source, double height)
     {
         if (source is null)
@@ -77,6 +76,11 @@ internal sealed class TrendPath
         var finite = values.Where(Double.IsFinite).ToArray();
         var low = minimum ?? (finite.Length > 0 ? finite.Min() : 0);
         var high = maximum ?? (finite.Length > 0 ? finite.Max() : 1);
+        if ((minimum is not null) && (maximum is not null) && (low > high))
+        {
+            (low, high) = (high, low);
+        }
+
         if (bars)
         {
             low = Math.Min(low, 0);
@@ -85,8 +89,19 @@ internal sealed class TrendPath
 
         if (!(high > low))
         {
-            low -= 1;
-            high += 1;
+            if ((minimum is not null) && (maximum is null))
+            {
+                high = low + 1;
+            }
+            else if ((maximum is not null) && (minimum is null))
+            {
+                low = high - 1;
+            }
+            else
+            {
+                low -= 1;
+                high += 1;
+            }
         }
 
         var span = high - low;

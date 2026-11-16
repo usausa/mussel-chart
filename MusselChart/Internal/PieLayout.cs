@@ -170,7 +170,6 @@ internal sealed class PieLayout
         return ChartGeometry.Slice(CenterX, CenterY, OuterRadius, InnerRadius, GetAngle(slice.Start), SweepAngle * (slice.End - slice.Start), startGap, endGap);
     }
 
-    // The label sits in the middle of the ring or at 0.62 of the radius of a pie, and only when it fits in its slice
     public (double X, double Y)? GetInsideLabel(PieSlice slice)
     {
         if ((slice.LabelText is null) || (OuterRadius <= 0))
@@ -350,7 +349,6 @@ internal sealed class PieLayout
         }
     }
 
-    // Colors follow the data order of the slices drawn when nothing is hidden, followed by what hiding brings out of the merged slice
     private void RankByData(int count)
     {
         if (ranks.Length < count)
@@ -631,7 +629,6 @@ internal sealed class PieLayout
         Center = FitCenter(options.CenterValue ?? Total, options.CenterLabel);
     }
 
-    // The value takes half of the hole, and shrinks until the value and the caption fit inside it
     private PieCenterText? FitCenter(double number, string? caption)
     {
         var format = options.CenterValueFormat ?? options.ValueFormat;

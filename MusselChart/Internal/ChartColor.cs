@@ -49,7 +49,7 @@ internal static class ChartColor
         return hex.Length switch
         {
             6 => TryParseHex(hex, out color),
-            8 => TryParseHex(hex[2..], out color),
+            8 => TryParseHex(hex[..6], out color),
             _ => false
         };
     }
@@ -95,7 +95,6 @@ internal static class ChartColor
         return ToHex((Lerp(start.R, end.R, t), Lerp(start.G, end.G, t), Lerp(start.B, end.B, t)));
     }
 
-    // White or near black, whichever has the higher WCAG contrast with the background
     public static string Contrast(string background)
     {
         if (!TryParse(background, out var color))

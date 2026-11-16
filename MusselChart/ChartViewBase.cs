@@ -70,18 +70,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Disposed = true;
-        if (module is not null)
-        {
-            try
-            {
-                await module.InvokeVoidAsync("detach", attached).ConfigureAwait(true);
-                await module.DisposeAsync().ConfigureAwait(true);
-            }
-            catch (JSDisconnectedException)
-            {
-            }
-        }
-
+        await ReleaseAsync().ConfigureAwait(true);
         reference?.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -107,6 +96,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
             module = await Runtime.InvokeAsync<IJSObjectReference>("import", ModulePath).ConfigureAwait(true);
             if (Disposed)
             {
+                await ReleaseAsync().ConfigureAwait(true);
                 return;
             }
 
@@ -115,6 +105,38 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
             await module.InvokeVoidAsync("attach", element, reference).ConfigureAwait(true);
         }
         catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private async Task ReleaseAsync()
+    {
+        var loaded = module;
+        module = null;
+        if (loaded is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (reference is not null)
+            {
+                await loaded.InvokeVoidAsync("detach", attached).ConfigureAwait(true);
+            }
+
+            await loaded.DisposeAsync().ConfigureAwait(true);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
         {
         }
     }

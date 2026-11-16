@@ -50,7 +50,7 @@ internal static class ChartTime
     {
         DateTimeKind.Utc => value.Ticks,
         DateTimeKind.Local => value.ToUniversalTime().Ticks,
-        _ => TimeZoneInfo.ConvertTimeToUtc(value, zone).Ticks
+        _ => Math.Clamp(value.Ticks - zone.GetUtcOffset(value).Ticks, 0, DateTime.MaxValue.Ticks)
     };
 
     public static long ToZoneTicks(long utcTicks, TimeZoneInfo zone) =>
@@ -85,10 +85,41 @@ internal static class ChartFormat
 
         if (String.IsNullOrEmpty(format))
         {
-            return value.ToString(defaultFormat, culture);
+            return value.ToString(defaultFormat, CultureInfo.InvariantCulture);
         }
 
         return format.Contains('{', StringComparison.Ordinal) ? String.Format(culture, format, value) : value.ToString(format, culture);
+    }
+
+    public static bool IsDayFirst(CultureInfo culture)
+    {
+        var pattern = culture.DateTimeFormat.ShortDatePattern;
+        var quote = '\0';
+        for (var i = 0; i < pattern.Length; i++)
+        {
+            var c = pattern[i];
+            if (quote != '\0')
+            {
+                if (c == quote)
+                {
+                    quote = '\0';
+                }
+            }
+            else if (c is '\'' or '"')
+            {
+                quote = c;
+            }
+            else if (c == '\\')
+            {
+                i++;
+            }
+            else if (c is 'd' or 'M')
+            {
+                return c == 'd';
+            }
+        }
+
+        return false;
     }
 
     public static string MergeClass(string own, IReadOnlyDictionary<string, object>? attributes) =>

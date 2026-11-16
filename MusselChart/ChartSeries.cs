@@ -76,7 +76,7 @@ public abstract class ChartSeries : ComponentBase, IDisposable
 
     internal virtual SeriesOptions CreateOptions() => new(Title, Color, IsVisible, LegendVisible, ValueFormat, ValueFormatter, Source, XKind, 0, 0, null, false);
 
-    internal abstract ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, TimeZoneInfo zone, List<ChartPointData> destination);
+    internal abstract ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, ChartBufferMark? until, TimeZoneInfo zone, List<ChartPointData> destination);
 }
 
 public abstract class XySeries<TItem> : ChartSeries
@@ -104,14 +104,14 @@ public abstract class XySeries<TItem> : ChartSeries
 
     internal override object? Source => Items;
 
-    internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, TimeZoneInfo zone, List<ChartPointData> destination)
+    internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, ChartBufferMark? until, TimeZoneInfo zone, List<ChartPointData> destination)
     {
         if ((Items is null) || (Y is null) || ((X is null) && (XValue is null) && (Category is null)))
         {
             return default;
         }
 
-        var read = reader.Fill(Items, afterSequence, afterGeneration);
+        var read = reader.Fill(Items, afterSequence, afterGeneration, until);
         foreach (var item in reader.Items)
         {
             destination.Add(PointReader<TItem>.CreatePoint(item, X, XValue, Category, zone, Y(item), Double.NaN, ReadSize(item)));
@@ -209,14 +209,14 @@ public sealed class RangeBarSeries<TItem> : ChartSeries
 
     internal override SeriesOptions CreateOptions() => base.CreateOptions() with { Thickness = MaxBarWidth, Opacity = BarWidthRatio };
 
-    internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, TimeZoneInfo zone, List<ChartPointData> destination)
+    internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, ChartBufferMark? until, TimeZoneInfo zone, List<ChartPointData> destination)
     {
         if ((Items is null) || (Low is null) || (High is null) || ((X is null) && (XValue is null) && (Category is null)))
         {
             return default;
         }
 
-        var read = reader.Fill(Items, afterSequence, afterGeneration);
+        var read = reader.Fill(Items, afterSequence, afterGeneration, until);
         foreach (var item in reader.Items)
         {
             destination.Add(PointReader<TItem>.CreatePoint(item, X, XValue, Category, zone, High(item), Low(item), Double.NaN));

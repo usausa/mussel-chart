@@ -56,6 +56,44 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Equal(["A", "B"], rows);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(9)]
+    public void AStateThatNeverEndsIsDrawn(int offset)
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("Zone", TimeSpan.FromHours(offset), "Zone", "Zone");
+        StateItem[] items = [new("A", Origin, "x", DateTimeOffset.MaxValue.UtcDateTime)];
+
+        var cut = Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(static p => p.End, static x => x.End)
+            .Add(static p => p.State, static x => x.State)
+            .Add(static p => p.Maximum, Origin.AddHours(2))
+            .Add(static p => p.TimeZone, zone));
+
+        Assert.Single(cut.FindAll(".mussel-timeline-bands rect"));
+    }
+
+    [Fact]
+    public void DefaultTimesKeepTheSeparatorsOfTheTooltip()
+    {
+        StateItem[] items = [new("A", Origin, "x"), new("A", Origin.AddMinutes(30), "y")];
+
+        var cut = Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(static p => p.State, static x => x.State)
+            .Add(static p => p.Maximum, Origin.AddHours(1))
+            .Add(static p => p.Culture, new CultureInfo("fi-FI"))
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc));
+
+        Assert.Contains("08:00", cut.FindAll(".mussel-view-label").Select(static x => x.TextContent));
+        Assert.Contains("08:00 – 08:30", cut.Find(".mussel-timeline-bands rect").GetAttribute("data-tip"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void EqualStatesNextToEachOtherMerge()
     {
@@ -165,6 +203,25 @@ public sealed class MusselStateTimelineViewTests : BunitContext
             p => p.Add(static x => x.Minimum, Origin.AddMinutes(90)).Add(static x => x.Maximum, Origin.AddHours(2)));
 
         Assert.Single(cut.FindAll(".mussel-timeline-bands rect"));
+    }
+
+    [Theory]
+    [InlineData("de-DE", "1/7.*3/7")]
+    [InlineData("en-US", "7/1.*7/3")]
+    public void DatesFollowTheOrderOfTheCulture(string culture, string pattern)
+    {
+        StateItem[] items = [new("A", Origin, "x"), new("A", Origin.AddDays(2), "y")];
+
+        var cut = Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(static p => p.State, static x => x.State)
+            .Add(static p => p.Maximum, Origin.AddDays(3))
+            .Add(static p => p.Culture, new CultureInfo(culture))
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc));
+
+        Assert.Matches(pattern, cut.Find(".mussel-timeline-bands rect").GetAttribute("data-tip"));
     }
 
     [Fact]

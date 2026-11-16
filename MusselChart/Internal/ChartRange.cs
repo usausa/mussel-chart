@@ -31,7 +31,7 @@ internal static class ChartRange
         if (maximum <= minimum)
         {
             var delta = Math.Abs(maximum) > 0 ? Math.Abs(maximum) * 0.1 : 1;
-            minimum -= delta;
+            minimum -= options.IncludeZero ? 0 : delta;
             maximum += delta;
         }
 
@@ -53,7 +53,6 @@ internal static class ChartRange
         return NiceScale.Create(minimum, maximum, divisions, options.Nice && (fixedMinimum is null), options.Nice && (fixedMaximum is null));
     }
 
-    // Widens a range so that marks of a size in pixels at its ends stay inside the length
     public static (double Minimum, double Maximum) Pad(double minimum, double maximum, double padding, double length)
     {
         if ((padding <= 0) || !(length > padding * 2) || !Double.IsFinite(minimum) || !Double.IsFinite(maximum))

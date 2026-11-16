@@ -1,5 +1,8 @@
 namespace MusselChart;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
+
 using MusselChart.Internal;
 
 public sealed class MusselPieChartViewTests : BunitContext
@@ -261,6 +264,19 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public async Task TheScriptThatArrivesAfterTheViewIsGoneIsReleased()
+    {
+        var runtime = new LateRuntime();
+        Services.AddSingleton<IJSRuntime>(runtime);
+        var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
+
+        await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+        await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
+
+        await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Released));
+    }
+
+    [Fact]
     public void SlicesFillTheSweep()
     {
         var layout = new PieLayout();
@@ -273,6 +289,34 @@ public sealed class MusselPieChartViewTests : BunitContext
         Assert.Equal(1, layout.Slices[2].End);
         Assert.Equal(100, layout.Total);
     }
+
+    private sealed class LateRuntime : IJSRuntime
+    {
+        public TaskCompletionSource<IJSObjectReference> Import { get; } = new();
+
+        public LateModule Module { get; } = new();
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            identifier == "import" ? new ValueTask<TValue>((Task<TValue>)(object)Import.Task) : default;
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            identifier == "import" ? new ValueTask<TValue>((Task<TValue>)(object)Import.Task) : default;
+    }
+
+    private sealed class LateModule : IJSObjectReference
+    {
+        public bool Released { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            Released = true;
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => default;
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => default;
+    }
 }
 
 public sealed class ChartGeometryTests
@@ -283,6 +327,22 @@ public sealed class ChartGeometryTests
         var path = ChartGeometry.Arc(0, 0, 10, 0, 360);
 
         Assert.Equal("M0 -10A10 10 0 1 1 0 10A10 10 0 1 1 0 -10Z", path);
+    }
+
+    [Fact]
+    public void ArcThatAlmostClosesIsDrawnAsACircle()
+    {
+        var path = ChartGeometry.Arc(0, 0, 10, 0, 359.9999);
+
+        Assert.Equal("M0 -10A10 10 0 1 1 0 10A10 10 0 1 1 0 -10Z", path);
+    }
+
+    [Fact]
+    public void SliceThatAlmostClosesIsDrawnAsARing()
+    {
+        var path = ChartGeometry.Slice(0, 0, 10, 5, 0, 359.9999, 0, 0);
+
+        Assert.Equal(ChartGeometry.Slice(0, 0, 10, 5, 0, 360, 0, 0), path);
     }
 
     [Fact]

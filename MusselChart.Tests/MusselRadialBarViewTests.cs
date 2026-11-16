@@ -149,6 +149,20 @@ public sealed class MusselRadialBarViewTests : BunitContext
     }
 
     [Fact]
+    public void GradientOverflowWrapsOverTheGradient()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 150, "#5794F2")])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.OverflowMode, ChartOverflowMode.Wrap));
+
+        var last = cut.Find(".mussel-ring").Children[^1];
+        Assert.Equal("path", last.LocalName);
+        Assert.False(last.HasAttribute("class"));
+        Assert.NotNull(last.GetAttribute("stroke"));
+    }
+
+    [Fact]
     public void GradientFollowsTheThresholds()
     {
         var cut = Render<MusselRadialBarView>(parameters => parameters
