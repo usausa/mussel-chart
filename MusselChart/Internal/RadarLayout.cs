@@ -94,7 +94,11 @@ internal sealed class RadarLayout
 
     public double GetValue(int series, int axis) => values[(series * AxisCount) + axis];
 
-    public double GetRatio(double value) => Scale.Span > 0 ? Math.Clamp((value - Scale.Minimum) / Scale.Span, 0, 1) : 0;
+    public double GetRatio(double value)
+    {
+        var span = (Scale.Maximum / 2) - (Scale.Minimum / 2);
+        return span > 0 ? Math.Clamp(((value / 2) - (Scale.Minimum / 2)) / span, 0, 1) : 0;
+    }
 
     public (double X, double Y) GetPoint(int axis, double ratio) =>
         (CenterX + (axes[axis].DirectionX * Radius * ratio), CenterY + (axes[axis].DirectionY * Radius * ratio));

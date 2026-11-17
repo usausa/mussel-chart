@@ -64,6 +64,8 @@ public sealed partial class MusselChartView
 
     private readonly List<(long Utc, double Local)> zoneTicks = [];
 
+    private readonly List<long> offsetChanges = [];
+
     private readonly List<SeriesState> visibleStates = [];
 
     private readonly List<double> valueTicks = [];
@@ -258,7 +260,7 @@ public sealed partial class MusselChartView
             seriesViews.Add(new SeriesView(
                 state,
                 kind,
-                options.ValueFormat ?? yAxis?.LabelFormat ?? string.Empty,
+                options.ValueFormat ?? (percent ? null : yAxis?.LabelFormat) ?? string.Empty,
                 stacked ? SegmentGap / scaleV : 0,
                 stacked ? stacks.GetValueOrDefault((kind, series.StackKey!)) : null,
                 IsMarkerKind(kind) ? CreateMarkers(state, options, map, position) : null));
@@ -557,7 +559,7 @@ public sealed partial class MusselChartView
         var height = ChartText.LineHeight(LabelFontSize);
         var widths = vertical ? new TimeLabelWidths(height, height, height, height) : new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
         var interval = TickGenerator.SelectTimeInterval(span, length, divisions, LabelGap * 2, widths);
-        TickGenerator.ZoneTime(start, end, zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks);
+        TickGenerator.ZoneTime(start, end, zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks, offsetChanges);
         var dayFirst = ChartFormat.IsDayFirst(culture);
         foreach (var (utc, local) in zoneTicks)
         {
@@ -865,11 +867,20 @@ public sealed partial class MusselChartView
         var start = ToTicks(position.Start);
         var end = ToTicks(position.End);
         offsetText = (ChartTime.OffsetOf(end, zone) / TimeSpan.TicksPerMinute).ToString(CultureInfo.InvariantCulture);
-        if (ChartTime.FindOffsetChange(start, end, zone) is { } change)
+        ChartTime.FindOffsetChanges(start, end, zone, offsetChanges);
+        if (offsetChanges.Count > 0)
         {
-            offsetChangeText = String.Create(CultureInfo.InvariantCulture, $"{(change - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond},{ChartTime.OffsetOf(start, zone) / TimeSpan.TicksPerMinute}");
+            var builder = ChartStringBuilder.Rent();
+            foreach (var change in offsetChanges)
+            {
+                builder.Append(builder.Length > 0 ? " " : string.Empty)
+                    .Append(CultureInfo.InvariantCulture, $"{(change - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond},{ChartTime.OffsetOf(change - 1, zone) / TimeSpan.TicksPerMinute}");
+            }
+
+            offsetChangeText = ChartStringBuilder.ToStringAndReturn(builder);
         }
-        var spansDays = (end - start) >= TimeSpan.TicksPerDay;
+
+        var spansDays = (ChartTime.ToZoneTicks(start, zone) / TimeSpan.TicksPerDay) != (ChartTime.ToZoneTicks(end, zone) / TimeSpan.TicksPerDay);
         var finest = Double.PositiveInfinity;
         foreach (var state in visible)
         {
@@ -1007,8 +1018,8 @@ public sealed partial class MusselChartView
     private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV)
     {
         public string Matrix => Horizontal
-            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:0.######} {ScaleV:0.######} 0 {OffsetV:0.###} {OffsetP:0.###})")
-            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:0.######} 0 0 {-ScaleV:0.######} {OffsetP:0.###} {OffsetV:0.###})");
+            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:G9} {ScaleV:G9} 0 {OffsetV:0.###} {OffsetP:0.###})")
+            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:G9} 0 0 {-ScaleV:G9} {OffsetP:0.###} {OffsetV:0.###})");
 
         public (double X, double Y) Map(double position, double value) => Horizontal
             ? (OffsetV + (value * ScaleV), OffsetP + (position * ScaleP))

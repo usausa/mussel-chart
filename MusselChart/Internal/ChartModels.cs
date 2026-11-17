@@ -46,6 +46,10 @@ internal sealed record SeriesOptions(
 
 internal static class ChartTime
 {
+    private const long OffsetStep = TimeSpan.TicksPerDay * 7;
+
+    private const long MaxOffsetSteps = 4096;
+
     public static long ToUtcTicks(DateTime value, TimeZoneInfo zone) => value.Kind switch
     {
         DateTimeKind.Utc => value.Ticks,
@@ -58,19 +62,35 @@ internal static class ChartTime
 
     public static long OffsetOf(long utcTicks, TimeZoneInfo zone) => zone.GetUtcOffset(new DateTime(Math.Clamp(utcTicks, 0, DateTime.MaxValue.Ticks), DateTimeKind.Utc)).Ticks;
 
-    public static long? FindOffsetChange(long start, long end, TimeZoneInfo zone)
+    public static void FindOffsetChanges(long start, long end, TimeZoneInfo zone, List<long> changes)
     {
-        var first = OffsetOf(start, zone);
-        if ((end <= start) || (OffsetOf(end, zone) == first))
+        changes.Clear();
+        if (end <= start)
         {
-            return null;
+            return;
         }
 
-        var (low, high) = (start, end);
+        var step = Math.Max(OffsetStep, ((end - start) / MaxOffsetSteps) + 1);
+        var (low, offset) = (start, OffsetOf(start, zone));
+        while (low < end)
+        {
+            var high = end - low > step ? low + step : end;
+            var next = OffsetOf(high, zone);
+            if (next != offset)
+            {
+                changes.Add(FindOffsetChange(low, high, offset, zone));
+            }
+
+            (low, offset) = (high, next);
+        }
+    }
+
+    private static long FindOffsetChange(long low, long high, long offset, TimeZoneInfo zone)
+    {
         while (high - low > 1)
         {
             var middle = low + ((high - low) / 2);
-            if (OffsetOf(middle, zone) == first)
+            if (OffsetOf(middle, zone) == offset)
             {
                 low = middle;
             }

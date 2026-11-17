@@ -1,5 +1,7 @@
 namespace MusselChart.Internal;
 
+using System.Globalization;
+
 internal static class CompactNumberFormat
 {
     private const double CompactThreshold = 10000;
@@ -62,7 +64,8 @@ internal static class CompactNumberFormat
 
         if (magnitude < CompactThreshold)
         {
-            return (Math.Round(value, 2, MidpointRounding.AwayFromZero), PlainFormat, null);
+            var plain = Round(magnitude, 2);
+            return (value < 0 ? -plain : plain, PlainFormat, null);
         }
 
         var unit = 0;
@@ -83,6 +86,13 @@ internal static class CompactNumberFormat
         return (value < 0 ? -rounded : rounded, rounded >= 100 ? "#,0" : "0.##", Suffixes[unit]);
     }
 
-    private static double Round(double value) =>
-        Math.Round(value, value >= 100 ? 0 : value >= 10 ? 1 : 2, MidpointRounding.AwayFromZero);
+    private static double Round(double value) => Round(value, value >= 100 ? 0 : value >= 10 ? 1 : 2);
+
+    private static double Round(double value, int digits)
+    {
+        Span<char> text = stackalloc char[32];
+        return value.TryFormat(text, out var written, "R", CultureInfo.InvariantCulture) && decimal.TryParse(text[..written], NumberStyles.Float, CultureInfo.InvariantCulture, out var exact)
+            ? (double)Math.Round(exact, digits, MidpointRounding.AwayFromZero)
+            : Math.Round(value, digits, MidpointRounding.AwayFromZero);
+    }
 }

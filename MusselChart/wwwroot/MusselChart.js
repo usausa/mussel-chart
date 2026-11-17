@@ -1,8 +1,9 @@
 const charts = new WeakMap();
 const ns = 'http://www.w3.org/2000/svg';
 const suffixes = ['K', 'M', 'B', 'T'];
+const numberFormats = new Map();
 
-export function attach(element, reference) {
+export function attach(element, dotnet) {
     const state = { width: 0, frame: 0, target: null, last: null };
     state.observer = new ResizeObserver(entries => {
         const width = Math.floor(entries[0].contentRect.width);
@@ -12,12 +13,14 @@ export function attach(element, reference) {
 
         state.width = width;
         cancelAnimationFrame(state.frame);
-        state.frame = requestAnimationFrame(() => reference.invokeMethodAsync('OnResize', width).catch(() => { }));
+        state.frame = requestAnimationFrame(() => dotnet.invokeMethodAsync('OnResize', width).catch(() => { }));
     });
     state.observer.observe(element);
 
     state.track = e => {
         if (element.dataset.trackball !== 'hover') {
+            state.target = null;
+            hide(element);
             return;
         }
 
@@ -39,8 +42,12 @@ export function attach(element, reference) {
             return;
         }
 
+        const previous = state.target;
         state.target = null;
         state.track({ clientX: last.clientX, clientY: last.clientY, target });
+        if ((previous !== null) && (state.target === null)) {
+            hide(element);
+        }
     });
     state.move = e => {
         if (state.last === null) {
@@ -63,9 +70,10 @@ export function attach(element, reference) {
 
     charts.set(element, state);
     element.dataset.attached = '';
+    return { dispose: () => detach(element) };
 }
 
-export function detach(element) {
+function detach(element) {
     const state = charts.get(element);
     if (!state) {
         return;
@@ -98,10 +106,6 @@ function members(element) {
     return [...document.querySelectorAll('.mussel-chart')].filter(x => x.dataset.group === group);
 }
 
-//--------------------------------------------------------------------------------
-// Series on axes
-//--------------------------------------------------------------------------------
-
 function track(element, event) {
     const plot = element.querySelector('.mussel-plot');
     const ctm = plot?.getScreenCTM();
@@ -130,19 +134,20 @@ function readCategories(chart) {
     return text ? JSON.parse(text) : [];
 }
 
-function toPosition(chart, x) {
+export function toPosition(chart, x) {
     const kind = chart.dataset.xKind ?? 'time';
     if (kind === 'category') {
         const categories = readCategories(chart);
-        return { kind, value: categories[Math.min(Math.max(Math.round(x), 0), categories.length - 1)] };
+        const index = Math.min(Math.max(Math.round(x), 0), categories.length - 1);
+        return { kind, value: categories[index], index, source: chart };
     }
 
     return { kind, value: kind === 'time' ? Number(chart.querySelector('svg').dataset.base) + x : x };
 }
 
-function fromPosition(chart, position) {
+export function fromPosition(chart, position) {
     if (position.kind === 'category') {
-        return readCategories(chart).indexOf(position.value);
+        return position.source === chart ? position.index : readCategories(chart).indexOf(position.value);
     }
 
     return position.kind === 'time' ? position.value - Number(chart.querySelector('svg').dataset.base) : position.value;
@@ -164,11 +169,7 @@ function readSeries(chart) {
         }
 
         for (const rect of group.querySelectorAll('.mussel-bars rect')) {
-            const x = Number(rect.getAttribute('x'));
-            const low = Number(rect.getAttribute('y'));
-            const high = low + Number(rect.getAttribute('height'));
-            const value = Number(rect.dataset.v);
-            values.set(x, { y: value < 0 ? low : high, value, low, high, center: x + Number(rect.parentNode.dataset.offset) });
+            values.set(Number(rect.getAttribute('x')), barEntry(rect));
         }
 
         for (const marker of group.querySelectorAll('.mussel-markers > *')) {
@@ -201,8 +202,7 @@ function nearest(series, x) {
 }
 
 function show(chart, position, active) {
-    const plot = chart.querySelector('.mussel-plot');
-    const matrix = plot?.transform.baseVal.consolidate()?.matrix;
+    const matrix = plotMatrix(chart.querySelector('.mussel-plot'));
     const series = readSeries(chart);
     if (!matrix || series.length === 0 || (chart.dataset.xKind ?? 'time') !== position.kind || series.every(isPoints)) {
         hide(chart);
@@ -255,7 +255,7 @@ function show(chart, position, active) {
             top = (along * scale) - 12 - tooltip.offsetHeight;
         }
 
-        tooltip.style.left = `${(matrix.e * scale) + 8}px`;
+        tooltip.style.left = `${horizontalTooltipLeft(Number(clip.getAttribute('x')), scale, chart.getBoundingClientRect().width, tooltip.offsetWidth)}px`;
         tooltip.style.top = `${Math.max(top, 0)}px`;
         return;
     }
@@ -287,7 +287,7 @@ function showPoint(chart, series, ctm, event) {
         }
     }
 
-    const matrix = chart.querySelector('.mussel-plot')?.transform.baseVal.consolidate()?.matrix;
+    const matrix = plotMatrix(chart.querySelector('.mussel-plot'));
     if (best === null || !matrix) {
         hide(chart);
         return;
@@ -371,12 +371,9 @@ function spacing(series) {
     return Number.isFinite(minimum) ? minimum : 1;
 }
 
-//--------------------------------------------------------------------------------
-// Elements that carry their own tooltip
-//--------------------------------------------------------------------------------
-
 function trackItem(element, state, event) {
-    const target = event.target?.closest?.('[data-tip]') ?? null;
+    const hit = event.pointerType === 'touch' ? document.elementFromPoint(event.clientX, event.clientY) : event.target;
+    const target = hit?.closest?.('[data-tip]') ?? null;
     if (target === null || !element.contains(target)) {
         if (state.target !== null) {
             state.target = null;
@@ -446,10 +443,6 @@ function showItem(chart, target) {
     fillTooltip(tooltip, tip.t, tip.r);
 }
 
-//--------------------------------------------------------------------------------
-// Tooltip
-//--------------------------------------------------------------------------------
-
 function fillTooltip(tooltip, title, rows) {
     tooltip.replaceChildren();
     if (title) {
@@ -507,10 +500,6 @@ function hide(chart) {
     }
 }
 
-//--------------------------------------------------------------------------------
-// Format
-//--------------------------------------------------------------------------------
-
 function formatValue(value, format, culture) {
     let prefix = '';
     let suffix = '';
@@ -529,9 +518,9 @@ function formatValue(value, format, culture) {
     const digits = spec.length > 1 ? Number(spec.substring(1)) : 2;
     let text;
     if (kind === 'N' || kind === 'F') {
-        text = new Intl.NumberFormat(culture || undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: kind === 'N' }).format(value);
+        text = numberFormat(culture, kind, digits).format(value);
     } else if (kind === 'P') {
-        text = new Intl.NumberFormat(culture || undefined, { style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+        text = numberFormat(culture, 'P', digits).format(value);
     } else {
         text = compact(value, culture);
     }
@@ -546,7 +535,8 @@ export function compact(value, culture) {
     }
 
     if (magnitude < 10000) {
-        return new Intl.NumberFormat(culture || undefined, { maximumFractionDigits: 2 }).format(value);
+        const plain = roundDecimal(magnitude, 2);
+        return numberFormat(culture, 'C', 2).format(value < 0 ? -plain : plain);
     }
 
     let unit = 0;
@@ -562,24 +552,68 @@ export function compact(value, culture) {
         rounded = roundCompact(rounded / 1000);
     }
 
-    const text = new Intl.NumberFormat(culture || undefined, { maximumFractionDigits: rounded >= 100 ? 0 : 2 }).format(value < 0 ? -rounded : rounded);
+    const text = numberFormat(culture, 'C', rounded >= 100 ? 0 : 2).format(value < 0 ? -rounded : rounded);
     return text + suffixes[unit];
 }
 
-function roundCompact(value) {
-    const factor = 10 ** (value >= 100 ? 0 : value >= 10 ? 1 : 2);
-    return Math.round(value * factor) / factor;
+function numberFormat(culture, kind, digits) {
+    const key = `${culture ?? ''}|${kind}|${digits}`;
+    let format = numberFormats.get(key);
+    if (format === undefined) {
+        format = new Intl.NumberFormat(culture || undefined, kind === 'C'
+            ? { maximumFractionDigits: digits }
+            : kind === 'P'
+                ? { style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits }
+                : { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: kind === 'N' });
+        numberFormats.set(key, format);
+    }
+
+    return format;
 }
 
-export function offsetAt(offset, change, seconds) {
-    if (change) {
-        const [at, before] = change.split(',').map(Number);
-        if (seconds < at) {
-            return before;
+function roundCompact(value) {
+    return roundDecimal(value, value >= 100 ? 0 : value >= 10 ? 1 : 2);
+}
+
+function roundDecimal(value, digits) {
+    return Number(`${Math.round(Number(`${value}e${digits}`))}e-${digits}`);
+}
+
+export function horizontalTooltipLeft(plotLeft, scale, width, tooltipWidth) {
+    return Math.max(Math.min((plotLeft * scale) + 8, width - tooltipWidth), 0);
+}
+
+export function barEntry(rect) {
+    const value = Number(rect.dataset.v);
+    const center = Number(rect.getAttribute('x')) + Number(rect.parentNode.dataset.offset);
+    if (rect.dataset.low !== undefined) {
+        return { y: value, value, low: Number(rect.dataset.low), high: value, center };
+    }
+
+    const low = Number(rect.getAttribute('y'));
+    const high = low + Number(rect.getAttribute('height'));
+    return { y: value < 0 ? low : high, value, low, high, center };
+}
+
+export function plotMatrix(plot) {
+    const list = plot?.transform.baseVal;
+    return list?.numberOfItems > 0 ? list.getItem(0).matrix : null;
+}
+
+export function offsetAt(offset, changes, seconds) {
+    const list = changes ? changes.split(' ') : [];
+    let low = 0;
+    let high = list.length;
+    while (low < high) {
+        const middle = (low + high) >> 1;
+        if (seconds < Number(list[middle].split(',')[0])) {
+            high = middle;
+        } else {
+            low = middle + 1;
         }
     }
 
-    return Number(offset ?? 0);
+    return low < list.length ? Number(list[low].split(',')[1]) : Number(offset ?? 0);
 }
 
 export function formatTime(seconds, offset, format) {

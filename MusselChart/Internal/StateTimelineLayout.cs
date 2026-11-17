@@ -250,9 +250,9 @@ internal sealed class StateTimelineLayout
         {
             var step = steps[i];
             stepColors.Add(ChartColor.Threshold(step, ChartColor.Other));
-            stepLabels.Add(step.Label ?? (Double.IsNegativeInfinity(step.Value) && (i < steps.Count - 1)
-                ? "< " + Format(steps[i + 1].Value)
-                : Format(step.Value) + "+"));
+            stepLabels.Add(step.Label ?? (!Double.IsNegativeInfinity(step.Value)
+                ? Format(step.Value) + "+"
+                : i < steps.Count - 1 ? "< " + Format(steps[i + 1].Value) : string.Empty));
         }
     }
 
@@ -416,7 +416,10 @@ internal sealed class StateTimelineLayout
         {
             for (var i = 0; i < steps.Count; i++)
             {
-                legend.Add((stepLabels[i], stepColors[i]));
+                if (stepLabels[i].Length > 0)
+                {
+                    legend.Add((stepLabels[i], stepColors[i]));
+                }
             }
 
             return;

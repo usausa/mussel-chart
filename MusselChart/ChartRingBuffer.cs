@@ -110,6 +110,20 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer, INotify
 
     public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)ToArray()).GetEnumerator();
 
+    internal List<T> CopyTo(List<T> destination)
+    {
+        lock (sync)
+        {
+            destination.Clear();
+            for (var i = 0; i < count; i++)
+            {
+                destination.Add(buffer[Position(i)]);
+            }
+
+            return destination;
+        }
+    }
+
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     ChartBufferMark IChartBuffer.Mark()

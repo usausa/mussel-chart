@@ -20,6 +20,8 @@ public sealed partial class MusselRadarChartView
 
     private readonly HashSet<RadarSeriesBase> hiddenSeries = new(ReferenceEqualityComparer.Instance);
 
+    private readonly Dictionary<object, object> copies = new(ReferenceEqualityComparer.Instance);
+
     private readonly List<ChartLegendItem> legendItems = [];
 
     private readonly List<PolygonView> polygons = [];
@@ -125,9 +127,11 @@ public sealed partial class MusselRadarChartView
         {
             points[s].Clear();
             WatchSource(seriesList[s].Source);
-            seriesList[s].ReadPoints(points[s]);
+            seriesList[s].ReadPoints(points[s], copies);
             visible.Add(IsSeriesVisible(seriesList[s]));
         }
+
+        copies.Clear();
 
         ApplySources();
 

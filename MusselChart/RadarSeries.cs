@@ -67,7 +67,7 @@ public abstract class RadarSeriesBase : ComponentBase, IDisposable
         options = current;
     }
 
-    internal abstract void ReadPoints(List<RadarPoint> destination);
+    internal abstract void ReadPoints(List<RadarPoint> destination, Dictionary<object, object> copies);
 }
 
 public sealed class RadarSeries<TItem> : RadarSeriesBase
@@ -84,14 +84,14 @@ public sealed class RadarSeries<TItem> : RadarSeriesBase
 
     internal override object? Source => Items;
 
-    internal override void ReadPoints(List<RadarPoint> destination)
+    internal override void ReadPoints(List<RadarPoint> destination, Dictionary<object, object> copies)
     {
         if (Items is null)
         {
             return;
         }
 
-        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+        var items = Items is ChartRingBuffer<TItem> buffer ? CopyOf(buffer, copies) : Items;
 
         // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < items.Count; i++)
@@ -106,5 +106,16 @@ public sealed class RadarSeries<TItem> : RadarSeriesBase
                 destination.Add(new RadarPoint(Category?.Invoke(item), Y(item)));
             }
         }
+    }
+
+    private static TItem[] CopyOf(ChartRingBuffer<TItem> buffer, Dictionary<object, object> copies)
+    {
+        if (!copies.TryGetValue(buffer, out var copy))
+        {
+            copy = buffer.ToArray();
+            copies.Add(buffer, copy);
+        }
+
+        return (TItem[])copy;
     }
 }

@@ -6,7 +6,7 @@ using System.Text;
 
 internal readonly record struct SeriesPoint(long Sequence, long Ticks, double X, double Value, double Top, double Bottom);
 
-internal readonly record struct SeriesBar(long Key, string XText, string ValueText, string? BottomText, string? HeightText, double Bottom, double Top, double Value, long StackSlot);
+internal readonly record struct SeriesBar(long Key, string XText, string ValueText, string? BottomText, string? HeightText, double Bottom, double Top, double Value, long StackSlot, string? LowText = null);
 
 internal readonly record struct SeriesMarker(long Key, string XText, string YText, string? SizeText, double X, double Y, double Size);
 
@@ -100,7 +100,7 @@ internal sealed class SeriesChunk
         builder.Append(line);
         for (var i = bottoms.Count - 1; i >= 0; i--)
         {
-            builder.Append(' ').Append(bottoms[i].X).Append(',').Append(CultureInfo.InvariantCulture, $"{bottoms[i].Bottom:G6}");
+            builder.Append(' ').Append(bottoms[i].X).Append(',').Append(CultureInfo.InvariantCulture, $"{bottoms[i].Bottom:G9}");
         }
 
         return ChartStringBuilder.ToStringAndReturn(builder);

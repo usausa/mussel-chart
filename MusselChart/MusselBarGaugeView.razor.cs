@@ -16,6 +16,8 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     private readonly List<GaugeRow> rows = [];
 
+    private readonly List<ChartEntry> copied = [];
+
     private readonly ChartSourceWatcher sources;
 
     private string rootClass = string.Empty;
@@ -32,7 +34,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     public MusselBarGaugeView()
     {
-        sources = new ChartSourceWatcher(OnSourceChanged);
+        sources = new ChartSourceWatcher(InvokeAsync, Refresh);
     }
 
     [Parameter]
@@ -104,7 +106,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
         segmentCell = ChartFormat.Pixel(Math.Max(SegmentWidth - SegmentGap, 1));
 
         rows.Clear();
-        var items = Items ?? [];
+        var items = Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? [];
         var longest = 0;
         for (var i = 0; i < items.Count; i++)
         {
@@ -175,12 +177,10 @@ public sealed partial class MusselBarGaugeView : IDisposable
     private static string? ToPercent(double ratio) =>
         Double.IsFinite(ratio) ? (Math.Clamp(ratio, 0, 1) * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%" : null;
 
-    private void OnSourceChanged()
+    protected override bool ShouldRender()
     {
-        if (!disposed)
-        {
-            _ = InvokeAsync(Refresh);
-        }
+        sources.Rendered();
+        return true;
     }
 
     private void Refresh()

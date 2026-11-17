@@ -42,7 +42,7 @@ public sealed partial class MusselStatView : IDisposable
 
     public MusselStatView()
     {
-        sources = new ChartSourceWatcher(OnSourceChanged);
+        sources = new ChartSourceWatcher(InvokeAsync, Refresh);
     }
 
     [Parameter]
@@ -104,9 +104,10 @@ public sealed partial class MusselStatView : IDisposable
         var culture = Culture ?? CultureInfo.CurrentCulture;
         sources.Add(TrendValues);
         sources.Apply();
-        var threshold = ChartFormat.FindThreshold(Thresholds, Value);
+        var value = Double.IsFinite(Value) ? Value : Double.NaN;
+        var threshold = ChartFormat.FindThreshold(Thresholds, value);
         tileColor = Fill ?? threshold?.Color ?? (threshold is { Level: not ChartThresholdLevel.None } ? ChartColor.Level(threshold.Level) : null) ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
-        valueText = Double.IsNaN(Value) ? EmptyText ?? "-" : ChartFormat.Value(Value, ValueFormat, ValueFormatter, culture);
+        valueText = Double.IsNaN(value) ? EmptyText ?? "-" : ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
         trend = TrendPath.Create(TrendValues, null, null, false, 4);
 
         var filled = (ColorMode == ChartStatColorMode.Background) && (FillMode == ChartFillMode.Gradient);
@@ -114,7 +115,7 @@ public sealed partial class MusselStatView : IDisposable
         gradientTo = ChartColor.Shift(tileColor, -8, -5);
         backgroundFill = filled ? $"url(#{gradientId})" : tileColor;
         backgroundOpacity = filled ? "1" : "0.15";
-        valueStyle = (ColorMode == ChartStatColorMode.Value) && !Double.IsNaN(Value) ? $"color: {tileColor}" : null;
+        valueStyle = (ColorMode == ChartStatColorMode.Value) && !Double.IsNaN(value) ? $"color: {tileColor}" : null;
 
         if (filled)
         {
@@ -130,17 +131,15 @@ public sealed partial class MusselStatView : IDisposable
         }
 
         var text = filled ? (ChartColor.Brightness(tileColor) > BrightThreshold ? " mussel-stat-dark-text" : " mussel-stat-light-text") : string.Empty;
-        var empty = Double.IsNaN(Value) ? " mussel-stat-empty" : string.Empty;
+        var empty = Double.IsNaN(value) ? " mussel-stat-empty" : string.Empty;
         var layout = LayoutMode == ChartStatLayoutMode.Horizontal ? " mussel-stat-horizontal" : string.Empty;
         rootClass = "mussel-stat" + layout + text + empty;
     }
 
-    private void OnSourceChanged()
+    protected override bool ShouldRender()
     {
-        if (!disposed)
-        {
-            _ = InvokeAsync(Refresh);
-        }
+        sources.Rendered();
+        return true;
     }
 
     private void Refresh()

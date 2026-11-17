@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
+using MusselChart.Internal;
+
 public sealed record Sample(DateTime Time, double Value, double Other = 0);
 
 public sealed class MusselChartViewTests : BunitContext
@@ -128,7 +130,7 @@ public sealed class MusselChartViewTests : BunitContext
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void SeriesOfAFullBufferKeepTheSameOldestPoint(bool timeAxis)
+    public Task SeriesOfAFullBufferKeepTheSameOldestPoint(bool timeAxis)
     {
         Func<Sample, string?>? category = timeAxis ? null : static _ => null;
         var buffer = new ChartRingBuffer<Sample>(3);
@@ -140,7 +142,7 @@ public sealed class MusselChartViewTests : BunitContext
         var pending = new Queue<Sample>();
         var first = new List<double>();
         var second = new List<double>();
-        Render<MusselChartView>(parameters => parameters
+        var cut = Render<MusselChartView>(parameters => parameters
             .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
             .Add(static p => p.LegendVisible, true)
             .Add(static p => p.LegendMode, ChartLegendMode.Table)
@@ -181,8 +183,11 @@ public sealed class MusselChartViewTests : BunitContext
         pending.Enqueue(new Sample(Start.AddSeconds(4), 4));
         buffer.Push(new Sample(Start.AddSeconds(3), 3));
 
-        Assert.NotEmpty(first);
-        Assert.Equal(first, second);
+        return cut.WaitForAssertionAsync(() =>
+        {
+            Assert.Equal(2, second.Count);
+            Assert.Equal(first, second);
+        });
     }
 
     [Fact]
@@ -339,7 +344,7 @@ public sealed class MusselChartViewTests : BunitContext
         var cut = RenderLine(CreateBuffer(10, 10));
         await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
 
-        await cut.InvokeAsync(() => cut.Instance.OnResize(812));
+        await cut.InvokeAsync(() => new ChartScriptBridge(cut.Instance).OnResize(812));
 
         Assert.Contains("mussel-unmeasured", cut.Find("svg").ClassList);
     }
@@ -589,6 +594,23 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TheTimeAxisListsEveryChangeOfTheOffset()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        Sample[] items = [new(new DateTime(2025, 11, 17, 5, 0, 0, DateTimeKind.Utc), 1), new(new DateTime(2026, 11, 16, 5, 0, 0, DateTimeKind.Utc), 2)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, zone)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        var root = cut.Find(".mussel-chart");
+        Assert.Equal(("-300", "1772953200,-300 1793512800,-240"), (root.GetAttribute("data-offset"), root.GetAttribute("data-offset-change")));
+    }
+
+    [Fact]
     public void TheBaseOfTheTimeAxisIsInUnixSeconds()
     {
         Sample[] items = [new(new DateTime(2027, 3, 1, 9, 30, 0, DateTimeKind.Utc), 1), new(new DateTime(2027, 3, 2, 9, 30, 0, DateTimeKind.Utc), 2)];
@@ -669,6 +691,23 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Value)));
 
         Assert.Equal("en-US", cut.Find(".mussel-chart").GetAttribute("data-culture"));
+    }
+
+    [Fact]
+    public void TooltipsShowTheDateWhenTheRangeCrossesMidnight()
+    {
+        var first = new DateTime(2026, 3, 1, 23, 0, 0, DateTimeKind.Utc);
+        var items = Enumerable.Range(0, 5).Select(x => new Sample(first.AddMinutes(x * 30), x)).ToArray();
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .Add(static p => p.Culture, CultureInfo.GetCultureInfo("en-US"))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal("M/d HH:mm", cut.Find(".mussel-chart").GetAttribute("data-time-format"));
     }
 
     [Theory]
@@ -773,5 +812,43 @@ public sealed class MusselChartViewTests : BunitContext
             builder.AddAttribute(3, nameof(LineSeries<>.Y), (Func<Sample, double>)(static x => x.Value));
             builder.CloseComponent();
         }
+    }
+
+    [Fact]
+    public void LargeValuesKeepTheScaleOfThePlot()
+    {
+        Sample[] items = [new(Start, 0), new(Start.AddSeconds(1), 1e9)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var scale = double.Parse(matrix.Split(' ')[3], CultureInfo.InvariantCulture);
+        Assert.True(scale < 0, matrix);
+    }
+
+    [Fact]
+    public void StackedAreasKeepNineDigitsOnTheBottomEdge()
+    {
+        Sample[] items = [new(Start, 1234567.8, 1), new(Start.AddSeconds(1), 7654321.2, 1)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.StackGroup, "total"))
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Other)
+                .Add(static p => p.StackGroup, "total")));
+
+        Assert.EndsWith("1,7654321.2 0,1234567.8", cut.FindAll("polygon")[1].GetAttribute("points"), StringComparison.Ordinal);
     }
 }

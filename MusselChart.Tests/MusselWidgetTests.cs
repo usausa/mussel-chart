@@ -52,15 +52,21 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal("0 0 2 100", cut.Find(".mussel-stat-trend-background").GetAttribute("viewBox"));
     }
 
-    [Fact]
-    public void StatShowsEmptyTextForNaN()
+    [Theory]
+    [InlineData(Double.NaN)]
+    [InlineData(Double.PositiveInfinity)]
+    [InlineData(Double.NegativeInfinity)]
+    public void StatShowsEmptyTextWithoutAFiniteValue(double value)
     {
         var cut = Render<MusselStatView>(parameters => parameters
-            .Add(static p => p.Value, Double.NaN)
+            .Add(static p => p.Value, value)
             .Add(static p => p.Unit, "%")
-            .Add(static p => p.EmptyText, "No data"));
+            .Add(static p => p.EmptyText, "No data")
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.ColorMode, ChartStatColorMode.Value));
 
         Assert.Equal("No data", cut.Find(".mussel-stat-value").TextContent.Trim());
+        Assert.Null(cut.Find(".mussel-stat-value").GetAttribute("style"));
         Assert.Contains("mussel-stat-empty", cut.Find(".mussel-stat").ClassName, StringComparison.Ordinal);
     }
 
@@ -125,6 +131,14 @@ public sealed class MusselWidgetTests : BunitContext
         var stops = cut.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))).ToList();
         Assert.Equal([("0", "#5794F2"), ("0.7", "#5794F2")], stops[..2]);
         Assert.Equal("#5794F2", cut.Find(".mussel-gauge-value text").GetAttribute("fill"));
+    }
+
+    [Fact]
+    public void SparklinesOfTheWidestValuesStayFinite()
+    {
+        var cut = Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, new[] { 1e308, -1e308, 0 }));
+
+        Assert.DoesNotContain("NaN", cut.Find("polyline").GetAttribute("points"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -212,5 +226,26 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal("#808080", ChartColor.Shift("#808080", 30, 0));
         Assert.StartsWith("#", ChartColor.Shift("#5794F2", 8, -15), StringComparison.Ordinal);
         Assert.Equal(255, ChartColor.Brightness("#FFFFFF"));
+    }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<ChartEntry>(4);
+        buffer.Push(new ChartEntry("A", 30, null, 100));
+        buffer.Push(new ChartEntry("B", 50, null, 100));
+        var seen = new HashSet<double>();
+
+        Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, buffer)
+            .Add(static p => p.ValueMode, ChartBarGaugeValueMode.Value)
+            .Add(p => p.ValueFormatter, x =>
+            {
+                seen.Add(x);
+                buffer.Clear();
+                return "v";
+            }));
+
+        Assert.Contains(50, seen);
     }
 }

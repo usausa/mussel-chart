@@ -1,5 +1,6 @@
 namespace MusselChart;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 using MusselChart.Internal;
@@ -48,6 +49,53 @@ public sealed class MusselRadarChartViewTests : BunitContext
         await cut.InvokeAsync(() => cut.Instance.OnResize(500));
 
         Assert.Equal(2, evaluations);
+    }
+
+    [Fact]
+    public void RadarsOfTheWidestValuesStayFinite()
+    {
+        ChartEntry[] items = [new("A", 1e308), new("B", -1e308), new("C", 0)];
+
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
+
+        Assert.DoesNotContain("NaN", cut.Find(".mussel-radar-fill").GetAttribute("points"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SeriesComeAndGoWithTheirComponents()
+    {
+        static RenderFragment Children(bool second, bool wrapped) => builder =>
+        {
+            builder.OpenComponent<RadarSeries<ChartEntry>>(0);
+            builder.AddAttribute(1, nameof(RadarSeries<>.Items), First);
+            builder.AddAttribute(2, nameof(RadarSeries<>.Title), "One");
+            builder.CloseComponent();
+            if (second)
+            {
+                builder.OpenComponent<RadarSeries<ChartEntry>>(3);
+                builder.AddAttribute(4, nameof(RadarSeries<>.Items), Second);
+                builder.AddAttribute(5, nameof(RadarSeries<>.Title), "Two");
+                builder.CloseComponent();
+            }
+
+            if (wrapped)
+            {
+                builder.OpenComponent<WrappedRadarSeries>(6);
+                builder.AddAttribute(7, nameof(WrappedRadarSeries.Items), Second);
+                builder.CloseComponent();
+            }
+        };
+
+        var cut = Render<MusselRadarChartView>(parameters => parameters.Add(static p => p.Height, 300).Add(static p => p.ChildContent, Children(true, false)));
+        var both = cut.FindAll(".mussel-radar-fill").Count;
+        cut.Render(parameters => parameters.Add(static p => p.ChildContent, Children(false, false)));
+        var removed = cut.FindAll(".mussel-radar-fill").Count;
+        cut.Render(parameters => parameters.Add(static p => p.ChildContent, Children(false, true)));
+        var added = cut.FindAll(".mussel-radar-fill").Count;
+
+        Assert.Equal((2, 1, 2), (both, removed, added));
     }
 
     [Fact]
@@ -284,5 +332,54 @@ public sealed class MusselRadarChartViewTests : BunitContext
                 })));
 
         Assert.Equal(4, seen.Count);
+    }
+
+    [Fact]
+    public void SeriesThatShareABufferReadTheSameItems()
+    {
+        var buffer = new ChartRingBuffer<ChartEntry>(8);
+        foreach (var entry in First)
+        {
+            buffer.Push(entry);
+        }
+
+        var (first, second, pushed) = (0, 0, false);
+        Render<MusselRadarChartView>(parameters => parameters
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(p => p.Y, x =>
+                {
+                    first++;
+                    if (!pushed)
+                    {
+                        pushed = true;
+                        buffer.Push(new ChartEntry("Extra", 1));
+                    }
+
+                    return x.Value;
+                }))
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(p => p.Y, x =>
+                {
+                    second++;
+                    return x.Value;
+                })));
+
+        Assert.Equal(first, second);
+    }
+
+    public sealed class WrappedRadarSeries : ComponentBase
+    {
+        [Parameter]
+        public IReadOnlyList<ChartEntry> Items { get; set; } = [];
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<RadarSeries<ChartEntry>>(0);
+            builder.AddAttribute(1, nameof(RadarSeries<>.Items), Items);
+            builder.AddAttribute(2, nameof(RadarSeries<>.Title), "Wrapped");
+            builder.CloseComponent();
+        }
     }
 }

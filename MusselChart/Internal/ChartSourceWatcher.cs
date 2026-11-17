@@ -2,13 +2,13 @@ namespace MusselChart.Internal;
 
 using System.Collections.Specialized;
 
-internal sealed class ChartSourceWatcher(Action changed)
+internal sealed class ChartSourceWatcher(Func<Func<Task>, Task> invoke, Action render)
 {
-    private readonly NotifyCollectionChangedEventHandler handler = (_, _) => changed();
-
     private HashSet<INotifyCollectionChanged> watched = new(ReferenceEqualityComparer.Instance);
 
     private HashSet<INotifyCollectionChanged> found = new(ReferenceEqualityComparer.Instance);
+
+    private int pending;
 
     public void Add(object? source)
     {
@@ -24,7 +24,7 @@ internal sealed class ChartSourceWatcher(Action changed)
         {
             if (!found.Contains(notifier))
             {
-                notifier.CollectionChanged -= handler;
+                notifier.CollectionChanged -= OnCollectionChanged;
             }
         }
 
@@ -32,7 +32,7 @@ internal sealed class ChartSourceWatcher(Action changed)
         {
             if (!watched.Contains(notifier))
             {
-                notifier.CollectionChanged += handler;
+                notifier.CollectionChanged += OnCollectionChanged;
             }
         }
 
@@ -44,5 +44,24 @@ internal sealed class ChartSourceWatcher(Action changed)
     {
         found.Clear();
         Apply();
+    }
+
+    public void Rendered() => Volatile.Write(ref pending, 0);
+
+    private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (Interlocked.Exchange(ref pending, 1) == 0)
+        {
+            _ = invoke(RenderAsync);
+        }
+    }
+
+    private async Task RenderAsync()
+    {
+        await Task.Yield();
+        if (Interlocked.Exchange(ref pending, 0) == 1)
+        {
+            render();
+        }
     }
 }

@@ -1,4 +1,4 @@
-namespace Example.Client.Monitor;
+namespace Example.Client.Models;
 
 public sealed class MonitorSample
 {

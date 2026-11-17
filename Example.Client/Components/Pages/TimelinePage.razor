@@ -1,8 +1,8 @@
 @page "/timeline"
 
-<PageTitle>State timeline</PageTitle>
+<PageTitle>State Timeline - MusselChart</PageTitle>
 
-<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">State timeline</MudText>
+<MudText Typo="Typo.h6" HtmlTag="h1" Class="mt-2 mb-2">State Timeline</MudText>
 <div class="grid">
     <SampleCard Title="Value mappings of server states">
         <MusselStateTimelineView Height="220" Items="States" Row="static x => x.Server" Start="static x => x.Start" State="static x => x.State" Maximum="Now" ValueMappings="Mappings" />

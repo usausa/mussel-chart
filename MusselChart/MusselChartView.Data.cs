@@ -343,7 +343,8 @@ public sealed partial class MusselChartView
         var high = Math.Max(bottom, top);
         var lowText = stacked ? null : ChartFormat.Data(low);
         var heightText = stacked ? null : ChartFormat.Data(high - low);
-        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Position(value), lowText, heightText, low, high, value, slot));
+        var rangeText = stacked || (state.Series.Kind != ChartSeriesKind.RangeBar) ? null : ChartFormat.Position(low);
+        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Position(value), lowText, heightText, low, high, value, slot, rangeText));
     }
 
     private (double Top, double Bottom) Stack((ChartSeriesKind Kind, string Group) key, long slot, double value)

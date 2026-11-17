@@ -20,6 +20,8 @@ public sealed partial class MusselHeatmapView<TItem>
 
     private readonly List<HeatmapEntry> entries = [];
 
+    private readonly List<TItem> copied = [];
+
     private readonly List<ChartTipRow> tipRows = [];
 
     private IReadOnlyList<string>? paletteSource;
@@ -110,7 +112,7 @@ public sealed partial class MusselHeatmapView<TItem>
             return entries;
         }
 
-        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.CopyTo(copied) : Items;
 
         // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < items.Count; i++)

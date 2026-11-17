@@ -145,6 +145,22 @@ public sealed class MusselChartKindsTests : BunitContext
     }
 
     [Fact]
+    public void TooltipsOfAPercentStackDoNotTakeTheFormatOfTheAxis()
+    {
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .Add(static p => p.StackMode, ChartStackMode.Percent)
+            .AddChildContent<NumericAxis>(axis => axis.Add(static p => p.LabelFormat, "{0:N0} %"))
+            .AddChildContent<BarSeries<CategoryItem>>(series => series
+                .Add(static p => p.Items, Items)
+                .Add(static p => p.Category, static x => x.Name)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.StackGroup, "total")));
+
+        Assert.Equal(string.Empty, cut.Find(".mussel-series").GetAttribute("data-format"));
+    }
+
+    [Fact]
     public void AreasOfAPercentStackCarryTheirValues()
     {
         var cut = Render<MusselChartView>(parameters => parameters
@@ -205,6 +221,24 @@ public sealed class MusselChartKindsTests : BunitContext
         Assert.Equal("16", bars[1].GetAttribute("y"));
         Assert.Equal("6", bars[1].GetAttribute("height"));
         Assert.DoesNotContain("0", cut.FindAll(".mussel-axis text").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void RangeBarsKeepNineDigitsOfBothEndsForTheTooltip()
+    {
+        CategoryItem[] items = [new("A", 12345.67, 12350.12), new("B", -5, -10)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<RangeBarSeries<CategoryItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.Category, static x => x.Name)
+                .Add(static p => p.Low, static x => x.Value)
+                .Add(static p => p.High, static x => x.Other)));
+
+        var bars = cut.FindAll(".mussel-bars rect");
+        Assert.Equal(["12345.67", "-10"], bars.Select(static x => x.GetAttribute("data-low")));
+        Assert.Equal(["12350.12", "-5"], bars.Select(static x => x.GetAttribute("data-v")));
     }
 
     [Fact]

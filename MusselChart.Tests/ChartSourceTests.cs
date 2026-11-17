@@ -83,6 +83,20 @@ public sealed class ChartSourceTests : BunitContext
     }
 
     [Fact]
+    public Task SparklinesDrawWhatIsPushedIntoTheirValues()
+    {
+        var values = new ChartRingBuffer<double>(10);
+        values.Push(1);
+        values.Push(3);
+        var cut = Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, values));
+        var before = cut.Find(".mussel-sparkline-line").GetAttribute("points");
+
+        values.Push(2);
+
+        return cut.WaitForAssertionAsync(() => Assert.NotEqual(before, cut.Find(".mussel-sparkline-line").GetAttribute("points")));
+    }
+
+    [Fact]
     public Task BarGaugesDrawWhatIsAddedToTheirItems()
     {
         var items = new ObservableCollection<ChartEntry> { new("A", 30, null, 100) };
@@ -98,16 +112,20 @@ public sealed class ChartSourceTests : BunitContext
     {
         var trend = new WatchedList<double>([1, 2]);
         var entries = new WatchedList<ChartEntry>([new ChartEntry("A", 30, null, 100)]);
+        var line = new WatchedList<double>([1, 2]);
         Render<MusselStatView>(parameters => parameters.Add(static p => p.Value, 10).Add(static p => p.TrendValues, trend));
         Render<MusselBarGaugeView>(parameters => parameters.Add(static p => p.Items, entries));
+        Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, line));
 
         Assert.Equal(1, trend.Watchers);
         Assert.Equal(1, entries.Watchers);
+        Assert.Equal(1, line.Watchers);
 
         await DisposeComponentsAsync();
 
         Assert.Equal(0, trend.Watchers);
         Assert.Equal(0, entries.Watchers);
+        Assert.Equal(0, line.Watchers);
     }
 
     [Fact]
@@ -174,6 +192,31 @@ public sealed class ChartSourceTests : BunitContext
         items.Add(new ChartEntry("B", 25));
 
         return cut.WaitForAssertionAsync(() => Assert.Equal(2, cut.FindAll(".mussel-ring").Count));
+    }
+
+    [Fact]
+    public async Task PushesInARowDrawOnce()
+    {
+        var buffer = new ChartRingBuffer<Sample>(100);
+        buffer.Push(new Sample(Start, 0));
+        var cut = RenderLines(buffer, buffer);
+        var renders = cut.RenderCount;
+        await cut.InvokeAsync(() => buffer.Push(new Sample(Start.AddSeconds(1), 1)));
+        await cut.InvokeAsync(static () => { });
+        var single = cut.RenderCount - renders;
+        renders = cut.RenderCount;
+
+        await cut.InvokeAsync(() =>
+        {
+            for (var i = 2; i <= 51; i++)
+            {
+                buffer.Push(new Sample(Start.AddSeconds(i), i));
+            }
+        });
+        await cut.InvokeAsync(static () => { });
+
+        Assert.Equal(single, cut.RenderCount - renders);
+        Assert.Contains(cut.FindAll("polyline"), static x => x.GetAttribute("points")!.EndsWith(" 51,51", StringComparison.Ordinal));
     }
 
     private IRenderedComponent<MusselChartView> RenderLines(IReadOnlyList<Sample> first, IReadOnlyList<Sample> second) =>

@@ -84,7 +84,7 @@ The `Example` project shows a monitoring dashboard and a page for each kind of c
 
 | Part | Detail |
 |---|---|
-| Theme | CSS variables (`--mussel-primary-text`, `--mussel-grid-line` and more) with light defaults; `MusselChart.css` adds the dark `mussel-dark` |
+| Theme | CSS variables shared with the Mussel family (`--mussel-primary-text`, `--mussel-grid-line` and more) with light defaults; `MusselChart.css` adds the dark `mussel-dark` |
 | Colors | `Palette` (`ChartPalettes`: default, Grafana, Material and shades) or `Color` of a series |
 | Thresholds | Lines and bands on charts, the state of tiles, the colors of gauges and rings, and the steps of state timelines |
 | Tiles and gauges | `ColorMode` and `LayoutMode` of a KPI tile, basic and segmented gauges and rings, gradients, threshold markers and glow of rings |
@@ -100,6 +100,7 @@ The `Example` project shows a monitoring dashboard and a page for each kind of c
 | **Data** | Typed delegates, `ChartEntry` items, `ChartRingBuffer<T>` read incrementally on a time axis, gaps for missing values |
 | **Interaction** | A crosshair and a tooltip on hover or touch, shared by `TrackingGroup`, tooltips of slices, rings and cells, and legend toggles of series and slices |
 | **Legend** | A list or a table with last, minimum, maximum and mean, and values and sides of the legend of other views |
+| **Hosting** | Interactive Server, WebAssembly (also trimmed) and Auto |
 
 ## 📖 API
 

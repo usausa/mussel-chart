@@ -183,6 +183,20 @@ public sealed class MusselStateTimelineViewTests : BunitContext
     }
 
     [Fact]
+    public void ALoneBaseStepHasNoValueText()
+    {
+        ChartThreshold[] thresholds = [new() { Level = ChartThresholdLevel.Good }];
+
+        var cut = RenderItems(
+            [new StateItem("A", Origin, 10d), new StateItem("A", Origin.AddHours(1), 70d)],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(2)).Add(static x => x.Thresholds, thresholds));
+
+        Assert.Equal(ChartColor.Level(ChartThresholdLevel.Good), cut.Find(".mussel-timeline-bands rect").GetAttribute("fill"));
+        Assert.DoesNotContain(cut.FindAll(".mussel-timeline-text"), static x => x.TextContent.Contains('∞', StringComparison.Ordinal));
+        Assert.Empty(cut.FindAll(".mussel-view-legend-name"));
+    }
+
+    [Fact]
     public void NumbersBelowAFirstStepWithoutABaseTakeAStepOfTheirOwn()
     {
         ChartThreshold[] thresholds = [new() { Value = 60, Level = ChartThresholdLevel.Warning }, new() { Value = 85, Level = ChartThresholdLevel.Critical }];

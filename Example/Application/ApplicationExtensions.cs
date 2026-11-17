@@ -1,7 +1,7 @@
 namespace Example.Application;
 
 using Example.Client.Components;
-using Example.Client.Monitor;
+using Example.Client.Models;
 using Example.Components;
 using Example.Endpoints;
 

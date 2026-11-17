@@ -32,7 +32,7 @@
             <div class="mussel-stat-title">@Title</div>
             <div class="mussel-stat-value" style="@valueStyle">
                 @valueText
-                @if (!Double.IsNaN(Value))
+                @if (Double.IsFinite(Value))
                 {
                     <span class="mussel-stat-unit">@Unit</span>
                 }

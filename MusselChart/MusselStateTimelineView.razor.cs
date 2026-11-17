@@ -31,6 +31,8 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private readonly List<ChartLegendItem> legendItems = [];
 
+    private readonly List<TItem> copied = [];
+
     private readonly List<BandView> bands = [];
 
     private readonly List<BandText> bandTexts = [];
@@ -44,6 +46,8 @@ public sealed partial class MusselStateTimelineView<TItem>
     private readonly List<double> ticks = [];
 
     private readonly List<(long Utc, double Local)> zoneTicks = [];
+
+    private readonly List<long> offsetChanges = [];
 
     private readonly List<LabelExtent> extents = [];
 
@@ -194,7 +198,7 @@ public sealed partial class MusselStateTimelineView<TItem>
             return entries;
         }
 
-        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.CopyTo(copied) : Items;
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
@@ -251,7 +255,7 @@ public sealed partial class MusselStateTimelineView<TItem>
         var divisions = TickGenerator.GetMaxDivisions(plotWidth, TickGenerator.HorizontalLabelSpacing, null);
         var widths = new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
         var interval = TickGenerator.SelectTimeInterval(span, plotWidth, divisions, LabelGap, widths);
-        TickGenerator.ZoneTime(ChartDateTime.ClampTicks(start), ChartDateTime.ClampTicks(end), zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks);
+        TickGenerator.ZoneTime(ChartDateTime.ClampTicks(start), ChartDateTime.ClampTicks(end), zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks, offsetChanges);
         foreach (var (utc, local) in zoneTicks)
         {
             var x = ChartFormat.Pixel(left + ((utc - start) / span * plotWidth));

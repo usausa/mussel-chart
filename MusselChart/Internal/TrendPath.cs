@@ -104,9 +104,9 @@ internal sealed class TrendPath
             }
         }
 
-        var span = high - low;
+        var span = (high / 2) - (low / 2);
         var usable = ViewHeight - (inset * 2);
-        double ToY(double value) => ViewHeight - inset - ((Math.Clamp(value, low, high) - low) / span * usable);
+        double ToY(double value) => ViewHeight - inset - (((Math.Clamp(value, low, high) / 2) - (low / 2)) / span * usable);
 
         if (bars)
         {

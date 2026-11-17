@@ -318,6 +318,21 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public async Task DisposingCleansUpThroughWhatAttachReturned()
+    {
+        var runtime = new LateRuntime();
+        Services.AddSingleton<IJSRuntime>(runtime);
+        var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
+        await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
+        await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Attached));
+
+        await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+
+        Assert.Contains("dispose", runtime.Module.Calls);
+        Assert.DoesNotContain("detach", runtime.Module.Calls);
+    }
+
+    [Fact]
     public async Task AFailedDetachStillReleasesTheScript()
     {
         var runtime = new LateRuntime { Module = new LateModule { FailsToDetach = true } };
@@ -364,6 +379,8 @@ public sealed class MusselPieChartViewTests : BunitContext
 
         public bool Attached { get; private set; }
 
+        public List<string> Calls { get; } = [];
+
         public bool Released { get; private set; }
 
         public ValueTask DisposeAsync()
@@ -375,14 +392,36 @@ public sealed class MusselPieChartViewTests : BunitContext
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
         {
             Attached |= identifier == "attach";
-            return FailsToDetach && (identifier == "detach") ? throw new JSException("The view is gone.") : default;
+            Calls.Add(identifier);
+            return FailsToDetach && (identifier == "dispose") ? throw new JSException("The view is gone.") : typeof(TValue) == typeof(IJSObjectReference) ? new ValueTask<TValue>((TValue)(object)this) : default;
         }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
         {
             Attached |= identifier == "attach";
-            return FailsToDetach && (identifier == "detach") ? throw new JSException("The view is gone.") : default;
+            Calls.Add(identifier);
+            return FailsToDetach && (identifier == "dispose") ? throw new JSException("The view is gone.") : typeof(TValue) == typeof(IJSObjectReference) ? new ValueTask<TValue>((TValue)(object)this) : default;
         }
+    }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<ChartEntry>(4);
+        buffer.Push(new ChartEntry("A", 30, null, 100));
+        buffer.Push(new ChartEntry("B", 50, null, 100));
+        var seen = new HashSet<double>();
+
+        Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, buffer)
+            .Add(p => p.ValueFormatter, x =>
+            {
+                seen.Add(x);
+                buffer.Clear();
+                return "v";
+            }));
+
+        Assert.Contains(50, seen);
     }
 }
 

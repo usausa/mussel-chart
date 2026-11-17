@@ -1,4 +1,4 @@
-using Example.Client.Monitor;
+using Example.Client.Models;
 
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 

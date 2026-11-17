@@ -17,9 +17,9 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     private IJSObjectReference? module;
 
-    private DotNetObjectReference<ChartScriptBridge>? reference;
+    private DotNetObjectReference<ChartScriptBridge>? self;
 
-    private ElementReference attached;
+    private IJSObjectReference? instance;
 
     private double viewBoxWidth;
 
@@ -29,7 +29,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     protected ChartViewBase()
     {
-        sources = new ChartSourceWatcher(OnSourceChanged);
+        sources = new ChartSourceWatcher(InvokeAsync, RequestRender);
     }
 
     [Inject]
@@ -63,7 +63,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     private protected double Width { get; private set; } = DefaultWidth;
 
-    private protected bool Disposed { get; private set; }
+    internal bool IsDisposed { get; private set; }
 
     private protected int ChildVersion { get; private set; }
 
@@ -84,10 +84,10 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        Disposed = true;
+        IsDisposed = true;
         sources.Clear();
         await ReleaseAsync().ConfigureAwait(true);
-        reference?.Dispose();
+        self?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -100,7 +100,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     internal void OnResize(double value)
     {
         var rounded = Math.Floor(value);
-        if (Disposed || !(rounded > 0) || (Measured && (Math.Abs(rounded - Width) < 1)))
+        if (!(rounded > 0) || (Measured && (Math.Abs(rounded - Width) < 1)))
         {
             return;
         }
@@ -115,44 +115,55 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
         try
         {
             module = await Runtime.InvokeAsync<IJSObjectReference>("import", ModulePath).ConfigureAwait(true);
-            if (Disposed)
+            if (IsDisposed)
             {
                 await ReleaseAsync().ConfigureAwait(true);
                 return;
             }
 
-            attached = element;
-            reference = DotNetObjectReference.Create(new ChartScriptBridge(this));
-            await module.InvokeVoidAsync("attach", element, reference).ConfigureAwait(true);
+            self = DotNetObjectReference.Create(new ChartScriptBridge(this));
+            instance = await module.InvokeAsync<IJSObjectReference>("attach", element, self).ConfigureAwait(true);
+            if (IsDisposed)
+            {
+                await ReleaseAsync().ConfigureAwait(true);
+            }
         }
         catch (JSDisconnectedException)
         {
         }
     }
 
+    protected override bool ShouldRender()
+    {
+        sources.Rendered();
+        return true;
+    }
+
     private async Task ReleaseAsync()
     {
+        var attached = instance;
         var loaded = module;
+        instance = null;
         module = null;
-        if (loaded is null)
-        {
-            return;
-        }
-
         try
         {
-            if (reference is not null)
+            if (attached is not null)
             {
                 try
                 {
-                    await loaded.InvokeVoidAsync("detach", attached).ConfigureAwait(true);
+                    await attached.InvokeVoidAsync("dispose").ConfigureAwait(true);
                 }
                 catch (JSException)
                 {
                 }
+
+                await attached.DisposeAsync().ConfigureAwait(true);
             }
 
-            await loaded.DisposeAsync().ConfigureAwait(true);
+            if (loaded is not null)
+            {
+                await loaded.DisposeAsync().ConfigureAwait(true);
+            }
         }
         catch (JSDisconnectedException)
         {
@@ -170,7 +181,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     private protected void RequestRender()
     {
-        if (!Disposed)
+        if (!IsDisposed)
         {
             StateHasChanged();
         }
@@ -189,14 +200,6 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
         if (!collecting)
         {
             RequestRender();
-        }
-    }
-
-    private void OnSourceChanged()
-    {
-        if (!Disposed)
-        {
-            _ = InvokeAsync(RequestRender);
         }
     }
 }

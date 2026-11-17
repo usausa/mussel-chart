@@ -287,4 +287,24 @@ public sealed class MusselRadialBarViewTests : BunitContext
         Assert.Equal(colors[1], colors[2]);
         Assert.Equal(colors[0], RadialBarGradient.GetColorAt(colors, positions, 0));
     }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<ChartEntry>(4);
+        buffer.Push(new ChartEntry("A", 30, null, 100));
+        buffer.Push(new ChartEntry("B", 50, null, 100));
+        var seen = new HashSet<double>();
+
+        Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, buffer)
+            .Add(p => p.ValueFormatter, x =>
+            {
+                seen.Add(x);
+                buffer.Clear();
+                return "v";
+            }));
+
+        Assert.Contains(50, seen);
+    }
 }

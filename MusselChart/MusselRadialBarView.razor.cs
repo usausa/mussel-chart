@@ -27,6 +27,8 @@ public sealed partial class MusselRadialBarView
 
     private readonly List<ChartLegendItem> legendItems = [];
 
+    private readonly List<ChartEntry> copied = [];
+
     private readonly List<RingView> ringViews = [];
 
     private readonly List<ArcView> glowArcs = [];
@@ -143,7 +145,7 @@ public sealed partial class MusselRadialBarView
         var culture = Culture ?? CultureInfo.CurrentCulture;
         WatchSource(Items);
         ApplySources();
-        var items = Items ?? [];
+        var items = Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? [];
         var markers = ThresholdMarkersVisible && HasThresholds;
         layout.Update(Width, Height, new RadialBarLayoutOptions
         {

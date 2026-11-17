@@ -165,8 +165,8 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `Height` | `double` | `240` | Height in pixels |
 | `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum` |
 | `ValueMappings` | `IReadOnlyList<ChartValueMapping>?` | `null` | `Value` to match, `Text`, `Color` and `Level` of a state |
-| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Steps of numeric states, named by `Label` or like `< 60` and `60+` |
-| `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step |
+| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Steps of numeric states, named by `Label` or like `< 60` and `60+`. When some states are numbers, the legend shows the steps |
+| `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step, which then do not use `ValueMappings` |
 | `ShowValue`, `AlignValue` | `ChartVisibilityMode`, `ChartValueAlignment` | `Auto`, `Left` | Text on each band; `Auto` writes it where its first two characters fit |
 | `RowHeight`, `FillOpacity`, `LineWidth` | `double` | `0.9`, `0.7`, `0` | Share of the height taken by the bands, the fill and the outline |
 | `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, and the order of the day and the month follows the culture |
@@ -181,7 +181,7 @@ A KPI tile that fills the height of its container.
 
 | Name | Description |
 |---|---|
-| `Title`, `Value`, `Unit` | Title, value and unit; `NaN` shows `EmptyText` without the unit |
+| `Title`, `Value`, `Unit` | Title, value and unit; `NaN` and infinities show `EmptyText` without the unit |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the value; the default is the compact number |
 | `TrendValues`, `TrendPlacement` | Trend line at the `Bottom`, in the `Background` or `None` |
 | `Thresholds` | State by value |
@@ -222,6 +222,10 @@ Series of one chart that share a buffer read the same items, and items pushed wh
 
 ## 🎨 Theme
 
+Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables with light defaults, and `mussel-dark` on a container switches to the dark values.  
+
+These are shared with the other Mussel libraries. Their light defaults follow the look of each library, so set them on a container to give several libraries the same colors.  
+
 | Variable | Use |
 |---|---|
 | `--mussel-primary-text`, `--mussel-secondary-text`, `--mussel-muted-text` | Text, axis labels and empty text |
@@ -230,8 +234,6 @@ Series of one chart that share a buffer read the same items, and items pushed wh
 | `--mussel-tooltip-background`, `--mussel-tooltip-border`, `--mussel-tooltip-text` | Tooltip |
 | `--mussel-good`, `--mussel-warning`, `--mussel-serious`, `--mussel-critical` | Threshold lines and bands, and the losses of sparklines |
 | `--mussel-font-family` | Font family |
-
-Link `_content/MusselChart/MusselChart.css` and add `mussel-dark` to a container for the dark values.  
 
 ## 🚧 Not supported yet
 

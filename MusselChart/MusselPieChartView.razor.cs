@@ -14,6 +14,8 @@ public sealed partial class MusselPieChartView
 
     private readonly List<ChartLegendItem> legendItems = [];
 
+    private readonly List<ChartEntry> copied = [];
+
     private readonly List<SliceView> sliceViews = [];
 
     private readonly List<InsideLabel> insideLabels = [];
@@ -126,7 +128,7 @@ public sealed partial class MusselPieChartView
             ValueFormatter = ValueFormatter,
             HiddenLabels = hiddenLabels,
             Culture = culture
-        }, Items is ChartRingBuffer<ChartEntry> buffer ? buffer.ToArray() : Items ?? []);
+        }, Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? []);
 
         sliceClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-slices mussel-slices-hover" : "mussel-slices";
         centerX = ChartGeometry.Text(layout.CenterX);
