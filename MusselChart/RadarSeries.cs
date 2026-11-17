@@ -91,10 +91,12 @@ public sealed class RadarSeries<TItem> : RadarSeriesBase
             return;
         }
 
+        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+
         // ReSharper disable once ForCanBeConvertedToForeach
-        for (var i = 0; i < Items.Count; i++)
+        for (var i = 0; i < items.Count; i++)
         {
-            var item = Items[i];
+            var item = items[i];
             if (item is ChartEntry entry)
             {
                 destination.Add(new RadarPoint(Category is null ? entry.Label : Category(item), Y?.Invoke(item) ?? entry.Value));

@@ -159,6 +159,30 @@ internal static class TickGenerator
         }
     }
 
+    public static void ZoneTime(long start, long end, TimeZoneInfo zone, TimeInterval interval, DayOfWeek firstDayOfWeek, List<double> buffer, List<(long Utc, double Local)> ticks)
+    {
+        ticks.Clear();
+        if (ChartTime.FindOffsetChange(start, end, zone) is { } change)
+        {
+            AddZone(start, change - TimeSpan.TicksPerSecond);
+            AddZone(change, end);
+        }
+        else
+        {
+            AddZone(start, end);
+        }
+
+        void AddZone(long from, long to)
+        {
+            var offset = ChartTime.OffsetOf(from, zone);
+            Time(Math.Clamp(from + offset, 0, DateTime.MaxValue.Ticks), Math.Clamp(to + offset, 0, DateTime.MaxValue.Ticks), interval, firstDayOfWeek, buffer);
+            foreach (var tick in buffer)
+            {
+                ticks.Add(((long)tick - offset, tick));
+            }
+        }
+    }
+
     private static (double First, double Count) GetMultiples(AxisScale scale, double interval)
     {
         var first = Math.Ceiling((scale.Minimum / interval) - NiceScale.Tolerance);

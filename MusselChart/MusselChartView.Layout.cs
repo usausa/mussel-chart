@@ -62,6 +62,8 @@ public sealed partial class MusselChartView
 
     private readonly List<double> ticks = [];
 
+    private readonly List<(long Utc, double Local)> zoneTicks = [];
+
     private readonly List<SeriesState> visibleStates = [];
 
     private readonly List<double> valueTicks = [];
@@ -109,6 +111,8 @@ public sealed partial class MusselChartView
     private string cultureName = string.Empty;
 
     private string offsetText = string.Empty;
+
+    private string? offsetChangeText;
 
     private string timeFormat = string.Empty;
 
@@ -375,7 +379,7 @@ public sealed partial class MusselChartView
             end += half;
         }
 
-        return new PositionWindow(ToSeconds(start), ToSeconds(end));
+        return new PositionWindow(ToSeconds(Math.Max(start, 0)), ToSeconds(Math.Min(end, DateTime.MaxValue.Ticks)));
     }
 
     private static double MeasureBarSpacing(List<SeriesState> visible)
@@ -545,20 +549,20 @@ public sealed partial class MusselChartView
     private void CollectTimeTicks(in PositionRange position, double length, bool vertical)
     {
         var axis = xAxis as DateTimeAxis;
-        var localStart = ChartTime.ToZoneTicks(ToTicks(position.Start), zone);
-        var localEnd = ChartTime.ToZoneTicks(ToTicks(position.End), zone);
-        var span = (double)(localEnd - localStart);
+        var start = ToTicks(position.Start);
+        var end = ToTicks(position.End);
+        var span = (double)(end - start);
         var spacing = vertical ? TickGenerator.VerticalLabelSpacing : TickGenerator.HorizontalLabelSpacing;
         var divisions = TickGenerator.GetMaxDivisions(length, spacing, axis?.MaxLabelCount);
         var height = ChartText.LineHeight(LabelFontSize);
         var widths = vertical ? new TimeLabelWidths(height, height, height, height) : new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
         var interval = TickGenerator.SelectTimeInterval(span, length, divisions, LabelGap * 2, widths);
-        TickGenerator.Time(localStart, localEnd, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks);
+        TickGenerator.ZoneTime(start, end, zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks);
         var dayFirst = ChartFormat.IsDayFirst(culture);
-        foreach (var tick in ticks)
+        foreach (var (utc, local) in zoneTicks)
         {
-            var text = ChartFormat.Time(new DateTime((long)tick, DateTimeKind.Unspecified), axis?.LabelFormat, axis?.LabelFormatter, interval.GetTickFormat(tick, dayFirst), culture);
-            positionTicks.Add(((tick - localStart) / span, text));
+            var text = ChartFormat.Time(ChartDateTime.FromTicks(local), axis?.LabelFormat, axis?.LabelFormatter, interval.GetTickFormat(local, dayFirst), culture);
+            positionTicks.Add(((utc - start) / span, text));
         }
     }
 
@@ -851,6 +855,7 @@ public sealed partial class MusselChartView
         xFormatText = xKind == ChartXKind.Number ? xAxis?.LabelFormat : null;
         categoriesText = xKind == ChartXKind.Category ? ChartTip.CreateStrings(categories) : null;
         offsetText = string.Empty;
+        offsetChangeText = null;
         timeFormat = string.Empty;
         if (xKind != ChartXKind.Time)
         {
@@ -859,7 +864,11 @@ public sealed partial class MusselChartView
 
         var start = ToTicks(position.Start);
         var end = ToTicks(position.End);
-        offsetText = ((long)zone.GetUtcOffset(new DateTime(end, DateTimeKind.Utc)).TotalMinutes).ToString(CultureInfo.InvariantCulture);
+        offsetText = (ChartTime.OffsetOf(end, zone) / TimeSpan.TicksPerMinute).ToString(CultureInfo.InvariantCulture);
+        if (ChartTime.FindOffsetChange(start, end, zone) is { } change)
+        {
+            offsetChangeText = String.Create(CultureInfo.InvariantCulture, $"{(change - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond},{ChartTime.OffsetOf(start, zone) / TimeSpan.TicksPerMinute}");
+        }
         var spansDays = (end - start) >= TimeSpan.TicksPerDay;
         var finest = Double.PositiveInfinity;
         foreach (var state in visible)
@@ -955,7 +964,8 @@ public sealed partial class MusselChartView
                 ChartLegendValues.Max => maximum,
                 _ => sum / count
             };
-            values.Add(ChartFormat.Value(value, options.ValueFormat ?? (percent ? null : yAxis?.LabelFormat), options.ValueFormatter ?? (percent ? null : yAxis?.LabelFormatter), culture));
+            var (format, formatter) = ChartFormat.Pick(options.ValueFormat, options.ValueFormatter, percent ? null : yAxis?.LabelFormat, percent ? null : yAxis?.LabelFormatter);
+            values.Add(ChartFormat.Value(value, format, formatter, culture));
         }
 
         return values;

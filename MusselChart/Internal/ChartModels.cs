@@ -54,7 +54,34 @@ internal static class ChartTime
     };
 
     public static long ToZoneTicks(long utcTicks, TimeZoneInfo zone) =>
-        utcTicks + zone.GetUtcOffset(new DateTime(utcTicks, DateTimeKind.Utc)).Ticks;
+        utcTicks + OffsetOf(utcTicks, zone);
+
+    public static long OffsetOf(long utcTicks, TimeZoneInfo zone) => zone.GetUtcOffset(new DateTime(Math.Clamp(utcTicks, 0, DateTime.MaxValue.Ticks), DateTimeKind.Utc)).Ticks;
+
+    public static long? FindOffsetChange(long start, long end, TimeZoneInfo zone)
+    {
+        var first = OffsetOf(start, zone);
+        if ((end <= start) || (OffsetOf(end, zone) == first))
+        {
+            return null;
+        }
+
+        var (low, high) = (start, end);
+        while (high - low > 1)
+        {
+            var middle = low + ((high - low) / 2);
+            if (OffsetOf(middle, zone) == first)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return high;
+    }
 }
 
 internal static class ChartFormat
@@ -75,6 +102,9 @@ internal static class ChartFormat
 
         return format.Contains('{', StringComparison.Ordinal) ? String.Format(culture, format, value) : value.ToString(format, culture);
     }
+
+    public static (string? Format, Func<double, string>? Formatter) Pick(string? format, Func<double, string>? formatter, string? fallbackFormat, Func<double, string>? fallbackFormatter) =>
+        (format is not null) || (formatter is not null) ? (format, formatter) : (fallbackFormat, fallbackFormatter);
 
     public static string Time(DateTime value, string? format, Func<DateTime, string>? formatter, string defaultFormat, CultureInfo culture)
     {

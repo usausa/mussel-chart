@@ -87,7 +87,12 @@ internal static class ChartGeometry
         var outerEnd = endAngle - GetGapAngle(endGap, outer);
         var (x1, y1) = GetPoint(cx, cy, outer, outerStart);
         var (x2, y2) = GetPoint(cx, cy, outer, outerEnd);
-        if ((sweep >= FullCircle - Tolerance) || ((outerEnd - outerStart > 180) && Coincide(x1, y1, x2, y2)))
+        var innerStart = inner > 0 ? startAngle + GetGapAngle(startGap, inner) : 0;
+        var innerEnd = inner > 0 ? endAngle - GetGapAngle(endGap, inner) : 0;
+        var (x3, y3) = GetPoint(cx, cy, inner, innerEnd);
+        var (x4, y4) = GetPoint(cx, cy, inner, innerStart);
+        var closedInside = (inner > 0) && (innerEnd - innerStart > 180) && Coincide(x3, y3, x4, y4);
+        if ((sweep >= FullCircle - Tolerance) || ((outerEnd - outerStart > 180) && Coincide(x1, y1, x2, y2)) || closedInside)
         {
             var ring = ChartStringBuilder.Rent();
             AppendCircle(ring, cx, cy, outer, startAngle, true);
@@ -104,8 +109,6 @@ internal static class ChartGeometry
             return string.Empty;
         }
 
-        var innerStart = inner > 0 ? startAngle + GetGapAngle(startGap, inner) : 0;
-        var innerEnd = inner > 0 ? endAngle - GetGapAngle(endGap, inner) : 0;
         var hasHole = (inner > 0) && (innerEnd - innerStart > Tolerance);
         var (apexX, apexY) = hasHole ? default : GetApex(startAngle, endAngle, startGap, endGap);
         if (!hasHole && (Math.Sqrt((apexX * apexX) + (apexY * apexY)) >= outer))
@@ -118,8 +121,6 @@ internal static class ChartGeometry
         AppendArc(builder, outer, outerEnd - outerStart > 180, true, x2, y2);
         if (hasHole)
         {
-            var (x3, y3) = GetPoint(cx, cy, inner, innerEnd);
-            var (x4, y4) = GetPoint(cx, cy, inner, innerStart);
             builder.Append('L').AppendNumber(x3).Append(' ').AppendNumber(y3);
             AppendArc(builder, inner, innerEnd - innerStart > 180, false, x4, y4);
         }

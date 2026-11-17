@@ -82,22 +82,26 @@ public sealed partial class MusselRadarChartView
     internal void AddSeries(RadarSeriesBase series)
     {
         seriesList.Add(series);
-        RequestRender();
+        RequestChildRender();
     }
 
     internal void RemoveSeries(RadarSeriesBase series)
     {
         seriesList.Remove(series);
         hiddenSeries.Remove(series);
-        RequestRender();
+        RequestChildRender();
     }
 
-    internal void InvalidateSeries() => RequestRender();
+    internal void InvalidateSeries() => RequestChildRender();
 
     private bool IsSeriesVisible(RadarSeriesBase series) => series.IsVisible && !hiddenSeries.Contains(series);
 
+    private static bool IsListed(RadarSeriesBase series) => series.LegendVisible && !String.IsNullOrEmpty(series.Title);
+
     private void Prepare()
     {
+        EndChildren();
+        RestoreHiddenSeries();
         var culture = Culture ?? CultureInfo.CurrentCulture;
         var options = new RadarLayoutOptions
         {
@@ -120,9 +124,12 @@ public sealed partial class MusselRadarChartView
         for (var s = 0; s < seriesList.Count; s++)
         {
             points[s].Clear();
+            WatchSource(seriesList[s].Source);
             seriesList[s].ReadPoints(points[s]);
             visible.Add(IsSeriesVisible(seriesList[s]));
         }
+
+        ApplySources();
 
         layout.Update(Width, Height, options, points, visible, RingMargin);
 
@@ -209,7 +216,8 @@ public sealed partial class MusselRadarChartView
                 }
 
                 var series = seriesList[s];
-                var text = ChartFormat.Value(value, series.ValueFormat ?? ValueFormat, series.ValueFormatter ?? ValueFormatter, culture);
+                var (format, formatter) = ChartFormat.Pick(series.ValueFormat, series.ValueFormatter, ValueFormat, ValueFormatter);
+                var text = ChartFormat.Value(value, format, formatter, culture);
                 tipRows.Add(new ChartTipRow(colors[s], series.Title, text));
                 var (x, y) = layout.GetPoint(k, layout.GetRatio(value));
                 tipMarks.Add(new ChartTipMark(x, y, colors[s]));
@@ -227,7 +235,7 @@ public sealed partial class MusselRadarChartView
         var listed = 0;
         foreach (var series in seriesList)
         {
-            listed += series.LegendVisible && !String.IsNullOrEmpty(series.Title) ? 1 : 0;
+            listed += IsListed(series) ? 1 : 0;
         }
 
         if (!(LegendVisible ?? (listed >= 2)))
@@ -243,6 +251,23 @@ public sealed partial class MusselRadarChartView
                 legendItems.Add(new ChartLegendItem(i.ToString(CultureInfo.InvariantCulture), series.Title, colors[i], null, !IsSeriesVisible(series)));
             }
         }
+    }
+
+    private void RestoreHiddenSeries()
+    {
+        if (hiddenSeries.Count == 0)
+        {
+            return;
+        }
+
+        var listed = 0;
+        foreach (var series in seriesList)
+        {
+            listed += IsListed(series) ? 1 : 0;
+        }
+
+        var togglable = LegendToggleEnabled && (LegendVisible ?? (listed >= 2));
+        hiddenSeries.RemoveWhere(x => !togglable || !IsListed(x));
     }
 
     private void ToggleSeries(string key)

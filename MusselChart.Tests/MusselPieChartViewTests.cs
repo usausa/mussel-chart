@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
@@ -190,6 +192,33 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void ANearlyFullSliceWithoutGapsKeepsTheHole()
+    {
+        ChartEntry[] items = [new("A", 99999), new("B", 1)];
+
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Height, 240)
+            .Add(static p => p.SegmentGap, 0));
+
+        var path = cut.FindAll(".mussel-slice")[0].GetAttribute("d") ?? string.Empty;
+        Assert.Equal(2, path.Count(static x => x == 'M'));
+    }
+
+    [Fact]
+    public void TheCenterFormatWinsOverTheFormatterOfTheValues()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, Entries)
+            .Add(static p => p.CenterValue, 1234)
+            .Add(static p => p.ValueFormatter, static _ => "value")
+            .Add(static p => p.CenterValueFormat, "N0")
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.Equal("1,234", cut.Find(".mussel-pie-center").TextContent);
+    }
+
+    [Fact]
     public void ShowsEmptyTextWithoutData()
     {
         var cut = Render<MusselPieChartView>(parameters => parameters
@@ -252,6 +281,18 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void PrerenderingStaysHiddenUntilTheChartStarts()
+    {
+        SetRendererInfo(new RendererInfo("Static", false));
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .SetAssignedRenderMode(RenderMode.InteractiveServer)
+            .Add(static p => p.Items, Entries));
+
+        Assert.Contains("mussel-prerendering", cut.Find(".mussel-view-plot").ClassList);
+        Assert.DoesNotContain("mussel-unmeasured", cut.Find(".mussel-view-plot").ClassList);
+    }
+
+    [Fact]
     public void HalfDonutSitsOnItsFlatSide()
     {
         var layout = new PieLayout();
@@ -277,6 +318,20 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public async Task AFailedDetachStillReleasesTheScript()
+    {
+        var runtime = new LateRuntime { Module = new LateModule { FailsToDetach = true } };
+        Services.AddSingleton<IJSRuntime>(runtime);
+        var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
+        await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
+        await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Attached));
+
+        await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+
+        Assert.True(runtime.Module.Released);
+    }
+
+    [Fact]
     public void SlicesFillTheSweep()
     {
         var layout = new PieLayout();
@@ -294,7 +349,7 @@ public sealed class MusselPieChartViewTests : BunitContext
     {
         public TaskCompletionSource<IJSObjectReference> Import { get; } = new();
 
-        public LateModule Module { get; } = new();
+        public LateModule Module { get; init; } = new();
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
             identifier == "import" ? new ValueTask<TValue>((Task<TValue>)(object)Import.Task) : default;
@@ -305,6 +360,10 @@ public sealed class MusselPieChartViewTests : BunitContext
 
     private sealed class LateModule : IJSObjectReference
     {
+        public bool FailsToDetach { get; init; }
+
+        public bool Attached { get; private set; }
+
         public bool Released { get; private set; }
 
         public ValueTask DisposeAsync()
@@ -313,9 +372,17 @@ public sealed class MusselPieChartViewTests : BunitContext
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => default;
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+        {
+            Attached |= identifier == "attach";
+            return FailsToDetach && (identifier == "detach") ? throw new JSException("The view is gone.") : default;
+        }
 
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => default;
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            Attached |= identifier == "attach";
+            return FailsToDetach && (identifier == "detach") ? throw new JSException("The view is gone.") : default;
+        }
     }
 }
 

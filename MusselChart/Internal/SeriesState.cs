@@ -66,7 +66,7 @@ internal sealed class SeriesChunk
             line.Append(' ');
         }
 
-        line.Append(x).Append(',').Append(CultureInfo.InvariantCulture, $"{top:G6}");
+        line.Append(x).Append(',').Append(CultureInfo.InvariantCulture, $"{top:G9}");
         LinePoints = null;
         Count++;
         LastSequence = sequence;
@@ -83,7 +83,7 @@ internal sealed class SeriesChunk
                 values.Append(' ');
             }
 
-            values.Append(CultureInfo.InvariantCulture, $"{value:G6}");
+            values.Append(CultureInfo.InvariantCulture, $"{value:G9}");
             Values = null;
         }
 

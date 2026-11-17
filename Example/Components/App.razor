@@ -34,10 +34,6 @@
 </html>
 
 @code {
-    private static readonly IComponentRenderMode ServerMode = new InteractiveServerRenderMode(prerender: false);
-
-    private static readonly IComponentRenderMode WebAssemblyMode = new InteractiveWebAssemblyRenderMode(prerender: false);
-
     [CascadingParameter]
     public HttpContext HttpContext { get; set; } = default!;
 
@@ -45,6 +41,6 @@
         !HttpContext.AcceptsInteractiveRouting()
             ? null
             : HttpContext.Request.Cookies[RenderModes.CookieName] == RenderModes.WebAssembly
-                ? WebAssemblyMode
-                : ServerMode;
+                ? InteractiveWebAssembly
+                : InteractiveServer;
 }

@@ -16,6 +16,10 @@
     animation: mussel-reveal 0s linear 1s forwards;
 }
 
+.mussel-prerendering {
+    visibility: hidden;
+}
+
 @keyframes mussel-reveal {
     to {
         visibility: visible;

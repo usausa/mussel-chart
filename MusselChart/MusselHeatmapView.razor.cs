@@ -74,6 +74,8 @@ public sealed partial class MusselHeatmapView<TItem>
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        WatchSource(Items);
+        ApplySources();
         if (!ReferenceEquals(paletteSource, ColorScale))
         {
             paletteSource = ColorScale;
@@ -108,10 +110,12 @@ public sealed partial class MusselHeatmapView<TItem>
             return entries;
         }
 
+        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+
         // ReSharper disable once ForCanBeConvertedToForeach
-        for (var i = 0; i < Items.Count; i++)
+        for (var i = 0; i < items.Count; i++)
         {
-            var item = Items[i];
+            var item = items[i];
             var label = (item as ChartEntry)?.Label;
             var value = Value?.Invoke(item) ?? (item as ChartEntry)?.Value ?? Double.NaN;
             entries.Add(new HeatmapEntry(Row?.Invoke(item), Column is not null ? Column(item) : label, Date?.Invoke(item), value));

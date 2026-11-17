@@ -129,6 +129,31 @@ public sealed class MusselStateTimelineViewTests : BunitContext
     }
 
     [Fact]
+    public void MappingsMatchStatesOfTheSameValueAndType()
+    {
+        ChartValueMapping[] mappings =
+        [
+            new() { Value = 0.1f, Text = "Tenth" },
+            new() { Value = 1.50m, Text = "Half past" },
+            new() { Value = (Half)2.5, Text = "Two and a half" }
+        ];
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        try
+        {
+            var cut = RenderItems(
+                [new StateItem("A", Origin, 0.1f), new StateItem("A", Origin.AddHours(1), 1.50m), new StateItem("A", Origin.AddHours(2), (Half)2.5)],
+                p => p.Add(static x => x.Maximum, Origin.AddHours(3)).Add(static x => x.ValueMappings, mappings));
+
+            Assert.Equal(["Tenth", "Half past", "Two and a half"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    [Fact]
     public void MappingsGiveTheTextAndTheColor()
     {
         var cut = RenderItems(
@@ -155,6 +180,21 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Equal(ChartColor.Level(ChartThresholdLevel.Good), bands[0].GetAttribute("fill"));
         Assert.Equal(ChartColor.Level(ChartThresholdLevel.Critical), bands[2].GetAttribute("fill"));
         Assert.Equal(["< 60", "Busy", "85+"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void NumbersBelowAFirstStepWithoutABaseTakeAStepOfTheirOwn()
+    {
+        ChartThreshold[] thresholds = [new() { Value = 60, Level = ChartThresholdLevel.Warning }, new() { Value = 85, Level = ChartThresholdLevel.Critical }];
+
+        var cut = RenderItems(
+            [new StateItem("A", Origin, 10d), new StateItem("A", Origin.AddHours(1), 70d)],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(2)).Add(static x => x.Thresholds, thresholds));
+
+        var bands = cut.FindAll(".mussel-timeline-bands rect");
+        Assert.Equal(ChartColor.Other, bands[0].GetAttribute("fill"));
+        Assert.Equal(ChartColor.Level(ChartThresholdLevel.Warning), bands[1].GetAttribute("fill"));
+        Assert.Equal(["< 60", "60+", "85+"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
     }
 
     [Fact]
@@ -225,6 +265,19 @@ public sealed class MusselStateTimelineViewTests : BunitContext
     }
 
     [Fact]
+    public void TooltipsShowTheDayOfABandFromAnotherDayAndTheShownEnd()
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin.AddHours(-9), "x"), new StateItem("B", Origin.AddMinutes(10), "y", DateTime.MaxValue)],
+            p => p.Add(static x => x.Minimum, Origin).Add(static x => x.Maximum, Origin.AddHours(1)));
+
+        var tips = cut.FindAll(".mussel-timeline-bands rect").Select(static x => x.GetAttribute("data-tip") ?? string.Empty).ToList();
+        Assert.Contains("6/30 23:00 – 7/1 09:00", tips[0], StringComparison.Ordinal);
+        Assert.Contains("08:10 – 09:00", tips[1], StringComparison.Ordinal);
+        Assert.Contains("\"50m\"", tips[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TooltipHasTheTimesTheStateAndTheDuration()
     {
         var cut = RenderItems(
@@ -237,6 +290,37 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Contains("\"A\",\"x\"", tip, StringComparison.Ordinal);
         Assert.Contains("2h 30m", tip, StringComparison.Ordinal);
         Assert.Equal("overlay", band.GetAttribute("data-mark"));
+    }
+
+    [Fact]
+    public void StatesAcrossAChangeOfTheOffsetKeepTheirOrderAndLength()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        var start = new DateTime(2026, 10, 24, 23, 0, 0, DateTimeKind.Utc);
+        StateItem[] items =
+        [
+            new("A", start, "x", start.AddHours(4)),
+            new("B", start.AddHours(1), "x"),
+            new("B", start.AddHours(1.5), "y"),
+            new("B", start.AddHours(2), "x"),
+            new("B", start.AddHours(2.5), "y")
+        ];
+
+        var cut = Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(static p => p.End, static x => x.End)
+            .Add(static p => p.State, static x => x.State)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .Add(static p => p.TimeZone, zone)
+            .Add(static p => p.Maximum, start.AddHours(4)));
+
+        var tips = cut.FindAll(".mussel-timeline-bands rect").Select(static x => x.GetAttribute("data-tip") ?? string.Empty).ToList();
+        Assert.Equal(5, tips.Count);
+        Assert.Contains("01:00 – 04:00", tips[0], StringComparison.Ordinal);
+        Assert.Contains("\"4h\"", tips[0], StringComparison.Ordinal);
+        Assert.All(tips.Skip(1).Take(3), static x => Assert.Contains("30m", x, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -270,6 +354,28 @@ public sealed class MusselStateTimelineViewTests : BunitContext
     public void DurationIsWrittenLikeGrafana(long milliseconds, string expected)
     {
         Assert.Equal(expected, StateTimelineLayout.FormatDuration(milliseconds * TimeSpan.TicksPerMillisecond));
+    }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<StateItem>(4);
+        buffer.Push(new StateItem("A", Origin, "ok"));
+        buffer.Push(new StateItem("A", Origin.AddMinutes(1), "ok"));
+        var seen = new HashSet<StateItem>();
+
+        Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, buffer)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(p => p.State, x =>
+            {
+                seen.Add(x);
+                buffer.Clear();
+                return x.State;
+            }));
+
+        Assert.Equal(2, seen.Count);
     }
 }
 

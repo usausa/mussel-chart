@@ -180,13 +180,27 @@ internal sealed class StateTimelineLayout
         }
     }
 
-    private static string? ToKey(object? value) => value switch
+    internal static (string? Text, double Number) ReadState(object? value) => value switch
     {
-        null => null,
-        string text => text,
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.ToString()
+        null => (null, Double.NaN),
+        string text => (text, Double.NaN),
+        Enum => (value.ToString(), Double.NaN),
+        bool => (value.ToString(), Double.NaN),
+        IConvertible convertible and (byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal) => (null, convertible.ToDouble(CultureInfo.InvariantCulture)),
+        IFormattable formattable => (formattable.ToString(null, CultureInfo.InvariantCulture), Double.NaN),
+        _ => (value.ToString(), Double.NaN)
     };
+
+    private static string? KeyOf(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var (text, number) = ReadState(value);
+        return text ?? number.ToString(CultureInfo.InvariantCulture);
+    }
 
     private string Format(double value) => ChartFormat.Value(value, options.ValueFormat, options.ValueFormatter, options.Culture);
 
@@ -201,7 +215,7 @@ internal sealed class StateTimelineLayout
             // ReSharper disable once ForCanBeConvertedToForeach
             for (var i = 0; i < mappingList.Count; i++)
             {
-                if (ToKey(mappingList[i].Value) is { } key)
+                if (KeyOf(mappingList[i].Value) is { } key)
                 {
                     mappings.TryAdd(key, mappingList[i]);
                 }
@@ -222,6 +236,11 @@ internal sealed class StateTimelineLayout
                 }
 
                 steps.Insert(j, threshold);
+            }
+
+            if ((steps.Count > 0) && !Double.IsNegativeInfinity(steps[0].Value))
+            {
+                steps.Insert(0, new ChartThreshold { Value = Double.NegativeInfinity });
             }
         }
 

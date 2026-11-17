@@ -75,7 +75,7 @@ public sealed partial class MusselChartView
     {
         seriesList.Add(series);
         rebuildRequired = true;
-        RequestRender();
+        RequestChildRender();
     }
 
     internal void RemoveSeries(ChartSeries series)
@@ -84,13 +84,13 @@ public sealed partial class MusselChartView
         states.Remove(series);
         hiddenSeries.Remove(series);
         rebuildRequired = true;
-        RequestRender();
+        RequestChildRender();
     }
 
     internal void InvalidateSeries()
     {
         rebuildRequired = true;
-        RequestRender();
+        RequestChildRender();
     }
 
     internal void SetAxis(ChartAxis axis)
@@ -104,7 +104,7 @@ public sealed partial class MusselChartView
             xAxis = axis;
         }
 
-        RequestRender();
+        RequestChildRender();
     }
 
     internal void RemoveAxis(ChartAxis axis)
@@ -119,7 +119,7 @@ public sealed partial class MusselChartView
             yAxis = null;
         }
 
-        RequestRender();
+        RequestChildRender();
     }
 
     private void ToggleSeries(ChartSeries series)
@@ -145,9 +145,31 @@ public sealed partial class MusselChartView
 
     private void Prepare()
     {
+        EndChildren();
         culture = Culture ?? CultureInfo.CurrentCulture;
         zone = TimeZone ?? TimeZoneInfo.Local;
+        RestoreHiddenSeries();
         SyncData();
         Arrange();
+    }
+
+    private void RestoreHiddenSeries()
+    {
+        if (hiddenSeries.Count == 0)
+        {
+            return;
+        }
+
+        var listed = 0;
+        foreach (var series in seriesList)
+        {
+            listed += IsListed(series) ? 1 : 0;
+        }
+
+        var togglable = LegendToggleEnabled && (LegendVisible ?? (listed >= 2));
+        if (hiddenSeries.RemoveWhere(x => !togglable || !IsListed(x)) > 0)
+        {
+            rebuildRequired = true;
+        }
     }
 }

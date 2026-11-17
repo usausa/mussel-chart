@@ -98,6 +98,8 @@ public sealed partial class MusselPieChartView
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        WatchSource(Items);
+        ApplySources();
         if (!LegendToggleEnabled)
         {
             hiddenLabels.Clear();
@@ -124,7 +126,7 @@ public sealed partial class MusselPieChartView
             ValueFormatter = ValueFormatter,
             HiddenLabels = hiddenLabels,
             Culture = culture
-        }, Items ?? []);
+        }, Items is ChartRingBuffer<ChartEntry> buffer ? buffer.ToArray() : Items ?? []);
 
         sliceClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-slices mussel-slices-hover" : "mussel-slices";
         centerX = ChartGeometry.Text(layout.CenterX);

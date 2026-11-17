@@ -199,6 +199,25 @@ public sealed class MusselHeatmapViewTests : BunitContext
     }
 
     [Fact]
+    public void CalendarMonthsUseGregorianNames()
+    {
+        var culture = CultureInfo.GetCultureInfo("ar-SA");
+        var gregorian = (CultureInfo)culture.Clone();
+        gregorian.DateTimeFormat.Calendar = culture.OptionalCalendars.OfType<GregorianCalendar>().First();
+        var start = new DateTime(2026, 5, 4, 0, 0, 0, DateTimeKind.Unspecified);
+        var items = Enumerable.Range(0, 20).Select(i => new DayItem(start.AddDays(i), i)).ToArray();
+
+        var cut = Render<MusselHeatmapView<DayItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.LayoutMode, ChartHeatmapLayoutMode.Calendar)
+            .Add(static p => p.Date, static x => x.Date)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.Culture, culture));
+
+        Assert.Contains(gregorian.DateTimeFormat.GetAbbreviatedMonthName(5), cut.FindAll(".mussel-view-label").Select(static x => x.TextContent));
+    }
+
+    [Fact]
     public void CalendarStartsOnTheFirstDayOfTheWeek()
     {
         var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
@@ -248,5 +267,27 @@ public sealed class MusselHeatmapViewTests : BunitContext
         Assert.Equal(HeatmapPalette.Steps, colors.Length);
         Assert.Equal("#FFF5EB", colors[0]);
         Assert.Equal("#7F2704", colors[^1]);
+    }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<HeatItem>(4);
+        buffer.Push(new HeatItem("A", "1", 50));
+        buffer.Push(new HeatItem("A", "2", 60));
+        var seen = new HashSet<HeatItem>();
+
+        Render<MusselHeatmapView<HeatItem>>(parameters => parameters
+            .Add(static p => p.Items, buffer)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Column, static x => x.Column)
+            .Add(p => p.Value, x =>
+            {
+                seen.Add(x);
+                buffer.Clear();
+                return x.Value;
+            }));
+
+        Assert.Equal(2, seen.Count);
     }
 }

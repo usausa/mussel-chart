@@ -5,21 +5,32 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
+using MusselChart.Internal;
+
 public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 {
     private const string ModulePath = "./_content/MusselChart/MusselChart.js";
 
     private const double DefaultWidth = 640;
 
+    private readonly ChartSourceWatcher sources;
+
     private IJSObjectReference? module;
 
-    private DotNetObjectReference<ChartViewBase>? reference;
+    private DotNetObjectReference<ChartScriptBridge>? reference;
 
     private ElementReference attached;
 
     private double viewBoxWidth;
 
     private double viewBoxHeight;
+
+    private bool collecting;
+
+    protected ChartViewBase()
+    {
+        sources = new ChartSourceWatcher(OnSourceChanged);
+    }
 
     [Inject]
     private IJSRuntime Runtime { get; set; } = default!;
@@ -48,9 +59,13 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     internal bool Measured { get; private set; }
 
+    internal bool Prerendering => (AssignedRenderMode is not null) && !RendererInfo.IsInteractive;
+
     private protected double Width { get; private set; } = DefaultWidth;
 
     private protected bool Disposed { get; private set; }
+
+    private protected int ChildVersion { get; private set; }
 
     private protected string ViewBox
     {
@@ -70,16 +85,22 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Disposed = true;
+        sources.Clear();
         await ReleaseAsync().ConfigureAwait(true);
         reference?.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    [JSInvokable]
-    public void OnResize(double value)
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        ChildVersion++;
+        return base.SetParametersAsync(parameters);
+    }
+
+    internal void OnResize(double value)
     {
         var rounded = Math.Floor(value);
-        if (!(rounded > 0) || (Measured && (Math.Abs(rounded - Width) < 1)))
+        if (Disposed || !(rounded > 0) || (Measured && (Math.Abs(rounded - Width) < 1)))
         {
             return;
         }
@@ -101,7 +122,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
             }
 
             attached = element;
-            reference = DotNetObjectReference.Create(this);
+            reference = DotNetObjectReference.Create(new ChartScriptBridge(this));
             await module.InvokeVoidAsync("attach", element, reference).ConfigureAwait(true);
         }
         catch (JSDisconnectedException)
@@ -122,7 +143,13 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
         {
             if (reference is not null)
             {
-                await loaded.InvokeVoidAsync("detach", attached).ConfigureAwait(true);
+                try
+                {
+                    await loaded.InvokeVoidAsync("detach", attached).ConfigureAwait(true);
+                }
+                catch (JSException)
+                {
+                }
             }
 
             await loaded.DisposeAsync().ConfigureAwait(true);
@@ -146,6 +173,30 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
         if (!Disposed)
         {
             StateHasChanged();
+        }
+    }
+
+    private protected void WatchSource(object? source) => sources.Add(source);
+
+    private protected void ApplySources() => sources.Apply();
+
+    private protected void StartChildren() => collecting = true;
+
+    private protected void EndChildren() => collecting = false;
+
+    private protected void RequestChildRender()
+    {
+        if (!collecting)
+        {
+            RequestRender();
+        }
+    }
+
+    private void OnSourceChanged()
+    {
+        if (!Disposed)
+        {
+            _ = InvokeAsync(RequestRender);
         }
     }
 }

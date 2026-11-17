@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using Microsoft.AspNetCore.Components.Rendering;
+
 using MusselChart.Internal;
 
 public sealed class MusselRadarChartViewTests : BunitContext
@@ -21,6 +23,31 @@ public sealed class MusselRadarChartViewTests : BunitContext
     public MusselRadarChartViewTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+
+    [Fact]
+    public async Task ArgumentsMadeOnEveryRenderAreReadOnce()
+    {
+        var evaluations = 0;
+        void Content(RenderTreeBuilder builder)
+        {
+            evaluations++;
+            builder.OpenComponent<RadarSeries<ChartEntry>>(0);
+            builder.AddAttribute(1, nameof(RadarSeries<>.Items), evaluations < 20 ? First.ToArray() : First);
+            builder.CloseComponent();
+        }
+
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .Add(static p => p.ChildContent, Content));
+
+        Assert.Equal((1, 1), (evaluations, cut.RenderCount));
+        Assert.Single(cut.FindAll(".mussel-radar-fill"));
+
+        cut.Render();
+        await cut.InvokeAsync(() => cut.Instance.OnResize(500));
+
+        Assert.Equal(2, evaluations);
     }
 
     [Fact]
@@ -56,6 +83,21 @@ public sealed class MusselRadarChartViewTests : BunitContext
         cut.FindAll(".mussel-view-legend-item")[1].Click();
 
         Assert.Single(cut.FindAll(".mussel-radar-fill"));
+    }
+
+    [Fact]
+    public void HiddenSeriesComeBackWhenTheyCanNoLongerBeToggled()
+    {
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.LegendToggleEnabled, true)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, First).Add(static p => p.Title, "One"))
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, Second).Add(static p => p.Title, "Two")));
+        cut.FindAll(".mussel-view-legend-item")[0].Click();
+        Assert.Single(cut.FindAll(".mussel-radar-fill"));
+
+        cut.Render(static parameters => parameters.Add(static p => p.LegendToggleEnabled, false));
+
+        Assert.Equal(2, cut.FindAll(".mussel-radar-fill").Count);
     }
 
     [Fact]
@@ -175,6 +217,18 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TheFormatOfASeriesWinsOverTheFormatterOfTheChart()
+    {
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .Add(static p => p.ValueFormatter, static _ => "chart")
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, First).Add(static p => p.Title, "One").Add(static p => p.Color, "#AA0000").Add(static p => p.ValueFormat, "{0:N1}")));
+
+        var tip = cut.FindAll(".mussel-radar-areas path")[1].GetAttribute("data-tip");
+        Assert.Contains("[\"#AA0000\",\"One\",\"20.0\"]", tip, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AreasAreLeftOutWithoutTheTrackball()
     {
         var cut = Render<MusselRadarChartView>(parameters => parameters
@@ -206,5 +260,29 @@ public sealed class MusselRadarChartViewTests : BunitContext
             .Add(static p => p.EmptyText, "No data"));
 
         Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+    }
+
+    [Fact]
+    public void ARingBufferIsCopiedBeforeItIsRead()
+    {
+        var buffer = new ChartRingBuffer<ChartEntry>(4);
+        foreach (var entry in First)
+        {
+            buffer.Push(entry);
+        }
+
+        var seen = new HashSet<ChartEntry>();
+
+        Render<MusselRadarChartView>(parameters => parameters
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(p => p.Y, x =>
+                {
+                    seen.Add(x);
+                    buffer.Clear();
+                    return x.Value;
+                })));
+
+        Assert.Equal(4, seen.Count);
     }
 }

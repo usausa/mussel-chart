@@ -100,6 +100,10 @@ internal sealed class HeatmapLayout
 
     private HeatmapLayoutOptions options = new();
 
+    private CultureInfo? monthCulture;
+
+    private DateTimeFormatInfo monthFormat = DateTimeFormatInfo.InvariantInfo;
+
     private HeatmapRect bounds;
 
     private HeatmapRect plotBounds;
@@ -588,7 +592,7 @@ internal sealed class HeatmapLayout
             }
 
             previous = month;
-            var text = options.Culture.DateTimeFormat.GetAbbreviatedMonthName(date.Month);
+            var text = GetMonthFormat(options.Culture).GetAbbreviatedMonthName(date.Month);
             monthCandidates.Add((text, GridBounds.X + (c * CellWidth), ChartText.Measure(text, LabelFontSize)));
         }
 
@@ -682,5 +686,24 @@ internal sealed class HeatmapLayout
         }
 
         return count * (IsScaleVertical ? LabelHeight + ScaleVerticalSpacing : widest + ScaleLabelSpacing) <= length;
+    }
+
+    private DateTimeFormatInfo GetMonthFormat(CultureInfo culture)
+    {
+        if (ReferenceEquals(culture, monthCulture))
+        {
+            return monthFormat;
+        }
+
+        monthCulture = culture;
+        var format = culture.DateTimeFormat;
+        if ((format.Calendar is not GregorianCalendar) && (culture.OptionalCalendars.OfType<GregorianCalendar>().FirstOrDefault() is { } gregorian))
+        {
+            format = (DateTimeFormatInfo)format.Clone();
+            format.Calendar = gregorian;
+        }
+
+        monthFormat = format;
+        return format;
     }
 }

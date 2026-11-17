@@ -6,7 +6,7 @@
 ## 🐚 What is this?
 
 Charts for Blazor drawn as SVG, made for dashboards and widgets.  
-Lines, areas, bars, range bars, scatter and bubble plots, pies, radars, heatmaps, state timelines, KPI tiles, sparklines, bar gauges and radial bars follow the look of [ClamChart](https://github.com/usausa/clam-chart) and stay light on Blazor Server, where only the new points of a time series go over the circuit.  
+Lines, areas, bars, range bars, scatter and bubble plots, pies, radars, heatmaps, state timelines, KPI tiles, sparklines, bar gauges and radial bars follow the look of [ClamChart](https://github.com/usausa/clam-chart) and stay light on Blazor Server, where only the new points of a time series read from a `ChartRingBuffer` go over the circuit.  
 
 | 🖥️ Monitoring board | 📈 Charts | 🔢 Widgets |
 |:-:|:-:|:-:|
@@ -42,7 +42,7 @@ Write the axes and the series inside a chart.
 </MusselChartView>
 ```
 
-Fill a `ChartRingBuffer<T>` from a background service; every page shares it and each chart draws only the new items.  
+Fill a `ChartRingBuffer<T>` from a background service; every page shares it, and each chart draws only the new items as they are pushed.  
 
 ```csharp
 public ChartRingBuffer<Sample> Samples { get; } = new(190);
@@ -77,6 +77,8 @@ The other chart types are views of their own.
 
 <MusselStateTimelineView Items="States" Row="static x => x.Server" Start="static x => x.Start" State="static x => x.State" Maximum="Now" ValueMappings="Mappings" />
 ```
+
+The `Example` project shows a monitoring dashboard and a page for each kind of chart on Server and WebAssembly.  
 
 ## 🎨 Look
 

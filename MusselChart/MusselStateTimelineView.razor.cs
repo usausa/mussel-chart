@@ -43,6 +43,8 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private readonly List<double> ticks = [];
 
+    private readonly List<(long Utc, double Local)> zoneTicks = [];
+
     private readonly List<LabelExtent> extents = [];
 
     private readonly List<int> selected = [];
@@ -129,6 +131,8 @@ public sealed partial class MusselStateTimelineView<TItem>
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        WatchSource(Items);
+        ApplySources();
         var zone = TimeZone ?? TimeZoneInfo.Local;
         layout.Update(new StateTimelineLayoutOptions
         {
@@ -168,8 +172,8 @@ public sealed partial class MusselStateTimelineView<TItem>
         if (end > start)
         {
             var dayFirst = ChartFormat.IsDayFirst(culture);
-            ArrangeAxis(start, end, left, plotWidth, culture, dayFirst);
-            ArrangeBands(start, end, left, plotWidth, rowHeight, pitch, dayFirst);
+            ArrangeAxis(start, end, left, plotWidth, culture, dayFirst, zone);
+            ArrangeBands(start, end, left, plotWidth, rowHeight, pitch, dayFirst, zone);
         }
 
         ArrangeRowLabels(labelWidth, rowHeight, pitch);
@@ -190,28 +194,19 @@ public sealed partial class MusselStateTimelineView<TItem>
             return entries;
         }
 
-        for (var i = 0; i < Items.Count; i++)
+        var items = Items is ChartRingBuffer<TItem> buffer ? buffer.ToArray() : Items;
+        for (var i = 0; i < items.Count; i++)
         {
-            var item = Items[i];
-            var (text, number) = ReadState(State(item));
-            var end = End?.Invoke(item) is { } value ? ToLocalTicks(value, zone) : Double.NaN;
-            entries.Add(new StateTimelineEntry(i, Row?.Invoke(item), ToLocalTicks(Start(item), zone), end, text, number));
+            var item = items[i];
+            var (text, number) = StateTimelineLayout.ReadState(State(item));
+            var end = End?.Invoke(item) is { } value ? ChartTime.ToUtcTicks(value, zone) : Double.NaN;
+            entries.Add(new StateTimelineEntry(i, Row?.Invoke(item), ChartTime.ToUtcTicks(Start(item), zone), end, text, number));
         }
 
         return entries;
     }
 
-    private static double ToLocalTicks(DateTime value, TimeZoneInfo zone) => ChartTime.ToZoneTicks(ChartTime.ToUtcTicks(value, zone), zone);
-
-    private static (string? Text, double Number) ReadState(object? value) => value switch
-    {
-        null => (null, Double.NaN),
-        string text => (text, Double.NaN),
-        Enum => (value.ToString(), Double.NaN),
-        bool => (value.ToString(), Double.NaN),
-        IConvertible convertible and (byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal) => (null, convertible.ToDouble(CultureInfo.InvariantCulture)),
-        _ => (value.ToString(), Double.NaN)
-    };
+    private static double ToLocal(double utcTicks, TimeZoneInfo zone) => ChartTime.ToZoneTicks(ChartDateTime.ClampTicks(utcTicks), zone);
 
     private (double Start, double End) ResolveRange(TimeZoneInfo zone)
     {
@@ -223,8 +218,8 @@ public sealed partial class MusselStateTimelineView<TItem>
             maximum = Math.Max(maximum, Double.IsFinite(segment.End) ? segment.End : segment.Start);
         }
 
-        var start = Minimum is { } low ? ToLocalTicks(low, zone) : minimum;
-        var end = Maximum is { } high ? ToLocalTicks(high, zone) : maximum;
+        var start = Minimum is { } low ? ChartTime.ToUtcTicks(low, zone) : minimum;
+        var end = Maximum is { } high ? ChartTime.ToUtcTicks(high, zone) : maximum;
         if (!(end > start) && Double.IsFinite(start))
         {
             end = start + TimeSpan.TicksPerSecond;
@@ -250,32 +245,32 @@ public sealed partial class MusselStateTimelineView<TItem>
         return Math.Min(widest, Width * LabelWidthRatio);
     }
 
-    private void ArrangeAxis(double start, double end, double left, double plotWidth, CultureInfo culture, bool dayFirst)
+    private void ArrangeAxis(double start, double end, double left, double plotWidth, CultureInfo culture, bool dayFirst, TimeZoneInfo zone)
     {
         var span = end - start;
         var divisions = TickGenerator.GetMaxDivisions(plotWidth, TickGenerator.HorizontalLabelSpacing, null);
         var widths = new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
         var interval = TickGenerator.SelectTimeInterval(span, plotWidth, divisions, LabelGap, widths);
-        TickGenerator.Time(start, end, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks);
-        foreach (var tick in ticks)
+        TickGenerator.ZoneTime(ChartDateTime.ClampTicks(start), ChartDateTime.ClampTicks(end), zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks);
+        foreach (var (utc, local) in zoneTicks)
         {
-            var x = ChartFormat.Pixel(left + ((tick - start) / span * plotWidth));
+            var x = ChartFormat.Pixel(left + ((utc - start) / span * plotWidth));
             gridLines.Add(x);
-            axisLabels.Add(new AxisLabel(x, new DateTime((long)tick, DateTimeKind.Unspecified).ToString(interval.GetTickFormat(tick, dayFirst), CultureInfo.InvariantCulture)));
+            axisLabels.Add(new AxisLabel(x, ChartDateTime.FromTicks(local).ToString(interval.GetTickFormat(local, dayFirst), CultureInfo.InvariantCulture)));
         }
     }
 
-    private void ArrangeBands(double start, double end, double left, double plotWidth, double rowHeight, double pitch, bool dayFirst)
+    private void ArrangeBands(double start, double end, double left, double plotWidth, double rowHeight, double pitch, bool dayFirst, TimeZoneInfo zone)
     {
         var span = end - start;
         var right = left + plotWidth;
-        var precision = GetTimePrecision();
-        var spansDays = (long)(start / TimeSpan.TicksPerDay) != (long)(end / TimeSpan.TicksPerDay);
-        var format = TimeInterval.GetTrackingFormat(precision, spansDays, dayFirst);
+        var precision = GetTimePrecision(end, zone);
+        var format = TimeInterval.GetTrackingFormat(precision, DayOf(start, zone) != DayOf(end, zone), dayFirst);
+        var dayFormat = TimeInterval.GetTrackingFormat(precision, true, dayFirst);
         var hover = TrackballMode == ChartTrackballMode.Hover;
         foreach (var segment in layout.Segments)
         {
-            var segmentEnd = Double.IsFinite(segment.End) ? segment.End : end;
+            var segmentEnd = Double.IsFinite(segment.End) ? Math.Min(segment.End, end) : end;
             var from = Math.Round(Math.Max(left + ((segment.Start - start) / span * plotWidth), left));
             var to = Math.Round(Math.Min(left + ((segmentEnd - start) / span * plotWidth), right));
             if ((to <= left) || (from >= right))
@@ -290,7 +285,8 @@ public sealed partial class MusselStateTimelineView<TItem>
             string? tip = null;
             if (hover)
             {
-                var title = FormatTime(segment.Start, format) + " – " + FormatTime(segmentEnd, format);
+                var bandFormat = DayOf(segment.Start, zone) != DayOf(segmentEnd, zone) ? dayFormat : format;
+                var title = FormatTime(ToLocal(segment.Start, zone), bandFormat) + " – " + FormatTime(ToLocal(segmentEnd, zone), bandFormat);
                 tip = ChartTip.Create(title, [new ChartTipRow(state.Color, layout.RowNames[segment.Row], state.Text), new ChartTipRow(null, null, StateTimelineLayout.FormatDuration(segmentEnd - segment.Start))]);
             }
 
@@ -302,17 +298,19 @@ public sealed partial class MusselStateTimelineView<TItem>
     private static string FormatTime(double ticks, string format) =>
         ChartDateTime.FromTicks(ticks).ToString(format, CultureInfo.InvariantCulture);
 
-    private TimeLabelPrecision GetTimePrecision()
+    private static long DayOf(double utcTicks, TimeZoneInfo zone) => (long)(ToLocal(utcTicks, zone) / TimeSpan.TicksPerDay);
+
+    private TimeLabelPrecision GetTimePrecision(double end, TimeZoneInfo zone)
     {
         times.Clear();
         // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < layout.Segments.Count; i++)
         {
             var segment = layout.Segments[i];
-            times.Add(segment.Start);
+            times.Add(ToLocal(segment.Start, zone));
             if (Double.IsFinite(segment.End))
             {
-                times.Add(segment.End);
+                times.Add(ToLocal(Math.Min(segment.End, end), zone));
             }
         }
 

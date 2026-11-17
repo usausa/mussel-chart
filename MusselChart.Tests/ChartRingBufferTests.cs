@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Collections.Specialized;
+
 public sealed class ChartRingBufferTests
 {
     [Fact]
@@ -71,6 +73,66 @@ public sealed class ChartRingBufferTests
         Assert.False(read.Appended);
         Assert.Equal([7], items);
         Assert.Single(buffer);
+    }
+
+    [Fact]
+    public void ReadUntilAMarkThatNewerItemsPassedReadsNothing()
+    {
+        var buffer = new ChartRingBuffer<int>(3);
+        buffer.Push(1);
+        buffer.Push(2);
+        var first = buffer.Read(-1, 0, null, []);
+        var mark = ((IChartBuffer)buffer).Mark();
+        for (var i = 3; i <= 6; i++)
+        {
+            buffer.Push(i);
+        }
+
+        var items = new List<int>();
+        var read = buffer.Read(first.Sequence, first.Generation, mark, items);
+
+        Assert.Empty(items);
+        Assert.False(read.Appended);
+        Assert.Equal(0, read.Count);
+    }
+
+    [Fact]
+    public void ReadUntilAMarkOfAnotherGenerationReadsTheItemsThere()
+    {
+        var buffer = new ChartRingBuffer<int>(3);
+        buffer.Push(1);
+        buffer.Push(2);
+        var first = buffer.Read(-1, 0, null, []);
+        var mark = ((IChartBuffer)buffer).Mark();
+        buffer.Clear();
+        buffer.Push(7);
+
+        var items = new List<int>();
+        var read = buffer.Read(first.Sequence, first.Generation, mark, items);
+
+        Assert.Equal([7], items);
+        Assert.False(read.Appended);
+    }
+
+    [Fact]
+    public void PushAndClearTellThatTheItemsChanged()
+    {
+        var buffer = new ChartRingBuffer<int>(2);
+        var actions = new List<NotifyCollectionChangedAction>();
+        var counts = new List<int>();
+        buffer.CollectionChanged += (_, e) =>
+        {
+            actions.Add(e.Action);
+            counts.Add(buffer.Count);
+        };
+
+        buffer.Push(1);
+        buffer.Push(2);
+        buffer.Push(3);
+        buffer.Clear();
+
+        Assert.All(actions, static x => Assert.Equal(NotifyCollectionChangedAction.Reset, x));
+        Assert.Equal([1, 2, 2, 0], counts);
     }
 
     [Fact]

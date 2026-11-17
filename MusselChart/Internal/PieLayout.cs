@@ -631,8 +631,7 @@ internal sealed class PieLayout
 
     private PieCenterText? FitCenter(double number, string? caption)
     {
-        var format = options.CenterValueFormat ?? options.ValueFormat;
-        var formatter = options.CenterValueFormatter ?? options.ValueFormatter;
+        var (format, formatter) = ChartFormat.Pick(options.CenterValueFormat, options.CenterValueFormatter, options.ValueFormat, options.ValueFormatter);
         var value = ChartFormat.Value(number, format, formatter, options.Culture);
         var available = InnerRadius - CenterPadding;
         var valueSize = RoundSize(Math.Min(MaxCenterFontSize, InnerRadius * CenterFontRatio));

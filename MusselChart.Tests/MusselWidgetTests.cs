@@ -142,6 +142,45 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void MissingValuesAreShownAsNoValue()
+    {
+        var stat = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, Double.NaN)
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.ColorMode, ChartStatColorMode.Value));
+        var gauge = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", Double.NaN, "#5794F2", 100), new ChartEntry("B", Double.PositiveInfinity, "#5794F2", 100)])
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.ValueMode, ChartBarGaugeValueMode.ValueOfMaximum));
+        var area = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [Double.NaN, Double.NaN, 3, 4, Double.NaN])
+            .Add(static p => p.Kind, ChartSparklineKind.Area));
+
+        Assert.Null(stat.Find(".mussel-stat-value").GetAttribute("style"));
+        Assert.Equal(["-", "-"], gauge.FindAll(".mussel-gauge-value text").Select(static x => x.TextContent));
+        Assert.Equal(["#5794F2", "#5794F2"], gauge.FindAll(".mussel-gauge-value text").Select(static x => x.GetAttribute("fill")));
+        Assert.Equal(["0%", "0%"], gauge.FindAll(".mussel-gauge-bar > rect[fill-opacity='0.35']").Select(static x => x.GetAttribute("width")));
+        var points = area.Find("polygon").GetAttribute("points")!.Split(' ');
+        Assert.StartsWith("2,", points[0], StringComparison.Ordinal);
+        Assert.StartsWith("3,", points[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SparklineSwapsFixedEndsGivenTheWrongWayRound()
+    {
+        var reversed = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [1d, 5, 3])
+            .Add(static p => p.Minimum, 10)
+            .Add(static p => p.Maximum, 0));
+        var ordered = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [1d, 5, 3])
+            .Add(static p => p.Minimum, 0)
+            .Add(static p => p.Maximum, 10));
+
+        Assert.Equal(ordered.Find("polyline").GetAttribute("points"), reversed.Find("polyline").GetAttribute("points"));
+    }
+
+    [Fact]
     public void SparklineKeepsTheFixedEndWhenAllValuesAreOutside()
     {
         var below = Render<MusselSparklineView>(parameters => parameters

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 
 using MusselChart.Internal;
 
-public sealed partial class MusselBarGaugeView
+public sealed partial class MusselBarGaugeView : IDisposable
 {
     private const double SegmentGap = 2;
 
@@ -15,6 +15,8 @@ public sealed partial class MusselBarGaugeView
     private readonly string idPrefix = "mussel-" + Guid.NewGuid().ToString("N")[..12];
 
     private readonly List<GaugeRow> rows = [];
+
+    private readonly ChartSourceWatcher sources;
 
     private string rootClass = string.Empty;
 
@@ -25,6 +27,13 @@ public sealed partial class MusselBarGaugeView
     private string segmentCell = string.Empty;
 
     private string valueWidth = string.Empty;
+
+    private bool disposed;
+
+    public MusselBarGaugeView()
+    {
+        sources = new ChartSourceWatcher(OnSourceChanged);
+    }
 
     [Parameter]
     public IReadOnlyList<ChartEntry>? Items { get; set; }
@@ -77,9 +86,17 @@ public sealed partial class MusselBarGaugeView
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    public void Dispose()
+    {
+        disposed = true;
+        sources.Clear();
+    }
+
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        sources.Add(Items);
+        sources.Apply();
         var fallback = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         rootClass = LabelPosition == ChartBarGaugeLabelPosition.Left ? "mussel-gauge mussel-gauge-left" : "mussel-gauge";
         barHeight = ChartFormat.Pixel(BarThickness);
@@ -94,12 +111,14 @@ public sealed partial class MusselBarGaugeView
             var item = items[i];
             var maximum = item.Maximum ?? Maximum;
             var range = maximum - Minimum;
-            var ratio = range > 0 ? (item.Value - Minimum) / range : 0;
+            var known = Double.IsFinite(item.Value);
+            var ratio = known && (range > 0) ? (item.Value - Minimum) / range : 0;
             var percent = ratio * 100;
-            var color = Thresholds is { Count: > 0 } ? ResolveColor(percent, item.Color ?? fallback) : item.Color ?? fallback;
+            var color = known && (Thresholds is { Count: > 0 }) ? ResolveColor(percent, item.Color ?? fallback) : item.Color ?? fallback;
             var stops = Thresholds is { Count: > 0 } ? CreateStops(item.Color ?? fallback) : [new GaugeStop("0", item.Color ?? fallback)];
             var text = ValueMode switch
             {
+                _ when !known => "-",
                 ChartBarGaugeValueMode.Percent => ratio.ToString("P0", culture),
                 ChartBarGaugeValueMode.ValueOfMaximum => $"{FormatValue(item.Value, culture)} / {FormatValue(maximum, culture)}",
                 _ => FormatValue(item.Value, culture)
@@ -108,7 +127,7 @@ public sealed partial class MusselBarGaugeView
             var target = (item.Target is { } goal) && (range > 0) ? ToPercent((goal - Minimum) / range) : null;
             rows.Add(new GaugeRow(
                 item.Label,
-                ToPercent(ratio)!,
+                ToPercent(ratio) ?? "0%",
                 target,
                 color,
                 text,
@@ -155,6 +174,22 @@ public sealed partial class MusselBarGaugeView
 
     private static string? ToPercent(double ratio) =>
         Double.IsFinite(ratio) ? (Math.Clamp(ratio, 0, 1) * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%" : null;
+
+    private void OnSourceChanged()
+    {
+        if (!disposed)
+        {
+            _ = InvokeAsync(Refresh);
+        }
+    }
+
+    private void Refresh()
+    {
+        if (!disposed)
+        {
+            StateHasChanged();
+        }
+    }
 
     private sealed record GaugeStop(string Offset, string Color);
 

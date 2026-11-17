@@ -163,6 +163,21 @@ public sealed class MusselRadialBarViewTests : BunitContext
     }
 
     [Fact]
+    public void TheWrapTakesTheLastColorOfTheGradientAndGlows()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 150, "#5794F2")])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.OverflowMode, ChartOverflowMode.Wrap)
+            .Add(static p => p.BarGlow, true));
+
+        var wrap = cut.Find(".mussel-ring").Children[^1].GetAttribute("stroke");
+        var last = System.Text.RegularExpressions.Regex.Matches(cut.Find(".mussel-radial-sweep div").GetAttribute("style")!, "#[0-9A-Fa-f]{6}")[^1].Value;
+        Assert.Equal(ChartColor.Shift(last, 0, -15), wrap);
+        Assert.Contains(wrap, cut.FindAll(".mussel-radial-glow path").Select(static x => x.GetAttribute("stroke")));
+    }
+
+    [Fact]
     public void GradientFollowsTheThresholds()
     {
         var cut = Render<MusselRadialBarView>(parameters => parameters

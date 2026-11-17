@@ -3,7 +3,7 @@
 ## 📈 MusselChartView
 
 Draws line, area, bar, range bar, scatter and bubble series on a date and time, a numeric or a category axis, mixed in one chart.  
-Axes and series are written as child components, and every component passes other attributes such as `class` and `id` to its root element.  
+Axes and series are written as child components, and every component passes other attributes such as `class` and `id` to its root element. The child components are rendered again when the chart gets parameters, not when the chart redraws itself. The element a chart measures (the root of `MusselChartView`, and the plot of the pie, radial bar, radar, heatmap and state timeline views) gets `data-attached` once its script is attached, and loses it when the chart is disposed.  
 
 | Name | Type | Default | Description |
 |---|---|---|---|
@@ -18,10 +18,10 @@ Axes and series are written as child components, and every component passes othe
 | `TooltipVisible` | `bool` | `true` | `false` keeps only the crosshair and the points |
 | `TrackingGroup`, `TrackingGroupMode` | `string?`, `ChartTrackingGroupMode` | `null`, `Crosshair` | Charts of the same group follow the chart under the pointer; `Tooltip` also shows their tooltips |
 | `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis |
-| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture |
+| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; positions and lengths follow real time across a change of the offset, so the repeated hour of a change shows its labels twice; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture |
 | `EmptyText` | `string?` | `null` | Text drawn when there is no data |
 
-A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size.  
+A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size. While an interactive chart is prerendered, it stays hidden until it starts.  
 The pie, radial bar, radar, heatmap and state timeline views do the same.  
 
 ### Axes
@@ -58,7 +58,7 @@ The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the 
 | Range bars | A bar from the low to the high value; swapped values are drawn from the smaller one, a point without both values is skipped, the value axis does not include 0 and the tooltip shows `12 – 25` |
 | Scatter | Points filled at `FillOpacity` and outlined with the series color. With only scatter and bubble series, the crosshair snaps to the nearest point in both directions and the tooltip shows only that point |
 | Bubbles | The area grows from 0 to the largest size among all the bubble series: 0 and below get `MinBubbleSize` and the largest value gets `MaxBubbleSize`. `SizeIncludesZero` set to `false` starts from the smallest value. A point without a size is skipped, larger bubbles are drawn first and the automatic ranges grow by the radius of the largest bubble |
-| Updates | Only a time axis with absolute values appends new points; numeric and category axes and `Percent` stacks are read again at each render |
+| Updates | Only a time axis with absolute values appends new points, and only while every series reads a `ChartRingBuffer`; with a series that reads an array, on numeric and category axes and in `Percent` stacks, every point is read again at each render |
 
 ## 🍩 MusselPieChartView
 
@@ -79,7 +79,7 @@ Angles are degrees clockwise from 12 o'clock.
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Bottom`, `None` | The legend and the value or the percentage in it |
 | `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows the slice by its name; the merged slice and the last visible slice stay |
 | `CenterValueMode`, `CenterValue`, `CenterLabel` | `ChartCenterValueMode`, `double?`, `string?` | `Auto`, `null`, `null` | The total or `CenterValue` in the hole, shrunk to fit, with the label under it |
-| `CenterValueFormat`, `CenterValueFormatter` | `string?`, `Func<double, string>?` | `null` | Format of the center value; unset uses the value formats |
+| `CenterValueFormat`, `CenterValueFormatter` | `string?`, `Func<double, string>?` | `null` | Format of the center value; when neither is set, `ValueFormat` and `ValueFormatter` apply |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the slice values; the default is the compact number |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other slices and shows the tooltip |
 
@@ -99,7 +99,7 @@ Concentric rings that compare several progress values, the first item being the 
 | `FillMode` | `ChartFillMode` | `Solid` | `Gradient` draws a sweep of the threshold colors, or of the shades of the ring color |
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring, a glow under the values and a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
-| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the maximum |
+| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
 | `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, and `Total` the sum of the values |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it |
@@ -110,14 +110,14 @@ Concentric rings that compare several progress values, the first item being the 
 ## 🕸 MusselRadarChartView
 
 Compares several series on axes that spread from the center, one axis per item.  
-`RadarSeries` are written as child components.  
+`RadarSeries` are written as child components, rendered again when the chart gets parameters.  
 
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the series colors |
 | `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null` is chosen from the visible series with 0 included and nice levels |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
-| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series without their own format |
+| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter` |
 | `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering marks the axis in that direction and shows the values of every series |
 
@@ -160,7 +160,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `Items` | `IReadOnlyList<TItem>?` | `null` | Items |
-| `Row`, `Start`, `End` | `Func<TItem, string?>?`, `Func<TItem, DateTime>?`, `Func<TItem, DateTime?>?` | `null` | Row name, the start and the optional end; without `Row` everything is one row |
+| `Row`, `Start`, `End` | `Func<TItem, string?>?`, `Func<TItem, DateTime>?`, `Func<TItem, DateTime?>?` | `null` | Row name, the start and the optional end; without `Row` everything is one row; an end that is not after the start is ignored, and the state lasts until the next start of its row |
 | `State` | `Func<TItem, object?>?` | `null` | Text or a number; `null` ends the previous state |
 | `Height` | `double` | `240` | Height in pixels |
 | `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum` |
@@ -169,11 +169,11 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step |
 | `ShowValue`, `AlignValue` | `ChartVisibilityMode`, `ChartValueAlignment` | `Auto`, `Left` | Text on each band; `Auto` writes it where its first two characters fit |
 | `RowHeight`, `FillOpacity`, `LineWidth` | `double` | `0.9`, `0.7`, `0` | Share of the height taken by the bands, the fill and the outline |
-| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times |
+| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, and the order of the day and the month follows the culture |
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`) |
 
-Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green.  
+Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`, in the color of a step without a level.  
 
 ## 🔢 MusselStatView
 
@@ -215,8 +215,10 @@ A KPI tile that fills the height of its container.
 | `ChartRingBuffer<T>(capacity)` | Keeps the latest `capacity` items; thread safe |
 | `Push`, `Clear` | Adds an item, or removes every item so that charts read again |
 | `Count`, `Capacity`, `Sequence`, `ToArray` | Items in the buffer, the size, the number of items pushed so far and a copy |
+| `CollectionChanged` | Raised as `Reset` after each `Push` and `Clear`, on the thread that called them |
 
-Series of one chart that share a buffer read it up to the same item, and items pushed while the chart reads show at the next update.  
+Every view watches items that implement `INotifyCollectionChanged`, such as this buffer and `ObservableCollection`, and draws again by itself when they change.  
+Series of one chart that share a buffer read the same items, and items pushed while the chart reads show at the next update.  
 
 ## 🎨 Theme
 
@@ -227,6 +229,7 @@ Series of one chart that share a buffer read it up to the same item, and items p
 | `--mussel-unlit` | Cells of segmented rings that are not lit |
 | `--mussel-tooltip-background`, `--mussel-tooltip-border`, `--mussel-tooltip-text` | Tooltip |
 | `--mussel-good`, `--mussel-warning`, `--mussel-serious`, `--mussel-critical` | Threshold lines and bands, and the losses of sparklines |
+| `--mussel-font-family` | Font family |
 
 Link `_content/MusselChart/MusselChart.css` and add `mussel-dark` to a container for the dark values.  
 

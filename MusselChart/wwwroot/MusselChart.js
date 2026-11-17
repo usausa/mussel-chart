@@ -3,7 +3,7 @@ const ns = 'http://www.w3.org/2000/svg';
 const suffixes = ['K', 'M', 'B', 'T'];
 
 export function attach(element, reference) {
-    const state = { width: 0, frame: 0, target: null };
+    const state = { width: 0, frame: 0, target: null, last: null };
     state.observer = new ResizeObserver(entries => {
         const width = Math.floor(entries[0].contentRect.width);
         if (width <= 0 || width === state.width) {
@@ -16,7 +16,7 @@ export function attach(element, reference) {
     });
     state.observer.observe(element);
 
-    state.move = e => {
+    state.track = e => {
         if (element.dataset.trackball !== 'hover') {
             return;
         }
@@ -27,8 +27,33 @@ export function attach(element, reference) {
             track(element, e);
         }
     };
+    state.mutations = new MutationObserver(records => {
+        const last = state.last;
+        if (last === null || records.every(record => isOwn(record.target))) {
+            return;
+        }
+
+        const target = document.elementFromPoint(last.clientX, last.clientY);
+        if (!element.contains(target)) {
+            state.leave();
+            return;
+        }
+
+        state.target = null;
+        state.track({ clientX: last.clientX, clientY: last.clientY, target });
+    });
+    state.move = e => {
+        if (state.last === null) {
+            state.mutations.observe(element, { subtree: true, childList: true, attributes: true });
+        }
+
+        state.last = { clientX: e.clientX, clientY: e.clientY };
+        state.track(e);
+    };
     state.leave = () => {
         state.target = null;
+        state.last = null;
+        state.mutations.disconnect();
         members(element).forEach(hide);
     };
     element.addEventListener('pointermove', state.move);
@@ -37,6 +62,7 @@ export function attach(element, reference) {
     element.addEventListener('pointercancel', state.leave);
 
     charts.set(element, state);
+    element.dataset.attached = '';
 }
 
 export function detach(element) {
@@ -46,6 +72,7 @@ export function detach(element) {
     }
 
     state.observer.disconnect();
+    state.mutations.disconnect();
     cancelAnimationFrame(state.frame);
     element.removeEventListener('pointermove', state.move);
     element.removeEventListener('pointerdown', state.move);
@@ -54,6 +81,12 @@ export function detach(element) {
 
     hide(element);
     charts.delete(element);
+    delete element.dataset.attached;
+}
+
+function isOwn(node) {
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    return Boolean(element?.closest('.mussel-hover, .mussel-tooltip, .mussel-cross'));
 }
 
 function members(element) {
@@ -325,7 +358,7 @@ function formatPosition(chart, x) {
     }
 
     const base = Number(chart.querySelector('svg').dataset.base);
-    return formatTime(base + x, Number(chart.dataset.offset ?? 0), chart.dataset.timeFormat ?? 'HH:mm:ss');
+    return formatTime(base + x, offsetAt(chart.dataset.offset, chart.dataset.offsetChange, base + x), chart.dataset.timeFormat ?? 'HH:mm:ss');
 }
 
 function spacing(series) {
@@ -538,7 +571,18 @@ function roundCompact(value) {
     return Math.round(value * factor) / factor;
 }
 
-function formatTime(seconds, offset, format) {
+export function offsetAt(offset, change, seconds) {
+    if (change) {
+        const [at, before] = change.split(',').map(Number);
+        if (seconds < at) {
+            return before;
+        }
+    }
+
+    return Number(offset ?? 0);
+}
+
+export function formatTime(seconds, offset, format) {
     const date = new Date((seconds + (offset * 60)) * 1000);
     const pad = (n, width) => String(n).padStart(width, '0');
     return format.replace(/yyyy|HH|mm|ss|M|d/g, token => {

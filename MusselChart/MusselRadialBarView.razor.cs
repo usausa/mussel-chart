@@ -141,6 +141,8 @@ public sealed partial class MusselRadialBarView
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        WatchSource(Items);
+        ApplySources();
         var items = Items ?? [];
         var markers = ThresholdMarkersVisible && HasThresholds;
         layout.Update(Width, Height, new RadialBarLayoutOptions

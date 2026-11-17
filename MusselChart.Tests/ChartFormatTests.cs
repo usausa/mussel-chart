@@ -47,6 +47,19 @@ public sealed class ChartStringBuilderTests
     }
 
     [Fact]
+    public void RepeatedLocalTimesAndTheEndsOfDateTimeAreRead()
+    {
+        var berlin = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        var tokyo = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+        var newYork = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+
+        Assert.Equal(new DateTime(2026, 10, 25, 1, 30, 0, DateTimeKind.Utc).Ticks, ChartTime.ToUtcTicks(new DateTime(2026, 10, 25, 2, 30, 0, DateTimeKind.Unspecified), berlin));
+        Assert.Equal(0, ChartTime.ToUtcTicks(DateTime.MinValue, tokyo));
+        Assert.Equal(DateTime.MaxValue.Ticks, ChartTime.ToUtcTicks(DateTime.MaxValue, newYork));
+        Assert.Equal(-5 * TimeSpan.TicksPerHour, ChartTime.OffsetOf(-TimeSpan.TicksPerDay, newYork));
+    }
+
+    [Fact]
     public void ReturnedBuilderIsRentedEmpty()
     {
         var first = ChartStringBuilder.Rent();

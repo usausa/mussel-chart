@@ -1,8 +1,11 @@
 namespace MusselChart;
 
 using System.Collections;
+using System.Collections.Specialized;
 
-public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer
+using MusselChart.Internal;
+
+public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer, INotifyCollectionChanged
 {
     private readonly Lock sync = new();
 
@@ -21,6 +24,8 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         buffer = new T[capacity];
     }
+
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
     public int Capacity => buffer.Length;
 
@@ -72,6 +77,8 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer
 
             sequence++;
         }
+
+        CollectionChanged?.Invoke(this, ChartEvents.Reset);
     }
 
     public void Clear()
@@ -83,6 +90,8 @@ public sealed class ChartRingBuffer<T> : IReadOnlyList<T>, IChartBuffer
             count = 0;
             generation++;
         }
+
+        CollectionChanged?.Invoke(this, ChartEvents.Reset);
     }
 
     public T[] ToArray()

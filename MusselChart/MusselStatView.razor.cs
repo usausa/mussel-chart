@@ -6,11 +6,13 @@ using Microsoft.AspNetCore.Components;
 
 using MusselChart.Internal;
 
-public sealed partial class MusselStatView
+public sealed partial class MusselStatView : IDisposable
 {
     private const double BrightThreshold = 180;
 
     private readonly string gradientId = "mussel-" + Guid.NewGuid().ToString("N")[..12];
+
+    private readonly ChartSourceWatcher sources;
 
     private TrendPath trend = TrendPath.Empty;
 
@@ -35,6 +37,13 @@ public sealed partial class MusselStatView
     private string trendFillOpacity = "0.2";
 
     private string trendStroke = string.Empty;
+
+    private bool disposed;
+
+    public MusselStatView()
+    {
+        sources = new ChartSourceWatcher(OnSourceChanged);
+    }
 
     [Parameter]
     public string? Title { get; set; }
@@ -84,9 +93,17 @@ public sealed partial class MusselStatView
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    public void Dispose()
+    {
+        disposed = true;
+        sources.Clear();
+    }
+
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
+        sources.Add(TrendValues);
+        sources.Apply();
         var threshold = ChartFormat.FindThreshold(Thresholds, Value);
         tileColor = Fill ?? threshold?.Color ?? (threshold is { Level: not ChartThresholdLevel.None } ? ChartColor.Level(threshold.Level) : null) ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         valueText = Double.IsNaN(Value) ? EmptyText ?? "-" : ChartFormat.Value(Value, ValueFormat, ValueFormatter, culture);
@@ -97,7 +114,7 @@ public sealed partial class MusselStatView
         gradientTo = ChartColor.Shift(tileColor, -8, -5);
         backgroundFill = filled ? $"url(#{gradientId})" : tileColor;
         backgroundOpacity = filled ? "1" : "0.15";
-        valueStyle = ColorMode == ChartStatColorMode.Value ? $"color: {tileColor}" : null;
+        valueStyle = (ColorMode == ChartStatColorMode.Value) && !Double.IsNaN(Value) ? $"color: {tileColor}" : null;
 
         if (filled)
         {
@@ -116,5 +133,21 @@ public sealed partial class MusselStatView
         var empty = Double.IsNaN(Value) ? " mussel-stat-empty" : string.Empty;
         var layout = LayoutMode == ChartStatLayoutMode.Horizontal ? " mussel-stat-horizontal" : string.Empty;
         rootClass = "mussel-stat" + layout + text + empty;
+    }
+
+    private void OnSourceChanged()
+    {
+        if (!disposed)
+        {
+            _ = InvokeAsync(Refresh);
+        }
+    }
+
+    private void Refresh()
+    {
+        if (!disposed)
+        {
+            StateHasChanged();
+        }
     }
 }

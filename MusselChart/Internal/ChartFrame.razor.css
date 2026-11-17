@@ -20,6 +20,10 @@
     animation: mussel-reveal 0s linear 1s forwards;
 }
 
+.mussel-prerendering ::deep .mussel-view-svg {
+    visibility: hidden;
+}
+
 @keyframes mussel-reveal {
     to {
         visibility: visible;

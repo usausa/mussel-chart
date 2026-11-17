@@ -127,6 +127,8 @@ internal sealed class TrendPath
         }
 
         var line = new StringBuilder();
+        var first = -1;
+        var last = -1;
         for (var i = 0; i < values.Length; i++)
         {
             if (!Double.IsFinite(values[i]))
@@ -139,11 +141,13 @@ internal sealed class TrendPath
                 line.Append(' ');
             }
 
+            first = first < 0 ? i : first;
+            last = i;
             line.Append(ChartFormat.Coordinate(i)).Append(',').Append(ChartFormat.Coordinate(ToY(values[i])));
         }
 
         var text = line.ToString();
-        var area = String.Create(CultureInfo.InvariantCulture, $"0,{ViewHeight} {text} {values.Length - 1},{ViewHeight}");
+        var area = first < 0 ? string.Empty : String.Create(CultureInfo.InvariantCulture, $"{first},{ViewHeight} {text} {last},{ViewHeight}");
         return new TrendPath(values.Length, text, area, []);
     }
 }
