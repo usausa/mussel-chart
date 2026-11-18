@@ -49,7 +49,7 @@ Categories merge the names of all series in order of appearance, hidden series i
 | `ScatterSeries` | `MarkerSize` (8), `MarkerShape` (`Circle`, `Square` or `Diamond`) and `FillOpacity` (0.5) |
 | `BubbleSeries` | The scatter parameters, `Size`, `MinBubbleSize` (8), `MaxBubbleSize` (40) and `SizeIncludesZero` (`true`) |
 
-The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`.  
+The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip, and its `LabelFormat` or `LabelFormatter` in the legend, except when stacked to 100%.  
 
 | Item | Rule |
 |---|---|
@@ -78,7 +78,7 @@ Angles are degrees clockwise from 12 o'clock.
 | `LabelsMode`, `LabelContent` | `ChartPieLabelsMode`, `ChartPieLabelContent` | `None`, `Percent` | `Inside` draws the labels that fit in their slices; `Outside` draws them beside the pie with leader lines |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Bottom`, `None` | The legend and the value or the percentage in it |
 | `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows the slice by its name; the merged slice and the last visible slice stay |
-| `CenterValueMode`, `CenterValue`, `CenterLabel` | `ChartCenterValueMode`, `double?`, `string?` | `Auto`, `null`, `null` | The total or `CenterValue` in the hole, shrunk to fit, with the label under it |
+| `CenterValueMode`, `CenterValue`, `CenterLabel` | `ChartCenterValueMode`, `double?`, `string?` | `Auto`, `null`, `null` | The total or `CenterValue` in the hole, shrunk to fit, with the label under it; a value that is not finite shows neither |
 | `CenterValueFormat`, `CenterValueFormatter` | `string?`, `Func<double, string>?` | `null` | Format of the center value; when neither is set, `ValueFormat` and `ValueFormatter` apply |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the slice values; the default is the compact number |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other slices and shows the tooltip |
@@ -100,7 +100,7 @@ Concentric rings that compare several progress values, the first item being the 
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring, a glow under the values and a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
-| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, and `Total` the sum of the values |
+| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other rings and shows the tooltip |
@@ -173,7 +173,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`) |
 
-Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`, in the color of a step without a level.  
+Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`, in the color of a step without a level. A lone step at `-∞` without `Label` has no name: its bands carry no text, the legend leaves it out, and the tooltip leaves the state empty.  
 
 ## 🔢 MusselStatView
 
@@ -181,7 +181,7 @@ A KPI tile that fills the height of its container.
 
 | Name | Description |
 |---|---|
-| `Title`, `Value`, `Unit` | Title, value and unit; `NaN` and infinities show `EmptyText` without the unit |
+| `Title`, `Value`, `Unit` | Title, value and unit; `NaN` and infinities show `EmptyText` (`-` when it is not set) without the unit |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the value; the default is the compact number |
 | `TrendValues`, `TrendPlacement` | Trend line at the `Bottom`, in the `Background` or `None` |
 | `Thresholds` | State by value |

@@ -188,8 +188,6 @@ internal static class ChartFormat
 
     public static string Coordinate(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 
-    public static string Data(double value) => value.ToString("G6", CultureInfo.InvariantCulture);
-
     public static string Position(double value) => value.ToString("G9", CultureInfo.InvariantCulture);
 
     public static string LevelClass(ChartThresholdLevel level) => level switch

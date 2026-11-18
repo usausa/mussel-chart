@@ -32,6 +32,12 @@ public sealed partial class MusselChartView
 
     private long baseTicks;
 
+    private double numberBase;
+
+    private double valueBase;
+
+    private bool hasValueBase;
+
     private ChartXKind xKind;
 
     private ChartStackMode stackMode;
@@ -94,12 +100,14 @@ public sealed partial class MusselChartView
             }
 
             var minimum = Int64.MaxValue;
-            foreach (var (_, _, start, count) in reads)
+            var leftmost = Double.PositiveInfinity;
+            foreach (var (state, _, start, count) in reads)
             {
                 for (var i = start; i < start + count; i++)
                 {
                     var point = reading[i];
                     minimum = (point.Ticks != 0) ? Math.Min(minimum, point.Ticks) : minimum;
+                    leftmost = (state.Series.XKind == ChartXKind.Number) && Double.IsFinite(point.Number) ? Math.Min(leftmost, point.Number) : leftmost;
                     if ((xKind == ChartXKind.Category) && (point.Category is { } category))
                     {
                         AddCategory(category);
@@ -108,11 +116,22 @@ public sealed partial class MusselChartView
             }
 
             baseTicks = (xKind != ChartXKind.Time) || (minimum == Int64.MaxValue) ? 0 : minimum - (minimum % TimeSpan.TicksPerSecond);
-            baseText = ((baseTicks - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture);
+            numberBase = (xKind == ChartXKind.Number) && Double.IsFinite(leftmost) ? leftmost : 0;
+            baseText = xKind == ChartXKind.Time
+                ? ((baseTicks - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture)
+                : numberBase.ToString(CultureInfo.InvariantCulture);
+            valueBase = 0;
+            valueBaseText = "0";
+            hasValueBase = stackMode == ChartStackMode.Percent;
             if (stackMode == ChartStackMode.Percent)
             {
                 CollectTotals();
             }
+        }
+
+        if (!hasValueBase)
+        {
+            ChooseValueBase();
         }
 
         foreach (var (state, read, start, count) in reads)
@@ -236,7 +255,39 @@ public sealed partial class MusselChartView
     private long GetStackSlot(double x, in ChartPointData point) =>
         xKind == ChartXKind.Time ? point.Ticks : BitConverter.DoubleToInt64Bits(x);
 
-    private string FormatX(double x) => xKind == ChartXKind.Time ? ChartFormat.Coordinate(x) : ChartFormat.Position(x);
+    private string FormatX(double x) => xKind switch
+    {
+        ChartXKind.Time => ChartFormat.Coordinate(x),
+        ChartXKind.Number => ChartFormat.Position(x - numberBase),
+        _ => ChartFormat.Position(x)
+    };
+
+    private void ChooseValueBase()
+    {
+        var lowest = Double.PositiveInfinity;
+        foreach (var (state, _, start, count) in reads)
+        {
+            if (!state.Visible)
+            {
+                continue;
+            }
+
+            var range = state.Series.Kind == ChartSeriesKind.RangeBar;
+            for (var i = start; i < start + count; i++)
+            {
+                var point = reading[i];
+                lowest = Double.IsFinite(point.Value) ? Math.Min(lowest, point.Value) : lowest;
+                lowest = range && Double.IsFinite(point.Low) ? Math.Min(lowest, point.Low) : lowest;
+            }
+        }
+
+        if (Double.IsFinite(lowest))
+        {
+            valueBase = lowest;
+            valueBaseText = lowest.ToString(CultureInfo.InvariantCulture);
+            hasValueBase = true;
+        }
+    }
 
     private void CollectTotals()
     {
@@ -313,7 +364,7 @@ public sealed partial class MusselChartView
                 return;
             case ChartSeriesKind.Scatter:
             case ChartSeriesKind.Bubble:
-                state.Markers.Add(new SeriesMarker(sequence, text, ChartFormat.Position(value), kind == ChartSeriesKind.Bubble ? ChartFormat.Position(point.Size) : null, x, value, point.Size));
+                state.Markers.Add(new SeriesMarker(sequence, text, ChartFormat.Position(value - valueBase), kind == ChartSeriesKind.Bubble ? ChartFormat.Position(point.Size) : null, x, value, point.Size));
                 state.MarkersSorted = false;
                 return;
         }
@@ -333,18 +384,17 @@ public sealed partial class MusselChartView
             chunk = next;
         }
 
-        chunk.Add(sequence, text, top, bottom, value, area, stacked);
+        chunk.Add(sequence, text, top - valueBase, bottom - valueBase, value, area, stacked);
         state.Gap = false;
     }
 
-    private static void AppendBar(SeriesState state, string text, long sequence, double bottom, double top, double value, long slot, bool stacked)
+    private void AppendBar(SeriesState state, string text, long sequence, double bottom, double top, double value, long slot, bool stacked)
     {
         var low = Math.Min(bottom, top);
         var high = Math.Max(bottom, top);
-        var lowText = stacked ? null : ChartFormat.Data(low);
-        var heightText = stacked ? null : ChartFormat.Data(high - low);
-        var rangeText = stacked || (state.Series.Kind != ChartSeriesKind.RangeBar) ? null : ChartFormat.Position(low);
-        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Position(value), lowText, heightText, low, high, value, slot, rangeText));
+        var lowText = stacked ? null : ChartFormat.Position(low - valueBase);
+        var heightText = stacked ? null : ChartFormat.Position(high - low);
+        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Position(value), lowText, heightText, low, high, value, slot));
     }
 
     private (double Top, double Bottom) Stack((ChartSeriesKind Kind, string Group) key, long slot, double value)

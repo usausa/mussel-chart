@@ -87,9 +87,9 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Title, "B")));
 
         var lines = cut.FindAll("polyline");
-        Assert.Equal("0,1 1,1", lines[0].GetAttribute("points"));
-        Assert.Equal("0,3 1,3", lines[1].GetAttribute("points"));
-        Assert.Equal("0,3 1,3 1,1 0,1", cut.FindAll("polygon")[1].GetAttribute("points"));
+        Assert.Equal("0,0 1,0", lines[0].GetAttribute("points"));
+        Assert.Equal("0,2 1,2", lines[1].GetAttribute("points"));
+        Assert.Equal("0,2 1,2 1,0 0,0", cut.FindAll("polygon")[1].GetAttribute("points"));
     }
 
     [Fact]
@@ -123,8 +123,8 @@ public sealed class MusselChartViewTests : BunitContext
         cut.Render();
 
         var lines = cut.FindAll("polyline");
-        Assert.Equal("0,1 1,1", lines[0].GetAttribute("points"));
-        Assert.Equal("0,3 1,3", lines[1].GetAttribute("points"));
+        Assert.Equal("0,0 1,0", lines[0].GetAttribute("points"));
+        Assert.Equal("0,2 1,2", lines[1].GetAttribute("points"));
     }
 
     [Theory]
@@ -429,7 +429,8 @@ public sealed class MusselChartViewTests : BunitContext
 
         var bars = cut.FindAll(".mussel-bars rect");
         Assert.Equal(6, bars.Count);
-        Assert.Equal("-3", bars[0].GetAttribute("y"));
+        Assert.Equal("-3", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("0", bars[0].GetAttribute("y"));
         Assert.Equal("3", bars[0].GetAttribute("height"));
     }
 
@@ -488,7 +489,8 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal(6, bars.Count);
         Assert.Equal(["3", "4", "5"], bars.Take(3).Select(static x => x.GetAttribute("x")));
         Assert.Equal(["4", "5", "6"], bars.Take(3).Select(static x => x.GetAttribute("data-v")));
-        Assert.InRange(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture), 4, 5);
+        Assert.Equal("1", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.InRange(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture), 3, 4);
     }
 
     [Fact]
@@ -562,7 +564,8 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.X, static x => x.Time)
                 .Add(static p => p.Y, static x => x.Value)));
 
-        Assert.Equal("0,1234567 1,7654321", cut.FindAll("polyline")[0].GetAttribute("points"));
+        Assert.Equal("12345.67", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("0,1222221.33 1,7641975.33", cut.FindAll("polyline")[0].GetAttribute("points"));
         Assert.Equal("12345.67 76543.21", cut.Find("[data-values]").GetAttribute("data-values"));
         Assert.Equal(["1234567", "7654321"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("data-v")));
     }
@@ -590,7 +593,7 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal(labels.IndexOf(before) + 1, labels.IndexOf(after));
         Assert.DoesNotContain(absent, labels);
         var root = cut.Find(".mussel-chart");
-        Assert.Equal((offset, change), (root.GetAttribute("data-offset"), root.GetAttribute("data-offset-change")));
+        Assert.Equal((offset, change), (root.GetAttribute("data-offset"), root.GetAttribute("data-offset-changes")));
     }
 
     [Fact]
@@ -607,7 +610,7 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Value)));
 
         var root = cut.Find(".mussel-chart");
-        Assert.Equal(("-300", "1772953200,-300 1793512800,-240"), (root.GetAttribute("data-offset"), root.GetAttribute("data-offset-change")));
+        Assert.Equal(("-300", "1772953200,-300 1793512800,-240"), (root.GetAttribute("data-offset"), root.GetAttribute("data-offset-changes")));
     }
 
     [Fact]
@@ -623,6 +626,65 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Value)));
 
         Assert.Equal("1803893400", cut.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
+    }
+
+    [Fact]
+    public void LargeValuesAreWrittenFromTheirBase()
+    {
+        Sample[] items = [new(Start, 1234567890), new(Start.AddSeconds(1), 1234567891), new(Start.AddSeconds(2), 1234567955)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal("1234567890", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("0,0 1,1 2,65", cut.Find("polyline").GetAttribute("points"));
+        var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!.TrimEnd(')').Split(' ');
+        Assert.InRange(Double.Parse(matrix[^1], CultureInfo.InvariantCulture), -1000, 1000);
+    }
+
+    [Fact]
+    public void LargeNumbersAreWrittenFromTheirBase()
+    {
+        PointItem[] line = [new(1e6, 1234567890), new(1e6 + 1, 1234567891), new(1e6 + 2, 1234567955)];
+        PointItem[] points = [new(1e6 + 1, 1234567900)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<LineSeries<PointItem>>(series => series
+                .Add(static p => p.Items, line)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y))
+            .AddChildContent<ScatterSeries<PointItem>>(series => series
+                .Add(static p => p.Items, points)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)));
+
+        var svg = cut.Find("svg.mussel-chart-svg");
+        Assert.Equal(("1000000", "1234567890"), (svg.GetAttribute("data-base"), svg.GetAttribute("data-value-base")));
+        Assert.Equal("0,0 1,1 2,65", cut.Find("polyline").GetAttribute("points"));
+        var marker = cut.Find(".mussel-markers circle");
+        Assert.Equal(("1", "10"), (marker.GetAttribute("data-x"), marker.GetAttribute("data-y")));
+        var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!.TrimEnd(')').Split(' ');
+        Assert.All(matrix[^2..], static x => Assert.InRange(Double.Parse(x, CultureInfo.InvariantCulture), -1000, 1000));
+    }
+
+    [Fact]
+    public void ALiveChartTakesItsBaseFromTheFirstValues()
+    {
+        var buffer = new ChartRingBuffer<Sample>(10);
+        buffer.Push(new Sample(Start, double.NaN));
+        var cut = RenderLine(buffer);
+
+        buffer.Push(new Sample(Start.AddSeconds(1), 1234567955));
+        buffer.Push(new Sample(Start.AddSeconds(2), 1234567890));
+        cut.Render();
+
+        Assert.Equal("1234567955", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("1,0 2,-65", cut.Find("polyline").GetAttribute("points"));
     }
 
     [Fact]
@@ -750,7 +812,7 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.X, static x => x.Time)
                 .Add(static p => p.Y, static x => x.Value)));
 
-        Assert.Equal("0,1 3600,2 3600,3", cut.Find("polyline").GetAttribute("points"));
+        Assert.Equal("0,0 3600,1 3600,2", cut.Find("polyline").GetAttribute("points"));
     }
 
     private IRenderedComponent<MusselChartView> RenderLine(ChartRingBuffer<Sample> buffer) =>
@@ -849,6 +911,7 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Other)
                 .Add(static p => p.StackGroup, "total")));
 
-        Assert.EndsWith("1,7654321.2 0,1234567.8", cut.FindAll("polygon")[1].GetAttribute("points"), StringComparison.Ordinal);
+        Assert.Equal("1", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.EndsWith("1,7654320.2 0,1234566.8", cut.FindAll("polygon")[1].GetAttribute("points"), StringComparison.Ordinal);
     }
 }

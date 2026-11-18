@@ -8,11 +8,19 @@ public sealed partial class MusselSparklineView : IDisposable
 {
     private readonly ChartSourceWatcher sources;
 
-    private bool disposed;
+    private readonly List<double> copied = [];
+
+    private TrendPath path = TrendPath.Empty;
+
+    private bool bars;
+
+    private string color = string.Empty;
+
+    private string? negative;
 
     public MusselSparklineView()
     {
-        sources = new ChartSourceWatcher(InvokeAsync, Refresh);
+        sources = new ChartSourceWatcher(InvokeAsync, StateHasChanged);
     }
 
     [Parameter]
@@ -45,11 +53,7 @@ public sealed partial class MusselSparklineView : IDisposable
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    public void Dispose()
-    {
-        disposed = true;
-        sources.Clear();
-    }
+    public void Dispose() => sources.Clear();
 
     protected override bool ShouldRender()
     {
@@ -57,11 +61,13 @@ public sealed partial class MusselSparklineView : IDisposable
         return true;
     }
 
-    private void Refresh()
+    private void Prepare()
     {
-        if (!disposed)
-        {
-            StateHasChanged();
-        }
+        sources.Add(Values);
+        sources.Apply();
+        bars = Kind is ChartSparklineKind.Bar or ChartSparklineKind.WinLoss;
+        path = Kind == ChartSparklineKind.WinLoss ? TrendPath.CreateWinLoss(Values, copied, Height) : TrendPath.Create(Values, copied, Minimum, Maximum, bars, bars ? 0 : 4);
+        color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+        negative = NegativeColor ?? (Kind == ChartSparklineKind.WinLoss ? null : color);
     }
 }

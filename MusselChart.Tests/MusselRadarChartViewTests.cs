@@ -64,6 +64,18 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TheInnerRingsOfTheWidestValuesAreDrawn()
+    {
+        ChartEntry[] items = [new("A", 1e308), new("B", -1e308), new("C", 0)];
+
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
+
+        Assert.True(cut.Find(".mussel-grid-line").GetAttribute("d")!.Count(static x => x == 'Z') > 1);
+    }
+
+    [Fact]
     public void SeriesComeAndGoWithTheirComponents()
     {
         static RenderFragment Children(bool second, bool wrapped) => builder =>

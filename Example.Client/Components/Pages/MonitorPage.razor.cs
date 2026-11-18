@@ -1,6 +1,10 @@
 namespace Example.Client.Components.Pages;
 
-public sealed partial class MonitorPage
+using Example.Client.Models;
+
+using Microsoft.AspNetCore.Components;
+
+public sealed partial class MonitorPage : IDisposable
 {
     private static readonly ChartThreshold[] DiskThresholds =
     [
@@ -10,6 +14,9 @@ public sealed partial class MonitorPage
     ];
 
     private bool wide = true;
+
+    [Inject]
+    private MonitorFeed Feed { get; set; } = default!;
 
     private TimeSpan Window => wide ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(45);
 

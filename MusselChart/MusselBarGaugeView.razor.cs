@@ -18,6 +18,12 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     private readonly List<ChartEntry> copied = [];
 
+    private readonly List<ChartThreshold> sorted = [];
+
+    private readonly Dictionary<string, List<GaugeStop>> stops = new(StringComparer.Ordinal);
+
+    private readonly List<(string Gradient, string Pattern, string Mask)> ids = [];
+
     private readonly ChartSourceWatcher sources;
 
     private string rootClass = string.Empty;
@@ -30,11 +36,9 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     private string valueWidth = string.Empty;
 
-    private bool disposed;
-
     public MusselBarGaugeView()
     {
-        sources = new ChartSourceWatcher(InvokeAsync, Refresh);
+        sources = new ChartSourceWatcher(InvokeAsync, StateHasChanged);
     }
 
     [Parameter]
@@ -88,11 +92,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    public void Dispose()
-    {
-        disposed = true;
-        sources.Clear();
-    }
+    public void Dispose() => sources.Clear();
 
     private void Prepare()
     {
@@ -106,6 +106,13 @@ public sealed partial class MusselBarGaugeView : IDisposable
         segmentCell = ChartFormat.Pixel(Math.Max(SegmentWidth - SegmentGap, 1));
 
         rows.Clear();
+        sorted.Clear();
+        if (Thresholds is { Count: > 0 })
+        {
+            sorted.AddRange(Thresholds.OrderBy(static x => x.Value));
+        }
+
+        stops.Clear();
         var items = Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? [];
         var longest = 0;
         for (var i = 0; i < items.Count; i++)
@@ -116,8 +123,20 @@ public sealed partial class MusselBarGaugeView : IDisposable
             var known = Double.IsFinite(item.Value);
             var ratio = known && (range > 0) ? (item.Value - Minimum) / range : 0;
             var percent = ratio * 100;
-            var color = known && (Thresholds is { Count: > 0 }) ? ResolveColor(percent, item.Color ?? fallback) : item.Color ?? fallback;
-            var stops = Thresholds is { Count: > 0 } ? CreateStops(item.Color ?? fallback) : [new GaugeStop("0", item.Color ?? fallback)];
+            var own = item.Color ?? fallback;
+            var color = known && (Thresholds is { Count: > 0 }) ? ResolveColor(percent, own) : own;
+            if (!stops.TryGetValue(own, out var gradient))
+            {
+                gradient = CreateStops(own);
+                stops[own] = gradient;
+            }
+
+            while (ids.Count <= i)
+            {
+                var n = ids.Count;
+                ids.Add(($"{idPrefix}-g{n}", $"{idPrefix}-p{n}", $"{idPrefix}-m{n}"));
+            }
+
             var text = ValueMode switch
             {
                 _ when !known => "-",
@@ -133,10 +152,10 @@ public sealed partial class MusselBarGaugeView : IDisposable
                 target,
                 color,
                 text,
-                stops,
-                $"{idPrefix}-g{i}",
-                $"{idPrefix}-p{i}",
-                $"{idPrefix}-m{i}"));
+                gradient,
+                ids[i].Gradient,
+                ids[i].Pattern,
+                ids[i].Mask));
         }
 
         valueWidth = ChartFormat.Pixel(Math.Max(longest, 3) * ValueCharWidth);
@@ -152,13 +171,17 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     private List<GaugeStop> CreateStops(string fallback)
     {
-        var stops = new List<GaugeStop>();
-        var sorted = Thresholds!.OrderBy(static x => x.Value).ToList();
+        if (sorted.Count == 0)
+        {
+            return [new GaugeStop("0", fallback)];
+        }
+
+        var gradient = new List<GaugeStop>();
         if (!Double.IsNegativeInfinity(sorted[0].Value))
         {
             var first = Double.IsFinite(sorted[0].Value) ? Math.Clamp(sorted[0].Value / 100, 0, 1) : 0;
-            stops.Add(new GaugeStop("0", fallback));
-            stops.Add(new GaugeStop(first.ToString("0.####", CultureInfo.InvariantCulture), fallback));
+            gradient.Add(new GaugeStop("0", fallback));
+            gradient.Add(new GaugeStop(first.ToString("0.####", CultureInfo.InvariantCulture), fallback));
         }
 
         for (var i = 0; i < sorted.Count; i++)
@@ -167,11 +190,11 @@ public sealed partial class MusselBarGaugeView : IDisposable
             var color = threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : ChartColor.Level(threshold.Level));
             var start = Double.IsFinite(threshold.Value) ? Math.Clamp(threshold.Value / 100, 0, 1) : 0;
             var end = i + 1 < sorted.Count ? Math.Clamp(sorted[i + 1].Value / 100, 0, 1) : 1;
-            stops.Add(new GaugeStop(start.ToString("0.####", CultureInfo.InvariantCulture), color));
-            stops.Add(new GaugeStop(end.ToString("0.####", CultureInfo.InvariantCulture), color));
+            gradient.Add(new GaugeStop(start.ToString("0.####", CultureInfo.InvariantCulture), color));
+            gradient.Add(new GaugeStop(end.ToString("0.####", CultureInfo.InvariantCulture), color));
         }
 
-        return stops;
+        return gradient;
     }
 
     private static string? ToPercent(double ratio) =>
@@ -181,14 +204,6 @@ public sealed partial class MusselBarGaugeView : IDisposable
     {
         sources.Rendered();
         return true;
-    }
-
-    private void Refresh()
-    {
-        if (!disposed)
-        {
-            StateHasChanged();
-        }
     }
 
     private sealed record GaugeStop(string Offset, string Color);

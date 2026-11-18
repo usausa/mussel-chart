@@ -124,7 +124,7 @@ internal sealed class RadarLayout
         var builder = ChartStringBuilder.Rent();
         foreach (var tick in ticks)
         {
-            var ratio = Scale.Span > 0 ? (tick - Scale.Minimum) / Scale.Span : 0;
+            var ratio = GetRatio(tick);
             if ((ratio > Tolerance) && (ratio < 1 - Tolerance))
             {
                 AppendRing(builder, ratio);

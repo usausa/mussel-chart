@@ -1,6 +1,5 @@
-const charts = new WeakMap();
-const ns = 'http://www.w3.org/2000/svg';
-const suffixes = ['K', 'M', 'B', 'T'];
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SUFFIXES = ['K', 'M', 'B', 'T'];
 const numberFormats = new Map();
 
 export function attach(element, dotnet) {
@@ -19,8 +18,7 @@ export function attach(element, dotnet) {
 
     state.track = e => {
         if (element.dataset.trackball !== 'hover') {
-            state.target = null;
-            hide(element);
+            state.leave();
             return;
         }
 
@@ -50,6 +48,10 @@ export function attach(element, dotnet) {
         }
     });
     state.move = e => {
+        if (element.dataset.trackball !== 'hover') {
+            return;
+        }
+
         if (state.last === null) {
             state.mutations.observe(element, { subtree: true, childList: true, attributes: true });
         }
@@ -68,17 +70,11 @@ export function attach(element, dotnet) {
     element.addEventListener('pointerleave', state.leave);
     element.addEventListener('pointercancel', state.leave);
 
-    charts.set(element, state);
     element.dataset.attached = '';
-    return { dispose: () => detach(element) };
+    return { dispose: () => detach(element, state) };
 }
 
-function detach(element) {
-    const state = charts.get(element);
-    if (!state) {
-        return;
-    }
-
+function detach(element, state) {
     state.observer.disconnect();
     state.mutations.disconnect();
     cancelAnimationFrame(state.frame);
@@ -88,7 +84,6 @@ function detach(element) {
     element.removeEventListener('pointercancel', state.leave);
 
     hide(element);
-    charts.delete(element);
     delete element.dataset.attached;
 }
 
@@ -142,7 +137,7 @@ export function toPosition(chart, x) {
         return { kind, value: categories[index], index, source: chart };
     }
 
-    return { kind, value: kind === 'time' ? Number(chart.querySelector('svg').dataset.base) + x : x };
+    return { kind, value: Number(chart.querySelector('svg').dataset.base) + x };
 }
 
 export function fromPosition(chart, position) {
@@ -150,10 +145,15 @@ export function fromPosition(chart, position) {
         return position.source === chart ? position.index : readCategories(chart).indexOf(position.value);
     }
 
-    return position.kind === 'time' ? position.value - Number(chart.querySelector('svg').dataset.base) : position.value;
+    return position.value - Number(chart.querySelector('svg').dataset.base);
 }
 
-function readSeries(chart) {
+function valueBase(chart) {
+    return Number(chart.querySelector('svg').dataset.valueBase);
+}
+
+export function readSeries(chart) {
+    const base = valueBase(chart);
     return [...chart.querySelectorAll('.mussel-series')].map(group => {
         const values = new Map();
         for (const line of group.querySelectorAll('polyline')) {
@@ -163,18 +163,19 @@ function readSeries(chart) {
                 const comma = pair.indexOf(',');
                 if (comma > 0) {
                     const y = Number(pair.substring(comma + 1));
-                    values.set(Number(pair.substring(0, comma)), { y, value: originals ? Number(originals[index]) : y });
+                    values.set(Number(pair.substring(0, comma)), { y, value: originals ? Number(originals[index]) : y + base });
                 }
             });
         }
 
+        const range = group.dataset.kind === 'RangeBar';
         for (const rect of group.querySelectorAll('.mussel-bars rect')) {
-            values.set(Number(rect.getAttribute('x')), barEntry(rect));
+            values.set(Number(rect.getAttribute('x')), barEntry(rect, range, base));
         }
 
         for (const marker of group.querySelectorAll('.mussel-markers > *')) {
             const y = Number(marker.dataset.y);
-            values.set(Number(marker.dataset.x), { y, value: y, size: marker.dataset.size });
+            values.set(Number(marker.dataset.x), { y, value: y + base, size: marker.dataset.size });
         }
 
         return {
@@ -255,7 +256,7 @@ function show(chart, position, active) {
             top = (along * scale) - 12 - tooltip.offsetHeight;
         }
 
-        tooltip.style.left = `${horizontalTooltipLeft(Number(clip.getAttribute('x')), scale, chart.getBoundingClientRect().width, tooltip.offsetWidth)}px`;
+        tooltip.style.left = `${horizontalTooltipLeft(Number(chart.querySelector('.mussel-cross-across').getAttribute('x1')), scale, chart.getBoundingClientRect().width, tooltip.offsetWidth)}px`;
         tooltip.style.top = `${Math.max(top, 0)}px`;
         return;
     }
@@ -306,7 +307,7 @@ function showPoint(chart, series, ctm, event) {
         return;
     }
 
-    fillTooltip(tooltip, formatPosition(chart, best.x), [[best.item.color, best.item.title, formatEntry(best.item, { value: best.y, size: best.size }, chart.dataset.culture)]]);
+    fillTooltip(tooltip, formatPosition(chart, best.x), [[best.item.color, best.item.title, formatEntry(best.item, { value: best.y + valueBase(chart), size: best.size }, chart.dataset.culture)]]);
     const svg = chart.querySelector('svg');
     const scale = svg.getBoundingClientRect().width / Number(svg.getAttribute('width') || 1);
     placeTooltip(chart, tooltip, px * scale, py * scale);
@@ -330,7 +331,7 @@ function placeCross(chart, x, y) {
 }
 
 function addDot(parent, x, y, color) {
-    const dot = document.createElementNS(ns, 'circle');
+    const dot = document.createElementNS(SVG_NS, 'circle');
     dot.setAttribute('cx', x);
     dot.setAttribute('cy', y);
     dot.setAttribute('r', '3.5');
@@ -353,12 +354,12 @@ function formatPosition(chart, x) {
         return readCategories(chart)[x] ?? '';
     }
 
+    const position = Number(chart.querySelector('svg').dataset.base) + x;
     if (kind === 'number') {
-        return formatValue(x, chart.dataset.xFormat, chart.dataset.culture);
+        return formatValue(position, chart.dataset.xFormat, chart.dataset.culture);
     }
 
-    const base = Number(chart.querySelector('svg').dataset.base);
-    return formatTime(base + x, offsetAt(chart.dataset.offset, chart.dataset.offsetChange, base + x), chart.dataset.timeFormat ?? 'HH:mm:ss');
+    return formatTime(position, offsetAt(chart.dataset.offset, chart.dataset.offsetChanges, position), chart.dataset.timeFormat ?? 'HH:mm:ss');
 }
 
 function spacing(series) {
@@ -409,7 +410,7 @@ function showItem(chart, target) {
     const hover = chart.querySelector('.mussel-hover');
     hover?.replaceChildren();
     if (hover && tip.l) {
-        const line = document.createElementNS(ns, 'line');
+        const line = document.createElementNS(SVG_NS, 'line');
         line.setAttribute('class', 'mussel-mark-line');
         line.setAttribute('x1', tip.l[0]);
         line.setAttribute('y1', tip.l[1]);
@@ -425,7 +426,7 @@ function showItem(chart, target) {
     }
 
     if (hover && target.dataset.mark) {
-        const mark = document.createElementNS(ns, 'rect');
+        const mark = document.createElementNS(SVG_NS, 'rect');
         mark.setAttribute('class', `mussel-mark-${target.dataset.mark}`);
         for (const name of ['x', 'y', 'width', 'height']) {
             mark.setAttribute(name, target.getAttribute(name));
@@ -541,19 +542,20 @@ export function compact(value, culture) {
 
     let unit = 0;
     let scaled = magnitude / 1000;
-    while (scaled >= 1000 && unit < suffixes.length - 1) {
+    while (scaled >= 1000 && unit < SUFFIXES.length - 1) {
         scaled /= 1000;
         unit++;
     }
 
     let rounded = roundCompact(scaled);
-    if (rounded >= 1000 && unit < suffixes.length - 1) {
+    if (rounded >= 1000 && unit < SUFFIXES.length - 1) {
         unit++;
         rounded = roundCompact(rounded / 1000);
     }
 
-    const text = numberFormat(culture, 'C', rounded >= 100 ? 0 : 2).format(value < 0 ? -rounded : rounded);
-    return text + suffixes[unit];
+    const shown = Number(rounded.toPrecision(15));
+    const text = numberFormat(culture, 'C', rounded >= 100 ? 0 : 2).format(value < 0 ? -shown : shown);
+    return text + SUFFIXES[unit];
 }
 
 function numberFormat(culture, kind, digits) {
@@ -572,7 +574,7 @@ function numberFormat(culture, kind, digits) {
 }
 
 function roundCompact(value) {
-    return roundDecimal(value, value >= 100 ? 0 : value >= 10 ? 1 : 2);
+    return value >= 100 ? Math.round(value) : roundDecimal(value, value >= 10 ? 1 : 2);
 }
 
 function roundDecimal(value, digits) {
@@ -583,16 +585,16 @@ export function horizontalTooltipLeft(plotLeft, scale, width, tooltipWidth) {
     return Math.max(Math.min((plotLeft * scale) + 8, width - tooltipWidth), 0);
 }
 
-export function barEntry(rect) {
+export function barEntry(rect, range, base) {
     const value = Number(rect.dataset.v);
     const center = Number(rect.getAttribute('x')) + Number(rect.parentNode.dataset.offset);
-    if (rect.dataset.low !== undefined) {
-        return { y: value, value, low: Number(rect.dataset.low), high: value, center };
+    const low = Number(rect.getAttribute('y'));
+    if (range) {
+        return { y: value - base, value, low: low + base, high: value, center };
     }
 
-    const low = Number(rect.getAttribute('y'));
     const high = low + Number(rect.getAttribute('height'));
-    return { y: value < 0 ? low : high, value, low, high, center };
+    return { y: value < 0 ? low : high, value, low: low + base, high: high + base, center };
 }
 
 export function plotMatrix(plot) {

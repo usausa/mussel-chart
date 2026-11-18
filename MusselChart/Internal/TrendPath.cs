@@ -1,7 +1,6 @@
 namespace MusselChart.Internal;
 
 using System.Globalization;
-using System.Text;
 
 internal readonly record struct TrendBar(string X, string Y, string Height, bool Negative);
 
@@ -30,15 +29,10 @@ internal sealed class TrendPath
     public string ViewBox(bool bars) =>
         String.Create(CultureInfo.InvariantCulture, $"0 0 {(bars ? Count : Math.Max(Count - 1, 1))} {ViewHeight}");
 
-    public static TrendPath CreateWinLoss(IEnumerable<double>? source, double height)
+    public static TrendPath CreateWinLoss(IEnumerable<double>? source, List<double> copied, double height)
     {
-        if (source is null)
-        {
-            return Empty;
-        }
-
-        var values = source.ToArray();
-        if (values.Length == 0)
+        var values = Read(source, copied);
+        if (values.Count == 0)
         {
             return Empty;
         }
@@ -47,8 +41,8 @@ internal sealed class TrendPath
         var gap = height > 0 ? ViewHeight / height / 2 : 0;
         var extent = ChartFormat.Coordinate(middle - gap);
         var lossTop = ChartFormat.Coordinate(middle + gap);
-        var list = new List<TrendBar>(values.Length);
-        for (var i = 0; i < values.Length; i++)
+        var list = new List<TrendBar>(values.Count);
+        for (var i = 0; i < values.Count; i++)
         {
             if (Double.IsFinite(values[i]) && (values[i] != 0))
             {
@@ -57,25 +51,32 @@ internal sealed class TrendPath
             }
         }
 
-        return new TrendPath(values.Length, string.Empty, string.Empty, list);
+        return new TrendPath(values.Count, string.Empty, string.Empty, list);
     }
 
-    public static TrendPath Create(IEnumerable<double>? source, double? minimum, double? maximum, bool bars, double inset)
+    public static TrendPath Create(IEnumerable<double>? source, List<double> copied, double? minimum, double? maximum, bool bars, double inset)
     {
-        if (source is null)
+        var values = Read(source, copied);
+        if (values.Count == 0)
         {
             return Empty;
         }
 
-        var values = source.ToArray();
-        if (values.Length == 0)
+        var smallest = Double.PositiveInfinity;
+        var largest = Double.NegativeInfinity;
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < values.Count; i++)
         {
-            return Empty;
+            if (Double.IsFinite(values[i]))
+            {
+                smallest = Math.Min(smallest, values[i]);
+                largest = Math.Max(largest, values[i]);
+            }
         }
 
-        var finite = values.Where(Double.IsFinite).ToArray();
-        var low = minimum ?? (finite.Length > 0 ? finite.Min() : 0);
-        var high = maximum ?? (finite.Length > 0 ? finite.Max() : 1);
+        var found = smallest <= largest;
+        var low = minimum ?? (found ? smallest : 0);
+        var high = maximum ?? (found ? largest : 1);
         if ((minimum is not null) && (maximum is not null) && (low > high))
         {
             (low, high) = (high, low);
@@ -89,18 +90,19 @@ internal sealed class TrendPath
 
         if (!(high > low))
         {
+            var delta = Math.Abs(low) > 0 ? Math.Abs(low) * 0.1 : 1;
             if ((minimum is not null) && (maximum is null))
             {
-                high = low + 1;
+                high = low + delta;
             }
             else if ((maximum is not null) && (minimum is null))
             {
-                low = high - 1;
+                low = high - delta;
             }
             else
             {
-                low -= 1;
-                high += 1;
+                low -= delta;
+                high += delta;
             }
         }
 
@@ -110,9 +112,9 @@ internal sealed class TrendPath
 
         if (bars)
         {
-            var list = new List<TrendBar>(values.Length);
+            var list = new List<TrendBar>(values.Count);
             var zero = ToY(0);
-            for (var i = 0; i < values.Length; i++)
+            for (var i = 0; i < values.Count; i++)
             {
                 if (!Double.IsFinite(values[i]))
                 {
@@ -123,13 +125,13 @@ internal sealed class TrendPath
                 list.Add(new TrendBar(ChartFormat.Coordinate(i + 0.15), ChartFormat.Coordinate(Math.Min(y, zero)), ChartFormat.Coordinate(Math.Abs(zero - y)), values[i] < 0));
             }
 
-            return new TrendPath(values.Length, string.Empty, string.Empty, list);
+            return new TrendPath(values.Count, string.Empty, string.Empty, list);
         }
 
-        var line = new StringBuilder();
+        var line = ChartStringBuilder.Rent();
         var first = -1;
         var last = -1;
-        for (var i = 0; i < values.Length; i++)
+        for (var i = 0; i < values.Count; i++)
         {
             if (!Double.IsFinite(values[i]))
             {
@@ -146,8 +148,25 @@ internal sealed class TrendPath
             line.Append(ChartFormat.Coordinate(i)).Append(',').Append(ChartFormat.Coordinate(ToY(values[i])));
         }
 
-        var text = line.ToString();
+        var text = ChartStringBuilder.ToStringAndReturn(line);
         var area = first < 0 ? string.Empty : String.Create(CultureInfo.InvariantCulture, $"{first},{ViewHeight} {text} {last},{ViewHeight}");
-        return new TrendPath(values.Length, text, area, []);
+        return new TrendPath(values.Count, text, area, []);
+    }
+
+    private static IReadOnlyList<double> Read(IEnumerable<double>? source, List<double> copied)
+    {
+        switch (source)
+        {
+            case null:
+                return [];
+            case ChartRingBuffer<double> buffer:
+                return buffer.CopyTo(copied);
+            case IReadOnlyList<double> list:
+                return list;
+            default:
+                copied.Clear();
+                copied.AddRange(source);
+                return copied;
+        }
     }
 }

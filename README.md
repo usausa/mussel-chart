@@ -84,7 +84,7 @@ The `Example` project shows a monitoring dashboard and a page for each kind of c
 
 | Part | Detail |
 |---|---|
-| Theme | CSS variables shared with the Mussel family (`--mussel-primary-text`, `--mussel-grid-line` and more) with light defaults; `MusselChart.css` adds the dark `mussel-dark` |
+| Theme | CSS variables shared with the Mussel family (`--mussel-primary-text`, `--mussel-grid-line` and more), and the dark `mussel-dark` |
 | Colors | `Palette` (`ChartPalettes`: default, Grafana, Material and shades) or `Color` of a series |
 | Thresholds | Lines and bands on charts, the state of tiles, the colors of gauges and rings, and the steps of state timelines |
 | Tiles and gauges | `ColorMode` and `LayoutMode` of a KPI tile, basic and segmented gauges and rings, gradients, threshold markers and glow of rings |

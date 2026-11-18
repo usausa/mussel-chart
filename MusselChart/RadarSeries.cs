@@ -1,15 +1,21 @@
 namespace MusselChart;
 
+using System.Globalization;
+
 using Microsoft.AspNetCore.Components;
 
 using MusselChart.Internal;
 
 public abstract class RadarSeriesBase : ComponentBase, IDisposable
 {
+    private static long keys;
+
     private SeriesOptions? options;
 
     [CascadingParameter]
     internal MusselRadarChartView? Chart { get; set; }
+
+    internal string LegendKey { get; } = Interlocked.Increment(ref keys).ToString(CultureInfo.InvariantCulture);
 
     [Parameter]
     public string? Title { get; set; }

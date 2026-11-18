@@ -38,7 +38,7 @@ public sealed class MusselChartKindsTests : BunitContext
         Assert.Equal("category", root.GetAttribute("data-x-kind"));
         Assert.Equal("[\"A\",\"B\",\"C\",\"D\"]", root.GetAttribute("data-categories"));
         Assert.Equal(["0", "1", "2"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("x")));
-        Assert.Equal("1,1 3,2", cut.Find("polyline").GetAttribute("points"));
+        Assert.Equal("1,0 3,1", cut.Find("polyline").GetAttribute("points"));
         Assert.Contains("D", cut.FindAll(".mussel-axis text").Select(static x => x.TextContent));
     }
 
@@ -88,9 +88,10 @@ public sealed class MusselChartKindsTests : BunitContext
         Assert.Equal(bars[0].GetAttribute("x"), bars[3].GetAttribute("x"));
         var groups = cut.FindAll(".mussel-bars");
         Assert.Equal(groups[0].GetAttribute("transform"), groups[1].GetAttribute("transform"));
-        Assert.Equal("0", bars[0].GetAttribute("y"));
+        Assert.Equal("10", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("-10", bars[0].GetAttribute("y"));
         Assert.True(Double.Parse(bars[0].GetAttribute("height")!, CultureInfo.InvariantCulture) < 10);
-        Assert.True(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture) > 10);
+        Assert.True(Double.Parse(bars[3].GetAttribute("y")!, CultureInfo.InvariantCulture) > 0);
         Assert.Equal("30", bars[3].GetAttribute("data-v"));
     }
 
@@ -112,9 +113,10 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.StackGroup, "total")));
 
         var bars = cut.FindAll(".mussel-bars rect");
-        Assert.Equal("0", bars[0].GetAttribute("y"));
+        Assert.Equal("-5", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("5", bars[0].GetAttribute("y"));
         Assert.Equal("10", bars[0].GetAttribute("height"));
-        Assert.Equal("-5", bars[1].GetAttribute("y"));
+        Assert.Equal("0", bars[1].GetAttribute("y"));
         Assert.Equal("5", bars[1].GetAttribute("height"));
     }
 
@@ -216,9 +218,10 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.High, static x => x.Other)));
 
         var bars = cut.FindAll(".mussel-bars rect");
-        Assert.Equal("10", bars[0].GetAttribute("y"));
+        Assert.Equal("10", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("0", bars[0].GetAttribute("y"));
         Assert.Equal("4", bars[0].GetAttribute("height"));
-        Assert.Equal("16", bars[1].GetAttribute("y"));
+        Assert.Equal("6", bars[1].GetAttribute("y"));
         Assert.Equal("6", bars[1].GetAttribute("height"));
         Assert.DoesNotContain("0", cut.FindAll(".mussel-axis text").Select(static x => x.TextContent));
     }
@@ -237,7 +240,8 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.High, static x => x.Other)));
 
         var bars = cut.FindAll(".mussel-bars rect");
-        Assert.Equal(["12345.67", "-10"], bars.Select(static x => x.GetAttribute("data-low")));
+        Assert.Equal("-10", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal(["12355.67", "0"], bars.Select(static x => x.GetAttribute("y")));
         Assert.Equal(["12350.12", "-5"], bars.Select(static x => x.GetAttribute("data-v")));
     }
 

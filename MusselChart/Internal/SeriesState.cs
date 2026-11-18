@@ -6,7 +6,7 @@ using System.Text;
 
 internal readonly record struct SeriesPoint(long Sequence, long Ticks, double X, double Value, double Top, double Bottom);
 
-internal readonly record struct SeriesBar(long Key, string XText, string ValueText, string? BottomText, string? HeightText, double Bottom, double Top, double Value, long StackSlot, string? LowText = null);
+internal readonly record struct SeriesBar(long Key, string XText, string ValueText, string? BottomText, string? HeightText, double Bottom, double Top, double Value, long StackSlot);
 
 internal readonly record struct SeriesMarker(long Key, string XText, string YText, string? SizeText, double X, double Y, double Size);
 
@@ -231,7 +231,7 @@ internal sealed class SeriesState
     }
 }
 
-internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, string Format, double StackGap, Dictionary<long, StackTop>? StackTops, List<MarkerView>? Markers)
+internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, string Format, double StackGap, Dictionary<long, StackTop>? StackTops, List<MarkerView>? Markers, double ValueBase)
 {
     public (string? Y, string? Height) GetBarExtent(in SeriesBar bar)
     {
@@ -264,7 +264,7 @@ internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, strin
             }
         }
 
-        return (ChartFormat.Data(bottom), ChartFormat.Data(top - bottom));
+        return (ChartFormat.Position(bottom - ValueBase), ChartFormat.Position(top - bottom));
     }
 }
 

@@ -10,8 +10,8 @@
         @{
             Prepare();
         }
-        <div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-offset-change="@offsetChangeText" data-time-format="@timeFormat" data-x-kind="@xKindText" data-x-format="@xFormatText" data-categories="@categoriesText" data-orientation="@(Orientation == ChartOrientation.Horizontal ? "horizontal" : "vertical")">
-            <svg class="@(Measured ? "mussel-chart-svg" : Prerendering ? "mussel-chart-svg mussel-prerendering" : "mussel-chart-svg mussel-unmeasured")" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox" data-base="@baseText">
+        <div @ref="element" @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass(LegendToggleEnabled ? "mussel-chart mussel-toggle" : "mussel-chart", AdditionalAttributes)" data-group="@TrackingGroup" data-group-mode="@GroupModeText" data-trackball="@TrackballText" data-tooltip="@TooltipText" data-culture="@cultureName" data-offset="@offsetText" data-offset-changes="@offsetChangesText" data-time-format="@timeFormat" data-x-kind="@xKindText" data-x-format="@xFormatText" data-categories="@categoriesText" data-orientation="@(Orientation == ChartOrientation.Horizontal ? "horizontal" : "vertical")">
+            <svg class="@(Measured ? "mussel-chart-svg" : Prerendering ? "mussel-chart-svg mussel-prerendering" : "mussel-chart-svg mussel-unmeasured")" width="@ChartFormat.Pixel(Width)" height="@ChartFormat.Pixel(Height)" viewBox="@ViewBox" data-base="@baseText" data-value-base="@valueBaseText">
                 <defs>
                     <clipPath id="@clipId">
                         <rect x="@clipX" y="@clipY" width="@clipWidth" height="@clipHeight" />
@@ -61,7 +61,7 @@
                                                 continue;
                                             }
 
-                                            <rect @key="bar.Key" x="@bar.XText" y="@extent.Y" width="@view.State.BarWidthText" height="@extent.Height" data-v="@bar.ValueText" data-low="@bar.LowText" />
+                                            <rect @key="bar.Key" x="@bar.XText" y="@extent.Y" width="@view.State.BarWidthText" height="@extent.Height" data-v="@bar.ValueText" />
                                         }
                                     </g>
                                 }

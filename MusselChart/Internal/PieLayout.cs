@@ -626,7 +626,8 @@ internal sealed class PieLayout
             return;
         }
 
-        Center = FitCenter(options.CenterValue ?? Total, options.CenterLabel);
+        var value = options.CenterValue ?? Total;
+        Center = Double.IsFinite(value) ? FitCenter(value, options.CenterLabel) : null;
     }
 
     private PieCenterText? FitCenter(double number, string? caption)

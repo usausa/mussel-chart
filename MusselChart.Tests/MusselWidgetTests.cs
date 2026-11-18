@@ -52,6 +52,17 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal("0 0 2 100", cut.Find(".mussel-stat-trend-background").GetAttribute("viewBox"));
     }
 
+    [Fact]
+    public void AFlatTrendOfLargeValuesStaysFinite()
+    {
+        var cut = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 1e17)
+            .Add(static p => p.TrendValues, [1e17, 1e17, 1e17]));
+
+        Assert.All(cut.FindAll(".mussel-stat-trend-line"), static x => Assert.DoesNotContain("NaN", x.GetAttribute("points"), StringComparison.Ordinal));
+        Assert.NotEmpty(cut.FindAll(".mussel-stat-trend-line"));
+    }
+
     [Theory]
     [InlineData(Double.NaN)]
     [InlineData(Double.PositiveInfinity)]
@@ -229,7 +240,7 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
-    public void ARingBufferIsCopiedBeforeItIsRead()
+    public void ARingBufferIsCopiedBeforeTheBarGaugeReadsIt()
     {
         var buffer = new ChartRingBuffer<ChartEntry>(4);
         buffer.Push(new ChartEntry("A", 30, null, 100));

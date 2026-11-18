@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { barEntry, compact, formatTime, fromPosition, horizontalTooltipLeft, offsetAt, plotMatrix, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
+import { barEntry, compact, formatTime, fromPosition, horizontalTooltipLeft, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
 
 test('compact notation moves to the next unit after rounding', () => {
     const cases = [
@@ -20,6 +20,8 @@ test('compact notation moves to the next unit after rounding', () => {
         [1234567, '1.23M'],
         [999999999, '1B'],
         [1e15, '1,000T'],
+        [1e33, '1,000,000,000,000,000,000,000T'],
+        [1e34, '10,000,000,000,000,000,000,000T'],
     ];
     for (const [value, expected] of cases) {
         assert.equal(compact(value, 'en-US'), expected, String(value));
@@ -45,12 +47,41 @@ test('a time between two offset changes uses the offset of its period', () => {
     assert.equal(offsetAt('-300', changes, 1793512800), -300);
 });
 
-test('a range bar takes both ends from its data and puts the dot on the high end', () => {
+test('a range bar takes its low end from the rect and puts the dot on the high end', () => {
     const parentNode = { dataset: { offset: '0.5' } };
     const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '12345.7', height: '4.45' }, { v: '12350.12', low: '12345.67' })), { y: 12350.12, value: 12350.12, low: 12345.67, high: 12350.12, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '5' }, { v: '-5', low: '-10' })), { y: -5, value: -5, low: -10, high: -5, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '2', y: '-3', height: '3' }, { v: '-3' })), { y: -3, value: -3, low: -3, high: 0, center: 2.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '12345.67', height: '4.45' }, { v: '12350.12' }), true, 0), { y: 12350.12, value: 12350.12, low: 12345.67, high: 12350.12, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '5' }, { v: '-5' }), true, 0), { y: -5, value: -5, low: -10, high: -5, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '2', y: '-3', height: '3' }, { v: '-3' }), false, 0), { y: -3, value: -3, low: -3, high: 0, center: 2.5 });
+});
+
+test('a bar shows its ends with the value base and keeps its dot in the plot', () => {
+    const parentNode = { dataset: { offset: '0.5' } };
+    const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '75' }, { v: '1234567955' }), true, 1234567890), { y: 65, value: 1234567955, low: 1234567880, high: 1234567955, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '-1234567890', height: '1234567955' }, { v: '1234567955' }), false, 1234567890), { y: 65, value: 1234567955, low: 0, high: 1234567955, center: 1.5 });
+});
+
+test('a numeric position adds the base of its chart', () => {
+    const chart = (base) => ({ dataset: { xKind: 'number' }, querySelector: () => ({ dataset: { base } }) });
+    const position = toPosition(chart('1000000'), 2);
+    assert.deepEqual(position, { kind: 'number', value: 1000002 });
+    assert.equal(fromPosition(chart('999990'), position), 12);
+});
+
+test('series values add the value base unless the line keeps its own values', () => {
+    const element = (attributes, dataset = {}) => ({ getAttribute: (name) => attributes[name] ?? null, dataset });
+    const lines = [element({ points: '0,0 1,65' }), element({ points: '2,3' }, { values: '7' })];
+    const markers = [element({}, { x: '3', y: '10', size: '2' })];
+    const group = {
+        dataset: { title: 'a', color: '#fff', format: '', kind: 'Line' },
+        querySelectorAll: (selector) => (selector === 'polyline' ? lines : (selector === '.mussel-markers > *' ? markers : [])),
+    };
+    const chart = { querySelectorAll: () => [group], querySelector: () => ({ dataset: { valueBase: '1234567890' } }) };
+
+    const [series] = readSeries(chart);
+
+    assert.deepEqual([...series.values], [[0, { y: 0, value: 1234567890 }], [1, { y: 65, value: 1234567955 }], [2, { y: 3, value: 7 }], [3, { y: 10, value: 1234567900, size: '2' }]]);
 });
 
 test('a horizontal tooltip starts at the plot and stays inside the chart', () => {

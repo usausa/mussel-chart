@@ -90,6 +90,8 @@ public sealed partial class MusselChartView
 
     private string baseText = "0";
 
+    private string valueBaseText = "0";
+
     private string clipX = string.Empty;
 
     private string clipY = string.Empty;
@@ -114,7 +116,7 @@ public sealed partial class MusselChartView
 
     private string offsetText = string.Empty;
 
-    private string? offsetChangeText;
+    private string? offsetChangesText;
 
     private string timeFormat = string.Empty;
 
@@ -229,8 +231,8 @@ public sealed partial class MusselChartView
         var scaleP = positionLength / (position.End - position.Start);
         var scaleV = valueLength / (scale.Maximum - scale.Minimum);
         var map = horizontal
-            ? new PlotMap(true, scaleP, plotTop - (position.Start * scaleP), scaleV, plotLeft - (scale.Minimum * scaleV))
-            : new PlotMap(false, scaleP, plotLeft - (position.Start * scaleP), scaleV, plotBottom + (scale.Minimum * scaleV));
+            ? new PlotMap(true, scaleP, plotTop - (position.Start * scaleP), scaleV, plotLeft - (scale.Minimum * scaleV), numberBase, valueBase)
+            : new PlotMap(false, scaleP, plotLeft - (position.Start * scaleP), scaleV, plotBottom + (scale.Minimum * scaleV), numberBase, valueBase);
         transform = map.Matrix;
 
         var clipMargin = Math.Max(markerMargin, MarkerClipMargin);
@@ -263,7 +265,8 @@ public sealed partial class MusselChartView
                 options.ValueFormat ?? (percent ? null : yAxis?.LabelFormat) ?? string.Empty,
                 stacked ? SegmentGap / scaleV : 0,
                 stacked ? stacks.GetValueOrDefault((kind, series.StackKey!)) : null,
-                IsMarkerKind(kind) ? CreateMarkers(state, options, map, position) : null));
+                IsMarkerKind(kind) ? CreateMarkers(state, options, map, position) : null,
+                valueBase));
 
             if (options.Live && !IsBarKind(kind) && !IsMarkerKind(kind))
             {
@@ -857,7 +860,7 @@ public sealed partial class MusselChartView
         xFormatText = xKind == ChartXKind.Number ? xAxis?.LabelFormat : null;
         categoriesText = xKind == ChartXKind.Category ? ChartTip.CreateStrings(categories) : null;
         offsetText = string.Empty;
-        offsetChangeText = null;
+        offsetChangesText = null;
         timeFormat = string.Empty;
         if (xKind != ChartXKind.Time)
         {
@@ -867,7 +870,6 @@ public sealed partial class MusselChartView
         var start = ToTicks(position.Start);
         var end = ToTicks(position.End);
         offsetText = (ChartTime.OffsetOf(end, zone) / TimeSpan.TicksPerMinute).ToString(CultureInfo.InvariantCulture);
-        ChartTime.FindOffsetChanges(start, end, zone, offsetChanges);
         if (offsetChanges.Count > 0)
         {
             var builder = ChartStringBuilder.Rent();
@@ -877,7 +879,7 @@ public sealed partial class MusselChartView
                     .Append(CultureInfo.InvariantCulture, $"{(change - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond},{ChartTime.OffsetOf(change - 1, zone) / TimeSpan.TicksPerMinute}");
             }
 
-            offsetChangeText = ChartStringBuilder.ToStringAndReturn(builder);
+            offsetChangesText = ChartStringBuilder.ToStringAndReturn(builder);
         }
 
         var spansDays = (ChartTime.ToZoneTicks(start, zone) / TimeSpan.TicksPerDay) != (ChartTime.ToZoneTicks(end, zone) / TimeSpan.TicksPerDay);
@@ -1015,11 +1017,11 @@ public sealed partial class MusselChartView
 
     private readonly record struct PositionRange(double Start, double End, AxisScale Scale);
 
-    private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV)
+    private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV, double PositionBase, double ValueBase)
     {
         public string Matrix => Horizontal
-            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:G9} {ScaleV:G9} 0 {OffsetV:0.###} {OffsetP:0.###})")
-            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:G9} 0 0 {-ScaleV:G9} {OffsetP:0.###} {OffsetV:0.###})");
+            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:G9} {ScaleV:G9} 0 {OffsetV + (ValueBase * ScaleV):0.###} {OffsetP + (PositionBase * ScaleP):0.###})")
+            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:G9} 0 0 {-ScaleV:G9} {OffsetP + (PositionBase * ScaleP):0.###} {OffsetV - (ValueBase * ScaleV):0.###})");
 
         public (double X, double Y) Map(double position, double value) => Horizontal
             ? (OffsetV + (value * ScaleV), OffsetP + (position * ScaleP))

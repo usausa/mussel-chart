@@ -1,11 +1,6 @@
 @using MusselChart.Internal
 @{
-    sources.Add(Values);
-    sources.Apply();
-    var bars = Kind is ChartSparklineKind.Bar or ChartSparklineKind.WinLoss;
-    var path = Kind == ChartSparklineKind.WinLoss ? TrendPath.CreateWinLoss(Values, Height) : TrendPath.Create(Values, Minimum, Maximum, bars, bars ? 0 : 4);
-    var color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
-    var negative = NegativeColor ?? (Kind == ChartSparklineKind.WinLoss ? null : color);
+    Prepare();
 }
 
 <svg @attributes="AdditionalAttributes" class="@ChartFormat.MergeClass("mussel-sparkline", AdditionalAttributes)" width="100%" height="@ChartFormat.Pixel(Height)" viewBox="@path.ViewBox(bars)" preserveAspectRatio="none">

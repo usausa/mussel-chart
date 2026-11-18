@@ -23,6 +23,8 @@ public sealed class CompactNumberFormatTests
     [InlineData(1234567, "1.23M")]
     [InlineData(999999999, "1B")]
     [InlineData(1e15, "1,000T")]
+    [InlineData(1e33, "1,000,000,000,000,000,000,000T")]
+    [InlineData(1e34, "10,000,000,000,000,000,000,000T")]
     public void CompactNumbersCarryIntoTheNextUnit(double value, string expected) =>
         Assert.Equal(expected, CompactNumberFormat.Format(value, CultureInfo.GetCultureInfo("en-US")));
 }

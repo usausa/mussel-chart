@@ -14,6 +14,8 @@ public sealed partial class MusselStatView : IDisposable
 
     private readonly ChartSourceWatcher sources;
 
+    private readonly List<double> copied = [];
+
     private TrendPath trend = TrendPath.Empty;
 
     private string rootClass = string.Empty;
@@ -38,11 +40,9 @@ public sealed partial class MusselStatView : IDisposable
 
     private string trendStroke = string.Empty;
 
-    private bool disposed;
-
     public MusselStatView()
     {
-        sources = new ChartSourceWatcher(InvokeAsync, Refresh);
+        sources = new ChartSourceWatcher(InvokeAsync, StateHasChanged);
     }
 
     [Parameter]
@@ -93,11 +93,7 @@ public sealed partial class MusselStatView : IDisposable
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    public void Dispose()
-    {
-        disposed = true;
-        sources.Clear();
-    }
+    public void Dispose() => sources.Clear();
 
     private void Prepare()
     {
@@ -108,7 +104,7 @@ public sealed partial class MusselStatView : IDisposable
         var threshold = ChartFormat.FindThreshold(Thresholds, value);
         tileColor = Fill ?? threshold?.Color ?? (threshold is { Level: not ChartThresholdLevel.None } ? ChartColor.Level(threshold.Level) : null) ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         valueText = Double.IsNaN(value) ? EmptyText ?? "-" : ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
-        trend = TrendPath.Create(TrendValues, null, null, false, 4);
+        trend = TrendPath.Create(TrendValues, copied, null, null, false, 4);
 
         var filled = (ColorMode == ChartStatColorMode.Background) && (FillMode == ChartFillMode.Gradient);
         gradientFrom = ChartColor.Shift(tileColor, 8, -15);
@@ -140,13 +136,5 @@ public sealed partial class MusselStatView : IDisposable
     {
         sources.Rendered();
         return true;
-    }
-
-    private void Refresh()
-    {
-        if (!disposed)
-        {
-            StateHasChanged();
-        }
     }
 }

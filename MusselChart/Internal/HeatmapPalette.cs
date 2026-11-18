@@ -19,7 +19,7 @@ internal static class HeatmapPalette
 
     public static int GetIndex(double value, double minimum, double maximum, int count)
     {
-        var range = maximum - minimum;
+        var range = (maximum / 2) - (minimum / 2);
         if (!(range > 0))
         {
             range = 1;
@@ -30,7 +30,7 @@ internal static class HeatmapPalette
             return 0;
         }
 
-        return value > maximum ? count - 1 : Math.Min(count - 1, (int)Math.Floor(count * (value - minimum) / range));
+        return value > maximum ? count - 1 : Math.Min(count - 1, (int)Math.Floor(((value / 2) - (minimum / 2)) / range * count));
     }
 
     public static (int R, int G, int B)[] Parse(IReadOnlyList<string> stops)

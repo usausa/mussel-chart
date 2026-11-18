@@ -123,17 +123,20 @@ public sealed partial class MusselRadarChartView
         }
 
         points.RemoveRange(seriesList.Count, points.Count - seriesList.Count);
+        foreach (var series in seriesList)
+        {
+            WatchSource(series.Source);
+        }
+
+        ApplySources();
         for (var s = 0; s < seriesList.Count; s++)
         {
             points[s].Clear();
-            WatchSource(seriesList[s].Source);
             seriesList[s].ReadPoints(points[s], copies);
             visible.Add(IsSeriesVisible(seriesList[s]));
         }
 
         copies.Clear();
-
-        ApplySources();
 
         layout.Update(Width, Height, options, points, visible, RingMargin);
 
@@ -252,7 +255,7 @@ public sealed partial class MusselRadarChartView
             var series = seriesList[i];
             if (series.LegendVisible && !String.IsNullOrEmpty(series.Title))
             {
-                legendItems.Add(new ChartLegendItem(i.ToString(CultureInfo.InvariantCulture), series.Title, colors[i], null, !IsSeriesVisible(series)));
+                legendItems.Add(new ChartLegendItem(series.LegendKey, series.Title, colors[i], null, !IsSeriesVisible(series)));
             }
         }
     }
@@ -276,12 +279,11 @@ public sealed partial class MusselRadarChartView
 
     private void ToggleSeries(string key)
     {
-        if (!LegendToggleEnabled)
+        if (!LegendToggleEnabled || (seriesList.Find(x => string.Equals(x.LegendKey, key, StringComparison.Ordinal)) is not { } series))
         {
             return;
         }
 
-        var series = seriesList[Int32.Parse(key, CultureInfo.InvariantCulture)];
         if (!hiddenSeries.Remove(series) && (seriesList.Count(IsSeriesVisible) > 1))
         {
             hiddenSeries.Add(series);

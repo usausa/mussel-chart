@@ -257,6 +257,8 @@ public sealed class MusselHeatmapViewTests : BunitContext
         Assert.Equal(0, HeatmapPalette.GetIndex(-5, 0, 100, 64));
         Assert.Equal(63, HeatmapPalette.GetIndex(500, 0, 100, 64));
         Assert.Equal(0, HeatmapPalette.GetIndex(1, 1, 1, 64));
+        Assert.Equal(32, HeatmapPalette.GetIndex(5e306, 0, 1e307, 64));
+        Assert.Equal(32, HeatmapPalette.GetIndex(0, -1e308, 1e308, 64));
     }
 
     [Fact]

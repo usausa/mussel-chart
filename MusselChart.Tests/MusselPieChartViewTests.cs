@@ -191,6 +191,21 @@ public sealed class MusselPieChartViewTests : BunitContext
         Assert.Equal("1,234", value.Find(".mussel-pie-center").TextContent);
     }
 
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void ACenterValueThatIsNotFiniteHidesTheCenter(double center)
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, Entries)
+            .Add(static p => p.CenterValue, center)
+            .Add(static p => p.CenterLabel, "Total"));
+
+        Assert.Empty(cut.FindAll(".mussel-pie-center"));
+        Assert.Empty(cut.FindAll(".mussel-pie-caption"));
+    }
+
     [Fact]
     public void ANearlyFullSliceWithoutGapsKeepsTheHole()
     {
@@ -315,34 +330,44 @@ public sealed class MusselPieChartViewTests : BunitContext
         await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
 
         await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Released));
+        Assert.Empty(runtime.Module.Calls);
     }
 
-    [Fact]
-    public async Task DisposingCleansUpThroughWhatAttachReturned()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DisposingCleansUpThroughWhatAttachReturned(bool fails)
     {
-        var runtime = new LateRuntime();
+        var instance = new LateModule { Fail = fails ? "dispose" : null };
+        var runtime = new LateRuntime { Module = { Returned = instance } };
         Services.AddSingleton<IJSRuntime>(runtime);
         var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
         await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
-        await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Attached));
+        await cut.WaitForAssertionAsync(() => Assert.Equal(["attach"], runtime.Module.Calls));
 
         await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
 
-        Assert.Contains("dispose", runtime.Module.Calls);
-        Assert.DoesNotContain("detach", runtime.Module.Calls);
+        Assert.Equal(["attach"], runtime.Module.Calls);
+        Assert.Equal(["dispose"], instance.Calls);
+        Assert.True(instance.Released);
+        Assert.True(runtime.Module.Released);
     }
 
     [Fact]
-    public async Task AFailedDetachStillReleasesTheScript()
+    public async Task DisposingWhileTheScriptIsAttachingReleasesWhatAttachReturns()
     {
-        var runtime = new LateRuntime { Module = new LateModule { FailsToDetach = true } };
+        var instance = new LateModule();
+        var runtime = new LateRuntime { Module = { Hold = "attach", Returned = instance } };
         Services.AddSingleton<IJSRuntime>(runtime);
         var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
         await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
-        await cut.WaitForAssertionAsync(() => Assert.True(runtime.Module.Attached));
+        await cut.WaitForAssertionAsync(() => Assert.Equal(["attach"], runtime.Module.Calls));
 
         await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+        await cut.InvokeAsync(runtime.Module.Resume.SetResult);
 
+        await cut.WaitForAssertionAsync(() => Assert.True(instance.Released));
+        Assert.Equal(["dispose"], instance.Calls);
         Assert.True(runtime.Module.Released);
     }
 
@@ -358,50 +383,6 @@ public sealed class MusselPieChartViewTests : BunitContext
         Assert.Equal(0.8, layout.Slices[1].End, 6);
         Assert.Equal(1, layout.Slices[2].End);
         Assert.Equal(100, layout.Total);
-    }
-
-    private sealed class LateRuntime : IJSRuntime
-    {
-        public TaskCompletionSource<IJSObjectReference> Import { get; } = new();
-
-        public LateModule Module { get; init; } = new();
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
-            identifier == "import" ? new ValueTask<TValue>((Task<TValue>)(object)Import.Task) : default;
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
-            identifier == "import" ? new ValueTask<TValue>((Task<TValue>)(object)Import.Task) : default;
-    }
-
-    private sealed class LateModule : IJSObjectReference
-    {
-        public bool FailsToDetach { get; init; }
-
-        public bool Attached { get; private set; }
-
-        public List<string> Calls { get; } = [];
-
-        public bool Released { get; private set; }
-
-        public ValueTask DisposeAsync()
-        {
-            Released = true;
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
-        {
-            Attached |= identifier == "attach";
-            Calls.Add(identifier);
-            return FailsToDetach && (identifier == "dispose") ? throw new JSException("The view is gone.") : typeof(TValue) == typeof(IJSObjectReference) ? new ValueTask<TValue>((TValue)(object)this) : default;
-        }
-
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
-        {
-            Attached |= identifier == "attach";
-            Calls.Add(identifier);
-            return FailsToDetach && (identifier == "dispose") ? throw new JSException("The view is gone.") : typeof(TValue) == typeof(IJSObjectReference) ? new ValueTask<TValue>((TValue)(object)this) : default;
-        }
     }
 
     [Fact]
@@ -422,125 +403,5 @@ public sealed class MusselPieChartViewTests : BunitContext
             }));
 
         Assert.Contains(50, seen);
-    }
-}
-
-public sealed class ChartGeometryTests
-{
-    [Fact]
-    public void FullCircleIsDrawnWithTwoArcs()
-    {
-        var path = ChartGeometry.Arc(0, 0, 10, 0, 360);
-
-        Assert.Equal("M0 -10A10 10 0 1 1 0 10A10 10 0 1 1 0 -10Z", path);
-    }
-
-    [Fact]
-    public void ArcThatAlmostClosesIsDrawnAsACircle()
-    {
-        var path = ChartGeometry.Arc(0, 0, 10, 0, 359.9999);
-
-        Assert.Equal("M0 -10A10 10 0 1 1 0 10A10 10 0 1 1 0 -10Z", path);
-    }
-
-    [Fact]
-    public void SliceThatAlmostClosesIsDrawnAsARing()
-    {
-        var path = ChartGeometry.Slice(0, 0, 10, 5, 0, 359.9999, 0, 0);
-
-        Assert.Equal(ChartGeometry.Slice(0, 0, 10, 5, 0, 360, 0, 0), path);
-    }
-
-    [Fact]
-    public void ArcGoesClockwiseFromTwelveOClock()
-    {
-        var path = ChartGeometry.Arc(0, 0, 10, 0, 90);
-
-        Assert.Equal("M0 -10A10 10 0 0 1 10 0", path);
-    }
-
-    [Fact]
-    public void WholeRingHasAHoleOfItsOwn()
-    {
-        var path = ChartGeometry.Slice(0, 0, 10, 5, 0, 360, 0, 0);
-
-        Assert.Equal(2, path.Count(static x => x == 'M'));
-    }
-
-    [Fact]
-    public void SliceOfADonutMovesItsEdgesByTheGap()
-    {
-        var path = ChartGeometry.Slice(0, 0, 100, 50, 0, 90, 1, 1);
-
-        Assert.StartsWith("M1 -99.99", path, StringComparison.Ordinal);
-        Assert.Contains("L49.99 -1", path, StringComparison.Ordinal);
-        Assert.EndsWith("Z", path, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SliceOfAPieMeetsAtTheMovedEdges()
-    {
-        var path = ChartGeometry.Slice(0, 0, 100, 0, 0, 90, 1, 1);
-
-        Assert.EndsWith("L1 -1Z", path, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SliceSmallerThanItsGapsIsNotDrawn()
-    {
-        Assert.Empty(ChartGeometry.Slice(0, 0, 10, 5, 0, 1, 2, 2));
-    }
-
-    [Fact]
-    public void UnitBoundsCoverTheSweptSector()
-    {
-        var (left, top, right, bottom) = ChartGeometry.GetUnitBounds(270, 180, 0.5);
-
-        Assert.Equal(-1, left, 6);
-        Assert.Equal(-1, top, 6);
-        Assert.Equal(1, right, 6);
-        Assert.Equal(0, bottom, 6);
-    }
-}
-
-public sealed class ChartTextTests
-{
-    [Fact]
-    public void FullWidthCharactersAreWiderThanNarrowOnes()
-    {
-        Assert.True(ChartText.Measure("あ", 10) > ChartText.Measure("a", 10));
-        Assert.True(ChartText.Measure("a", 10) > ChartText.Measure("i", 10));
-        Assert.Equal(0, ChartText.Measure(null, 10));
-    }
-
-    [Fact]
-    public void TruncateEndsWithAnEllipsis()
-    {
-        Assert.Equal("Short", ChartText.Truncate("Short", 10, 1000));
-        var text = ChartText.Truncate("A very long text to be cut", 10, 60);
-        Assert.EndsWith(ChartText.Ellipsis, text, StringComparison.Ordinal);
-        Assert.True(ChartText.Measure(text, 10) <= 60);
-        Assert.Empty(ChartText.Truncate("Long", 10, 1));
-    }
-
-    [Fact]
-    public void TipEscapesItsTexts()
-    {
-        var tip = ChartTip.Create("a\"b", [new ChartTipRow("#000000", "c\\d", "e\nf")], [new ChartTipMark(1.25, 2, "#FFFFFF")], new ChartTipLine(1, 2, 3, 4));
-
-        Assert.Equal("{\"t\":\"a\\\"b\",\"r\":[[\"#000000\",\"c\\\\d\",\"e\\nf\"]],\"m\":[[1.2,2,\"#FFFFFF\"]],\"l\":[1,2,3,4]}", tip.Replace("1.3", "1.2", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void ThinningKeepsBothEnds()
-    {
-        var labels = Enumerable.Range(0, 11).Select(static i => new LabelExtent(i * 10, (i * 10) + 18)).ToList();
-        var selected = new List<int>();
-
-        LabelThinning.Select(labels, 4, Int32.MaxValue, selected);
-
-        Assert.Equal(0, selected[0]);
-        Assert.Equal(10, selected[^1]);
-        Assert.True(selected.Count < labels.Count);
     }
 }

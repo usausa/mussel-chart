@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
+using Microsoft.AspNetCore.Components;
+
 public sealed class ChartSourceTests : BunitContext
 {
     private static readonly DateTime Start = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -217,6 +219,39 @@ public sealed class ChartSourceTests : BunitContext
 
         Assert.Equal(single, cut.RenderCount - renders);
         Assert.Contains(cut.FindAll("polyline"), static x => x.GetAttribute("points")!.EndsWith(" 51,51", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task APushDrawnWithTheParentDrawsOnce()
+    {
+        var points = new ChartRingBuffer<Sample>(10);
+        var trend = new ChartRingBuffer<double>(10);
+        var values = new ChartRingBuffer<double>(10);
+        var entries = new ChartRingBuffer<ChartEntry>(10);
+
+        await DrawsOnceWithTheParentAsync(RenderLines(points, points), () => points.Push(new Sample(Start, 1)));
+        await DrawsOnceWithTheParentAsync(Render<MusselStatView>(parameters => parameters.Add(static p => p.TrendValues, trend)), () => trend.Push(1));
+        await DrawsOnceWithTheParentAsync(Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, values)), () => values.Push(1));
+        await DrawsOnceWithTheParentAsync(Render<MusselBarGaugeView>(parameters => parameters.Add(static p => p.Items, entries)), () => entries.Push(new ChartEntry("A", 1)));
+    }
+
+    private static async Task DrawsOnceWithTheParentAsync<TComponent>(IRenderedComponent<TComponent> cut, Action push)
+        where TComponent : IComponent
+    {
+        var renders = cut.RenderCount;
+        await cut.InvokeAsync(() => cut.Render()).ConfigureAwait(true);
+        await cut.InvokeAsync(static () => { }).ConfigureAwait(true);
+        var alone = cut.RenderCount - renders;
+        renders = cut.RenderCount;
+
+        await cut.InvokeAsync(() =>
+        {
+            push();
+            cut.Render();
+        }).ConfigureAwait(true);
+        await cut.InvokeAsync(static () => { }).ConfigureAwait(true);
+
+        Assert.Equal(alone, cut.RenderCount - renders);
     }
 
     private IRenderedComponent<MusselChartView> RenderLines(IReadOnlyList<Sample> first, IReadOnlyList<Sample> second) =>
