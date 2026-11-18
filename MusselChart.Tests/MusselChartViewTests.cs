@@ -339,7 +339,7 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
-    public async Task AResizeAfterDisposingDoesNothing()
+    public async Task AResizeAfterTheViewIsGoneDoesNothing()
     {
         var cut = RenderLine(CreateBuffer(10, 10));
         await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
@@ -568,6 +568,28 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal("0,1222221.33 1,7641975.33", cut.FindAll("polyline")[0].GetAttribute("points"));
         Assert.Equal("12345.67 76543.21", cut.Find("[data-values]").GetAttribute("data-values"));
         Assert.Equal(["1234567", "7654321"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("data-v")));
+        Assert.Equal(["1234567", "7654321"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("height")));
+    }
+
+    [Fact]
+    public void TooltipValuesOfTenDigitsKeepEveryDigit()
+    {
+        Sample[] items = [new(Start, 1234567955, 1234567955.5), new(Start.AddSeconds(1), 1234567890, 1234567890.25)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Other)
+                .Add(static p => p.StackGroup, "total"))
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal("1234567955.5 1234567890.25", cut.Find("[data-values]").GetAttribute("data-values"));
+        Assert.Equal(["1234567955", "1234567890"], cut.FindAll(".mussel-bars rect").Select(static x => x.GetAttribute("data-v")));
     }
 
     [Theory]
@@ -629,6 +651,45 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
+    public void LargeValuesKeepTheScaleOfThePlot()
+    {
+        Sample[] items = [new(Start, 0), new(Start.AddSeconds(1), 1e9)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var scale = Double.Parse(matrix.Split(' ')[3], CultureInfo.InvariantCulture);
+        Assert.True(scale < 0, matrix);
+    }
+
+    [Fact]
+    public void StackedAreasKeepNineDigitsOnTheBottomEdge()
+    {
+        Sample[] items = [new(Start, 1234567.8, 1), new(Start.AddSeconds(1), 7654321.2, 1)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.StackGroup, "total"))
+            .AddChildContent<AreaSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Other)
+                .Add(static p => p.StackGroup, "total")));
+
+        Assert.Equal("1", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.EndsWith("1,7654320.2 0,1234566.8", cut.FindAll("polygon")[1].GetAttribute("points"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LargeValuesAreWrittenFromTheirBase()
     {
         Sample[] items = [new(Start, 1234567890), new(Start.AddSeconds(1), 1234567891), new(Start.AddSeconds(2), 1234567955)];
@@ -672,14 +733,119 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.All(matrix[^2..], static x => Assert.InRange(Double.Parse(x, CultureInfo.InvariantCulture), -1000, 1000));
     }
 
+    [Theory]
+    [InlineData(ChartOrientation.Vertical)]
+    [InlineData(ChartOrientation.Horizontal)]
+    public void MarkersSitWhereThePlotPutsTheirValues(ChartOrientation orientation)
+    {
+        PointItem[] points = [new(1e6, 1234567890), new(1e6 + 1, 1234567955), new(1e6 + 3, 1234567900)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .Add(static p => p.Orientation, orientation)
+            .AddChildContent<ScatterSeries<PointItem>>(series => series
+                .Add(static p => p.Items, points)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)));
+
+        var transform = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var markers = cut.FindAll(".mussel-markers circle");
+        Assert.Equal(3, markers.Count);
+        Assert.All(markers, marker =>
+        {
+            var (x, y) = Transform(transform, Number(marker, "data-x"), Number(marker, "data-y"));
+            Assert.Equal(Number(marker, "cx"), x, 0.01);
+            Assert.Equal(Number(marker, "cy"), y, 0.01);
+        });
+    }
+
     [Fact]
-    public void ALiveChartTakesItsBaseFromTheFirstValues()
+    public void TheLivePointSitsOnTheLastPointOfTheLine()
+    {
+        Sample[] items = [new(Start, 1234567890), new(Start.AddSeconds(1), 1234567955), new(Start.AddSeconds(2), 1234567900)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.LiveIndicatorVisible, true)));
+
+        var last = cut.Find("polyline").GetAttribute("points")!.Split(' ')[^1].Split(',');
+        var (x, y) = Transform(cut.Find(".mussel-plot").GetAttribute("transform")!, Double.Parse(last[0], CultureInfo.InvariantCulture), Double.Parse(last[1], CultureInfo.InvariantCulture));
+        var live = cut.Find(".mussel-live circle");
+        Assert.Equal(Number(live, "cx"), x, 0.01);
+        Assert.Equal(Number(live, "cy"), y, 0.01);
+    }
+
+    [Fact]
+    public void TheValueBaseComesFromTheVisibleSeries()
+    {
+        Sample[] shown = [new(Start, 1234567890), new(Start.AddSeconds(1), 1234567955)];
+        Sample[] hidden = [new(Start, 5), new(Start.AddSeconds(1), 6)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, shown)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, hidden)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.IsVisible, false)));
+
+        Assert.Equal("1234567890", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal("0,0 1,65", cut.Find("polyline").GetAttribute("points"));
+    }
+
+    [Fact]
+    public void TheBasesOfXComeFromTheVisibleSeries()
+    {
+        PointItem[] shown = [new(1700000000, 5), new(1700000001, 6)];
+        PointItem[] hidden = [new(0, 5), new(1, 6)];
+        Sample[] recent = [new(Start, 5), new(Start.AddSeconds(1), 6)];
+        Sample[] older = [new(Start.AddDays(-400), 5)];
+
+        var numbers = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<LineSeries<PointItem>>(series => series
+                .Add(static p => p.Items, shown)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y))
+            .AddChildContent<LineSeries<PointItem>>(series => series
+                .Add(static p => p.Items, hidden)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)
+                .Add(static p => p.IsVisible, false)));
+        var times = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, recent)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, older)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.IsVisible, false)));
+
+        Assert.Equal("1700000000", numbers.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
+        Assert.Equal("0,0 1,1", numbers.Find("polyline").GetAttribute("points"));
+        Assert.Equal(((Start - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture), times.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
+    }
+
+    [Fact]
+    public void ALiveChartKeepsTheBaseOfTheFirstValuesItReads()
     {
         var buffer = new ChartRingBuffer<Sample>(10);
-        buffer.Push(new Sample(Start, double.NaN));
+        buffer.Push(new Sample(Start, Double.NaN));
         var cut = RenderLine(buffer);
 
         buffer.Push(new Sample(Start.AddSeconds(1), 1234567955));
+        cut.Render();
         buffer.Push(new Sample(Start.AddSeconds(2), 1234567890));
         cut.Render();
 
@@ -824,6 +990,14 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Value)
                 .Add(static p => p.Title, "Value")));
 
+    private static (double X, double Y) Transform(string transform, double x, double y)
+    {
+        var m = transform["matrix(".Length..^1].Split(' ').Select(static v => Double.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+        return ((m[0] * x) + (m[2] * y) + m[4], (m[1] * x) + (m[3] * y) + m[5]);
+    }
+
+    private static double Number(AngleSharp.Dom.IElement element, string name) => Double.Parse(element.GetAttribute(name)!, CultureInfo.InvariantCulture);
+
     private static ChartRingBuffer<Sample> CreateBuffer(int capacity, int count)
     {
         var buffer = new ChartRingBuffer<Sample>(capacity);
@@ -874,44 +1048,5 @@ public sealed class MusselChartViewTests : BunitContext
             builder.AddAttribute(3, nameof(LineSeries<>.Y), (Func<Sample, double>)(static x => x.Value));
             builder.CloseComponent();
         }
-    }
-
-    [Fact]
-    public void LargeValuesKeepTheScaleOfThePlot()
-    {
-        Sample[] items = [new(Start, 0), new(Start.AddSeconds(1), 1e9)];
-
-        var cut = Render<MusselChartView>(parameters => parameters
-            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
-            .AddChildContent<LineSeries<Sample>>(series => series
-                .Add(static p => p.Items, items)
-                .Add(static p => p.X, static x => x.Time)
-                .Add(static p => p.Y, static x => x.Value)));
-
-        var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!;
-        var scale = double.Parse(matrix.Split(' ')[3], CultureInfo.InvariantCulture);
-        Assert.True(scale < 0, matrix);
-    }
-
-    [Fact]
-    public void StackedAreasKeepNineDigitsOnTheBottomEdge()
-    {
-        Sample[] items = [new(Start, 1234567.8, 1), new(Start.AddSeconds(1), 7654321.2, 1)];
-
-        var cut = Render<MusselChartView>(parameters => parameters
-            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
-            .AddChildContent<AreaSeries<Sample>>(series => series
-                .Add(static p => p.Items, items)
-                .Add(static p => p.X, static x => x.Time)
-                .Add(static p => p.Y, static x => x.Value)
-                .Add(static p => p.StackGroup, "total"))
-            .AddChildContent<AreaSeries<Sample>>(series => series
-                .Add(static p => p.Items, items)
-                .Add(static p => p.X, static x => x.Time)
-                .Add(static p => p.Y, static x => x.Other)
-                .Add(static p => p.StackGroup, "total")));
-
-        Assert.Equal("1", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
-        Assert.EndsWith("1,7654320.2 0,1234566.8", cut.FindAll("polygon")[1].GetAttribute("points"), StringComparison.Ordinal);
     }
 }

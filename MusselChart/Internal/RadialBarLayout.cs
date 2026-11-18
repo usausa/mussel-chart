@@ -248,7 +248,7 @@ internal sealed class RadialBarLayout
                 Center = FitCenter(percent, options.CenterLabel ?? first.Label, available);
             }
         }
-        else if (options.CenterValueMode == ChartCenterValueMode.Total)
+        else if ((options.CenterValueMode == ChartCenterValueMode.Total) && Double.IsFinite(valueTotal))
         {
             Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, available);
         }

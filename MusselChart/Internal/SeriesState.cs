@@ -83,7 +83,7 @@ internal sealed class SeriesChunk
                 values.Append(' ');
             }
 
-            values.Append(CultureInfo.InvariantCulture, $"{value:G9}");
+            values.Append(CultureInfo.InvariantCulture, $"{value}");
             Values = null;
         }
 

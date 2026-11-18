@@ -253,9 +253,9 @@ public sealed partial class MusselRadarChartView
         for (var i = 0; i < seriesList.Count; i++)
         {
             var series = seriesList[i];
-            if (series.LegendVisible && !String.IsNullOrEmpty(series.Title))
+            if (IsListed(series))
             {
-                legendItems.Add(new ChartLegendItem(series.LegendKey, series.Title, colors[i], null, !IsSeriesVisible(series)));
+                legendItems.Add(new ChartLegendItem(series.LegendKey, series.Title!, colors[i], null, !IsSeriesVisible(series)));
             }
         }
     }
@@ -279,7 +279,7 @@ public sealed partial class MusselRadarChartView
 
     private void ToggleSeries(string key)
     {
-        if (!LegendToggleEnabled || (seriesList.Find(x => string.Equals(x.LegendKey, key, StringComparison.Ordinal)) is not { } series))
+        if (!LegendToggleEnabled || (seriesList.Find(x => String.Equals(x.LegendKey, key, StringComparison.Ordinal)) is not { } series))
         {
             return;
         }

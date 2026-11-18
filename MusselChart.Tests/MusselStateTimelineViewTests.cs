@@ -226,6 +226,19 @@ public sealed class MusselStateTimelineViewTests : BunitContext
     }
 
     [Fact]
+    public void NumbersOfTheWidestRangeTakeTheColorsOfTheirPlace()
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin, -1e308), new StateItem("A", Origin.AddHours(1), 0d), new StateItem("A", Origin.AddHours(2), 1e308)],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(3)));
+
+        var colors = cut.FindAll(".mussel-timeline-bands rect").Select(static x => x.GetAttribute("fill")).ToList();
+        Assert.Equal(ChartColor.Level(ChartThresholdLevel.Good), colors[0]);
+        Assert.Equal(ChartColor.Level(ChartThresholdLevel.Critical), colors[2]);
+        Assert.Equal(3, colors.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
     public void TextOfABandFollowsTheOptions()
     {
         StateItem[] items = [new("A", Origin, "A long state name"), new("A", Origin.AddHours(1), "y")];

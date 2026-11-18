@@ -137,6 +137,17 @@ public sealed class MusselHeatmapViewTests : BunitContext
     }
 
     [Fact]
+    public void ScaleOfTheWidestValuesStaysFinite()
+    {
+        var cut = RenderMatrix([new HeatItem("A", "1", -1e308), new HeatItem("A", "2", 0), new HeatItem("A", "3", 1e308)]);
+
+        var labels = cut.FindAll(".mussel-view-label");
+        Assert.DoesNotContain(labels, static x => x.TextContent.Contains("NaN", StringComparison.Ordinal));
+        Assert.All(labels, static x => Assert.True(Double.IsFinite(Double.Parse(x.GetAttribute("x")!, CultureInfo.InvariantCulture))));
+        Assert.All(labels, static x => Assert.True(Double.IsFinite(Double.Parse(x.GetAttribute("y")!, CultureInfo.InvariantCulture))));
+    }
+
+    [Fact]
     public void ScaleCanBeTurnedOff()
     {
         var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters

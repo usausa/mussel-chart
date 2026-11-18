@@ -91,7 +91,7 @@ internal static class CompactNumberFormat
     private static double Round(double value, int digits)
     {
         Span<char> text = stackalloc char[32];
-        return value.TryFormat(text, out var written, "R", CultureInfo.InvariantCulture) && decimal.TryParse(text[..written], NumberStyles.Float, CultureInfo.InvariantCulture, out var exact)
+        return value.TryFormat(text, out var written, "R", CultureInfo.InvariantCulture) && Decimal.TryParse(text[..written], NumberStyles.Float, CultureInfo.InvariantCulture, out var exact)
             ? (double)Math.Round(exact, digits, MidpointRounding.AwayFromZero)
             : Math.Round(value, digits, MidpointRounding.AwayFromZero);
     }

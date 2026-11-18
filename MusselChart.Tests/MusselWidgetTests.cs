@@ -52,15 +52,19 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal("0 0 2 100", cut.Find(".mussel-stat-trend-background").GetAttribute("viewBox"));
     }
 
-    [Fact]
-    public void AFlatTrendOfLargeValuesStaysFinite()
+    [Theory]
+    [InlineData(1e17)]
+    [InlineData(2e-323)]
+    [InlineData(1.7e308)]
+    [InlineData(-1.7e308)]
+    [InlineData(Double.MaxValue)]
+    public void AFlatTrendSitsInTheMiddle(double value)
     {
         var cut = Render<MusselStatView>(parameters => parameters
-            .Add(static p => p.Value, 1e17)
-            .Add(static p => p.TrendValues, [1e17, 1e17, 1e17]));
+            .Add(static p => p.Value, 1d)
+            .Add(p => p.TrendValues, [value, value, value]));
 
-        Assert.All(cut.FindAll(".mussel-stat-trend-line"), static x => Assert.DoesNotContain("NaN", x.GetAttribute("points"), StringComparison.Ordinal));
-        Assert.NotEmpty(cut.FindAll(".mussel-stat-trend-line"));
+        Assert.Equal("0,50 1,50 2,50", cut.Find(".mussel-stat-trend-line").GetAttribute("points"));
     }
 
     [Theory]
@@ -142,6 +146,51 @@ public sealed class MusselWidgetTests : BunitContext
         var stops = cut.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))).ToList();
         Assert.Equal([("0", "#5794F2"), ("0.7", "#5794F2")], stops[..2]);
         Assert.Equal("#5794F2", cut.Find(".mussel-gauge-value text").GetAttribute("fill"));
+    }
+
+    [Fact]
+    public void EachGaugeRowStartsInItsOwnColorAndKeepsItsIdsWhenTheThresholdsChange()
+    {
+        var cut = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50, "#5794F2", 100), new ChartEntry("B", 90, "#B877D9", 100)])
+            .Add(static p => p.Thresholds, [new ChartThreshold { Value = 70, Level = ChartThresholdLevel.Warning }, new ChartThreshold { Value = 85, Level = ChartThresholdLevel.Critical }]));
+        var ids = cut.FindAll("linearGradient").Select(static x => x.Id).ToList();
+
+        Assert.Equal(["#5794F2", "#B877D9"], cut.FindAll("linearGradient").Select(static x => x.QuerySelector("stop")!.GetAttribute("stop-color")));
+
+        cut.Render(parameters => parameters.Add(static p => p.Thresholds, [new ChartThreshold { Value = 40, Color = "#FF9830" }]));
+
+        Assert.Equal(ids, cut.FindAll("linearGradient").Select(static x => x.Id));
+        Assert.All(cut.FindAll("linearGradient"), static x => Assert.Equal("#FF9830", x.QuerySelectorAll("stop")[^1].GetAttribute("stop-color")));
+        Assert.Equal(["#5794F2", "#B877D9"], cut.FindAll("linearGradient").Select(static x => x.QuerySelector("stop")!.GetAttribute("stop-color")));
+    }
+
+    [Fact]
+    public async Task AStatWithoutATrendDoesNotFollowItsValues()
+    {
+        var buffer = new ChartRingBuffer<double>(10);
+        buffer.Push(1);
+        var cut = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 1d)
+            .Add(p => p.TrendValues, buffer)
+            .Add(static p => p.TrendPlacement, ChartTrendPlacement.None));
+        var renders = cut.RenderCount;
+
+        await cut.InvokeAsync(() => buffer.Push(2));
+        await cut.InvokeAsync(static () => { });
+
+        Assert.Equal(renders, cut.RenderCount);
+        Assert.Empty(cut.FindAll(".mussel-stat-trend-line"));
+    }
+
+    [Fact]
+    public void ValuesThatAreNotAListAreReadAgainOnEachRender()
+    {
+        var cut = Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, Enumerable.Range(1, 3).Select(static x => (double)x)));
+
+        cut.Render();
+
+        Assert.Equal(3, cut.Find("polyline").GetAttribute("points")!.Split(' ').Length);
     }
 
     [Fact]

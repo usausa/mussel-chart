@@ -29,7 +29,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
 
     protected ChartViewBase()
     {
-        sources = new ChartSourceWatcher(InvokeAsync, RequestRender);
+        sources = new ChartSourceWatcher(InvokeAsync, StateHasChanged);
     }
 
     [Inject]
@@ -179,14 +179,6 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
         }
     }
 
-    private protected void RequestRender()
-    {
-        if (!IsDisposed)
-        {
-            StateHasChanged();
-        }
-    }
-
     private protected void WatchSource(object? source) => sources.Add(source);
 
     private protected void ApplySources() => sources.Apply();
@@ -199,7 +191,7 @@ public abstract class ChartViewBase : ComponentBase, IAsyncDisposable
     {
         if (!collecting)
         {
-            RequestRender();
+            StateHasChanged();
         }
     }
 }

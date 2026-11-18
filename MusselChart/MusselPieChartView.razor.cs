@@ -20,6 +20,8 @@ public sealed partial class MusselPieChartView
 
     private readonly List<InsideLabel> insideLabels = [];
 
+    private readonly List<ChartTipRow> tipRows = [];
+
     private readonly List<OutsideLabel> outsideLabels = [];
 
     private string sliceClass = string.Empty;
@@ -141,7 +143,9 @@ public sealed partial class MusselPieChartView
         foreach (var slice in layout.Slices)
         {
             var color = GetColor(slice, palette);
-            var tip = ChartTip.Create(null, [new ChartTipRow(color, slice.Label, $"{slice.ValueText} ({slice.PercentText})")]);
+            tipRows.Clear();
+            tipRows.Add(new ChartTipRow(color, slice.Label, $"{slice.ValueText} ({slice.PercentText})"));
+            var tip = ChartTip.Create(null, tipRows);
             sliceViews.Add(new SliceView(slice.DataIndex, layout.GetPath(slice), color, tip));
             if ((LabelsMode == ChartPieLabelsMode.Inside) && (layout.GetInsideLabel(slice) is { } point))
             {

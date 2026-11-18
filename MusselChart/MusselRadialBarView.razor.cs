@@ -29,7 +29,11 @@ public sealed partial class MusselRadialBarView
 
     private readonly List<ChartEntry> copied = [];
 
+    private readonly List<ChartThreshold> sorted = [];
+
     private readonly List<RingView> ringViews = [];
+
+    private readonly List<ChartTipRow> tipRows = [];
 
     private readonly List<ArcView> glowArcs = [];
 
@@ -146,6 +150,7 @@ public sealed partial class MusselRadialBarView
         WatchSource(Items);
         ApplySources();
         var items = Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? [];
+        ChartFormat.SortThresholds(Thresholds, sorted);
         var markers = ThresholdMarkersVisible && HasThresholds;
         layout.Update(Width, Height, new RadialBarLayoutOptions
         {
@@ -281,7 +286,9 @@ public sealed partial class MusselRadialBarView
             }
         }
 
-        var tip = ChartTip.Create(null, [new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})")]);
+        tipRows.Clear();
+        tipRows.Add(new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})"));
+        var tip = ChartTip.Create(null, tipRows);
         return new RingView(row.Slot, tip, arcs, caps, sweep, wrap);
     }
 
@@ -371,13 +378,12 @@ public sealed partial class MusselRadialBarView
 
     private List<(double Value, string Color)> GetSteps(string baseColor)
     {
-        var steps = new List<(double Value, string Color)>();
-        foreach (var threshold in Thresholds ?? [])
+        var steps = new List<(double Value, string Color)>(sorted.Count);
+        foreach (var threshold in sorted)
         {
             steps.Add((threshold.Value, ChartColor.Threshold(threshold, baseColor)));
         }
 
-        steps.Sort(static (x, y) => x.Value.CompareTo(y.Value));
         return steps;
     }
 
@@ -395,11 +401,6 @@ public sealed partial class MusselRadialBarView
         var from = 0d;
         foreach (var (value, stepColor) in GetSteps(baseColor))
         {
-            if (Double.IsNaN(value))
-            {
-                continue;
-            }
-
             if (Double.IsNegativeInfinity(value))
             {
                 color = stepColor;

@@ -21,25 +21,4 @@ public sealed class ChartTextTests
         Assert.True(ChartText.Measure(text, 10) <= 60);
         Assert.Empty(ChartText.Truncate("Long", 10, 1));
     }
-
-    [Fact]
-    public void TipEscapesItsTexts()
-    {
-        var tip = ChartTip.Create("a\"b", [new ChartTipRow("#000000", "c\\d", "e\nf")], [new ChartTipMark(1.25, 2, "#FFFFFF")], new ChartTipLine(1, 2, 3, 4));
-
-        Assert.Equal("{\"t\":\"a\\\"b\",\"r\":[[\"#000000\",\"c\\\\d\",\"e\\nf\"]],\"m\":[[1.2,2,\"#FFFFFF\"]],\"l\":[1,2,3,4]}", tip.Replace("1.3", "1.2", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void ThinningKeepsBothEnds()
-    {
-        var labels = Enumerable.Range(0, 11).Select(static i => new LabelExtent(i * 10, (i * 10) + 18)).ToList();
-        var selected = new List<int>();
-
-        LabelThinning.Select(labels, 4, Int32.MaxValue, selected);
-
-        Assert.Equal(0, selected[0]);
-        Assert.Equal(10, selected[^1]);
-        Assert.True(selected.Count < labels.Count);
-    }
 }

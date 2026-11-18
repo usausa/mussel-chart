@@ -222,26 +222,10 @@ internal sealed class StateTimelineLayout
             }
         }
 
-        steps.Clear();
-        if (options.Thresholds is { } thresholds)
+        ChartFormat.SortThresholds(options.Thresholds, steps);
+        if ((steps.Count > 0) && !Double.IsNegativeInfinity(steps[0].Value))
         {
-            // ReSharper disable once ForCanBeConvertedToForeach
-            for (var i = 0; i < thresholds.Count; i++)
-            {
-                var threshold = thresholds[i];
-                var j = steps.Count;
-                while ((j > 0) && (steps[j - 1].Value > threshold.Value))
-                {
-                    j--;
-                }
-
-                steps.Insert(j, threshold);
-            }
-
-            if ((steps.Count > 0) && !Double.IsNegativeInfinity(steps[0].Value))
-            {
-                steps.Insert(0, new ChartThreshold { Value = Double.NegativeInfinity });
-            }
+            steps.Insert(0, new ChartThreshold { Value = Double.NegativeInfinity });
         }
 
         stepLabels.Clear();
@@ -378,8 +362,8 @@ internal sealed class StateTimelineLayout
             return stepColors[FindStep(entry.Number)];
         }
 
-        var range = rowMaximums[row] - rowMinimums[row];
-        var percent = range > 0 ? (entry.Number - rowMinimums[row]) / range : 0;
+        var range = (rowMaximums[row] / 2) - (rowMinimums[row] / 2);
+        var percent = range > 0 ? ((entry.Number / 2) - (rowMinimums[row] / 2)) / range : 0;
         return HeatmapPalette.GetColor(ContinuousStops, percent);
     }
 

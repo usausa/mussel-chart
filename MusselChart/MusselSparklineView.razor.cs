@@ -55,12 +55,6 @@ public sealed partial class MusselSparklineView : IDisposable
 
     public void Dispose() => sources.Clear();
 
-    protected override bool ShouldRender()
-    {
-        sources.Rendered();
-        return true;
-    }
-
     private void Prepare()
     {
         sources.Add(Values);
@@ -69,5 +63,11 @@ public sealed partial class MusselSparklineView : IDisposable
         path = Kind == ChartSparklineKind.WinLoss ? TrendPath.CreateWinLoss(Values, copied, Height) : TrendPath.Create(Values, copied, Minimum, Maximum, bars, bars ? 0 : 4);
         color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         negative = NegativeColor ?? (Kind == ChartSparklineKind.WinLoss ? null : color);
+    }
+
+    protected override bool ShouldRender()
+    {
+        sources.Rendered();
+        return true;
     }
 }

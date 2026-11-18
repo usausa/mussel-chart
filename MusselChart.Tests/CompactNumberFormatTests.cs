@@ -1,7 +1,5 @@
 namespace MusselChart;
 
-using System.Globalization;
-
 using MusselChart.Internal;
 
 public sealed class CompactNumberFormatTests

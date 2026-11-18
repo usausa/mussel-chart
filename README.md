@@ -26,7 +26,13 @@ Lines, areas, bars, range bars, scatter and bubble plots, pies, radars, heatmaps
 
 ## 🚀 Quick Start
 
-Import the namespace; the styles come with the `{App}.styles.css` of the application.  
+Link the stylesheet in the page head. It has the dark colors; the other styles come with the `{App}.styles.css` of the application.  
+
+```html
+<link rel="stylesheet" href="_content/MusselChart/MusselChart.css" />
+```
+
+Import the namespace.  
 
 ```razor
 @using MusselChart
@@ -98,7 +104,7 @@ The `Example` project shows a monitoring dashboard and a page for each kind of c
 | **Charts** | Line, area, bar, range bar, scatter and bubble series mixed in one chart, grouped, stacked and 100% stacked bars, horizontal bars, stacked areas, pie, donut and half donut, radar with polygon or circle grids, matrix and calendar heatmaps, state timelines, KPI tiles, line, area, bar and win-loss sparklines, bar gauges and radial bars |
 | **Axes** | A date and time axis with a sliding window, category and numeric X axes, a value axis with fixed and soft ranges, label thinning |
 | **Data** | Typed delegates, `ChartEntry` items, `ChartRingBuffer<T>` read incrementally on a time axis, gaps for missing values |
-| **Interaction** | A crosshair and a tooltip on hover or touch, shared by `TrackingGroup`, tooltips of slices, rings and cells, and legend toggles of series and slices |
+| **Interaction** | A crosshair and a tooltip on hover or touch, shared by `TrackingGroup`, tooltips of slices, rings, cells, radar axes and state bands, and legend toggles of series and slices |
 | **Legend** | A list or a table with last, minimum, maximum and mean, and values and sides of the legend of other views |
 | **Hosting** | Interactive Server, WebAssembly (also trimmed) and Auto |
 

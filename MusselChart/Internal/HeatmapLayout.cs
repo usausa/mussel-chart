@@ -625,7 +625,7 @@ internal sealed class HeatmapLayout
             return;
         }
 
-        var span = Maximum - Minimum;
+        var span = (Maximum / 2) - (Minimum / 2);
         var count = 1;
         if (span > 0)
         {
@@ -646,7 +646,7 @@ internal sealed class HeatmapLayout
 
         for (var i = 0; i < count; i++)
         {
-            var ratio = count > 1 ? (GetScaleValue(i, count) - Minimum) / span : 0;
+            var ratio = count > 1 ? ((GetScaleValue(i, count) / 2) - (Minimum / 2)) / span : 0;
             var edge = i == 0 ? "start" : i == count - 1 ? "end" : "middle";
             scaleLabels.Add(IsScaleVertical
                 ? new HeatmapLabel(scaleTexts[i], ScaleBounds.Right + LabelGap, ScaleBounds.Bottom - (ratio * length) - (i == 0 ? LabelHeight / 2 : i == count - 1 ? -LabelHeight / 2 : 0), "start")
@@ -656,7 +656,8 @@ internal sealed class HeatmapLayout
 
     private double GetScaleValue(int index, int count)
     {
-        var value = Minimum + ((Maximum - Minimum) * index / (count - 1));
+        var share = (double)index / (count - 1);
+        var value = (Minimum * (1 - share)) + (Maximum * share);
         return Double.IsInteger(Minimum) && Double.IsInteger(Maximum) ? Math.Floor(value + 0.5) : value;
     }
 

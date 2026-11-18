@@ -37,6 +37,8 @@ public sealed partial class MusselStateTimelineView<TItem>
 
     private readonly List<BandText> bandTexts = [];
 
+    private readonly List<ChartTipRow> tipRows = [];
+
     private readonly List<RowLabel> rowLabels = [];
 
     private readonly List<AxisLabel> axisLabels = [];
@@ -291,7 +293,10 @@ public sealed partial class MusselStateTimelineView<TItem>
             {
                 var bandFormat = DayOf(segment.Start, zone) != DayOf(segmentEnd, zone) ? dayFormat : format;
                 var title = FormatTime(ToLocal(segment.Start, zone), bandFormat) + " – " + FormatTime(ToLocal(segmentEnd, zone), bandFormat);
-                tip = ChartTip.Create(title, [new ChartTipRow(state.Color, layout.RowNames[segment.Row], state.Text), new ChartTipRow(null, null, StateTimelineLayout.FormatDuration(segmentEnd - segment.Start))]);
+                tipRows.Clear();
+                tipRows.Add(new ChartTipRow(state.Color, layout.RowNames[segment.Row], state.Text));
+                tipRows.Add(new ChartTipRow(null, null, StateTimelineLayout.FormatDuration(segmentEnd - segment.Start)));
+                tip = ChartTip.Create(title, tipRows);
             }
 
             bands.Add(new BandView(ChartFormat.Pixel(from), ChartFormat.Pixel(top), ChartFormat.Pixel(width), ChartFormat.Pixel(height), state.Color, lineWidth is null ? null : state.Color, tip));

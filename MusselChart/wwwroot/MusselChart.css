@@ -1,4 +1,4 @@
-.mussel-dark {
+:where(.mussel-dark) {
     --mussel-primary-text: #F0EFEC;
     --mussel-secondary-text: #C3C2B7;
     --mussel-muted-text: #8E8C86;

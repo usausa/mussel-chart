@@ -90,7 +90,8 @@ internal sealed class TrendPath
 
         if (!(high > low))
         {
-            var delta = Math.Abs(low) > 0 ? Math.Abs(low) * 0.1 : 1;
+            var tenth = Math.Abs(low) * 0.1;
+            var delta = Double.IsNormal(tenth) ? Math.Min(tenth, Double.MaxValue - Math.Abs(low)) : 1;
             if ((minimum is not null) && (maximum is null))
             {
                 high = low + delta;
@@ -108,7 +109,7 @@ internal sealed class TrendPath
 
         var span = (high / 2) - (low / 2);
         var usable = ViewHeight - (inset * 2);
-        double ToY(double value) => ViewHeight - inset - (((Math.Clamp(value, low, high) / 2) - (low / 2)) / span * usable);
+        double ToY(double value) => span > 0 ? ViewHeight - inset - (((Math.Clamp(value, low, high) / 2) - (low / 2)) / span * usable) : ViewHeight / 2;
 
         if (bars)
         {
@@ -145,7 +146,7 @@ internal sealed class TrendPath
 
             first = first < 0 ? i : first;
             last = i;
-            line.Append(ChartFormat.Coordinate(i)).Append(',').Append(ChartFormat.Coordinate(ToY(values[i])));
+            line.Append(CultureInfo.InvariantCulture, $"{i},{ToY(values[i]):0.###}");
         }
 
         var text = ChartStringBuilder.ToStringAndReturn(line);

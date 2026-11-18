@@ -199,6 +199,33 @@ internal static class ChartFormat
         _ => "mussel-neutral"
     };
 
+    public static void SortThresholds(IReadOnlyList<ChartThreshold>? thresholds, List<ChartThreshold> sorted)
+    {
+        sorted.Clear();
+        if (thresholds is null)
+        {
+            return;
+        }
+
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < thresholds.Count; i++)
+        {
+            var threshold = thresholds[i];
+            if (Double.IsNaN(threshold.Value))
+            {
+                continue;
+            }
+
+            var index = sorted.Count;
+            while ((index > 0) && (sorted[index - 1].Value > threshold.Value))
+            {
+                index--;
+            }
+
+            sorted.Insert(index, threshold);
+        }
+    }
+
     public static ChartThreshold? FindThreshold(IReadOnlyList<ChartThreshold>? thresholds, double value)
     {
         if ((thresholds is null) || Double.IsNaN(value))
@@ -207,8 +234,10 @@ internal static class ChartFormat
         }
 
         ChartThreshold? found = null;
-        foreach (var threshold in thresholds)
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (var i = 0; i < thresholds.Count; i++)
         {
+            var threshold = thresholds[i];
             if ((threshold.Value <= value) && ((found is null) || (threshold.Value >= found.Value)))
             {
                 found = threshold;

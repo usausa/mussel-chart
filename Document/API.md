@@ -49,7 +49,7 @@ Categories merge the names of all series in order of appearance, hidden series i
 | `ScatterSeries` | `MarkerSize` (8), `MarkerShape` (`Circle`, `Square` or `Diamond`) and `FillOpacity` (0.5) |
 | `BubbleSeries` | The scatter parameters, `Size`, `MinBubbleSize` (8), `MaxBubbleSize` (40) and `SizeIncludesZero` (`true`) |
 
-The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip, and its `LabelFormat` or `LabelFormatter` in the legend, except when stacked to 100%.  
+The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip. Without `ValueFormat` and `ValueFormatter`, it takes the `LabelFormat` or `LabelFormatter` of the value axis in the legend. Neither is taken when stacked to 100%.  
 
 | Item | Rule |
 |---|---|
@@ -100,7 +100,7 @@ Concentric rings that compare several progress values, the first item being the 
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring, a glow under the values and a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
-| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values |
+| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other rings and shows the tooltip |
@@ -118,7 +118,7 @@ Compares several series on axes that spread from the center, one axis per item.
 | `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null` is chosen from the visible series with 0 included and nice levels |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter` |
-| `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series |
+| `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering marks the axis in that direction and shows the values of every series |
 
 | `RadarSeries<TItem>` | Description |
@@ -161,7 +161,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 |---|---|---|---|
 | `Items` | `IReadOnlyList<TItem>?` | `null` | Items |
 | `Row`, `Start`, `End` | `Func<TItem, string?>?`, `Func<TItem, DateTime>?`, `Func<TItem, DateTime?>?` | `null` | Row name, the start and the optional end; without `Row` everything is one row; an end that is not after the start is ignored, and the state lasts until the next start of its row |
-| `State` | `Func<TItem, object?>?` | `null` | Text or a number; `null` ends the previous state |
+| `State` | `Func<TItem, object?>?` | `null` | Text or a number; `null`, `NaN` and infinities end the previous state |
 | `Height` | `double` | `240` | Height in pixels |
 | `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum` |
 | `ValueMappings` | `IReadOnlyList<ChartValueMapping>?` | `null` | `Value` to match, `Text`, `Color` and `Level` of a state |
@@ -183,7 +183,7 @@ A KPI tile that fills the height of its container.
 |---|---|
 | `Title`, `Value`, `Unit` | Title, value and unit; `NaN` and infinities show `EmptyText` (`-` when it is not set) without the unit |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the value; the default is the compact number |
-| `TrendValues`, `TrendPlacement` | Trend line at the `Bottom`, in the `Background` or `None` |
+| `TrendValues`, `TrendPlacement` | Trend line at the `Bottom`, in the `Background` or `None`; values that are not finite are skipped and the line joins the others |
 | `Thresholds` | State by value |
 | `ColorMode`, `FillMode`, `Fill`, `Palette` | `None`, `Value`, `Indicator` or `Background`, solid or gradient |
 | `LayoutMode` | `Vertical` stacks the title and the value; `Horizontal` puts the value and the unit at the top right |
@@ -192,7 +192,7 @@ A KPI tile that fills the height of its container.
 
 | Name | Description |
 |---|---|
-| `Values`, `Kind` | Values as a `Line`, an `Area`, `Bar`s or `WinLoss`, where wins fill the upper half and losses the lower half |
+| `Values`, `Kind` | Values as a `Line`, an `Area`, `Bar`s or `WinLoss`, where wins fill the upper half and losses the lower half; a value that is not finite is skipped, so a line or an area joins the others and a bar leaves its place empty |
 | `Color`, `Palette`, `Thickness` | Colors and the line width |
 | `NegativeColor` | Negative bars and losses; `null` is the color of the bars and `--mussel-critical` for losses |
 | `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels |
@@ -201,7 +201,7 @@ A KPI tile that fills the height of its container.
 
 | Name | Description |
 |---|---|
-| `Items` | `ChartEntry` with a label, a value, a color, a maximum and a target |
+| `Items` | `ChartEntry` with a label, a value, a color, a maximum and a target; a value that is not finite shows `-` and an empty bar |
 | `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first |
 | `DisplayMode`, `SegmentWidth`, `BarThickness` | `Basic` or `Segmented` bars |
 | `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` (one column for every bar, up to 40 % of the width) or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
@@ -222,7 +222,7 @@ Series of one chart that share a buffer read the same items, and items pushed wh
 
 ## 🎨 Theme
 
-Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables with light defaults, and `mussel-dark` on a container switches to the dark values.  
+Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables, which an app changes from any selector and in any file order. `mussel-dark` on a container or on the view itself switches to the dark values, the same class as the other Mussel libraries. A value an app sets is used in both themes, so include `.mussel-dark` in the selector to change a dark value.  
 
 These are shared with the other Mussel libraries. Their light defaults follow the look of each library, so set them on a container to give several libraries the same colors.  
 

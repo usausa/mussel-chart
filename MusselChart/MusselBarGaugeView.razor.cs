@@ -106,11 +106,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
         segmentCell = ChartFormat.Pixel(Math.Max(SegmentWidth - SegmentGap, 1));
 
         rows.Clear();
-        sorted.Clear();
-        if (Thresholds is { Count: > 0 })
-        {
-            sorted.AddRange(Thresholds.OrderBy(static x => x.Value));
-        }
+        ChartFormat.SortThresholds(Thresholds, sorted);
 
         stops.Clear();
         var items = Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? [];

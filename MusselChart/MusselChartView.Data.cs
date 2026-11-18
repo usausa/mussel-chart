@@ -106,8 +106,8 @@ public sealed partial class MusselChartView
                 for (var i = start; i < start + count; i++)
                 {
                     var point = reading[i];
-                    minimum = (point.Ticks != 0) ? Math.Min(minimum, point.Ticks) : minimum;
-                    leftmost = (state.Series.XKind == ChartXKind.Number) && Double.IsFinite(point.Number) ? Math.Min(leftmost, point.Number) : leftmost;
+                    minimum = state.Visible && (point.Ticks != 0) ? Math.Min(minimum, point.Ticks) : minimum;
+                    leftmost = state.Visible && (state.Series.XKind == ChartXKind.Number) && Double.IsFinite(point.Number) ? Math.Min(leftmost, point.Number) : leftmost;
                     if ((xKind == ChartXKind.Category) && (point.Category is { } category))
                     {
                         AddCategory(category);
@@ -394,7 +394,7 @@ public sealed partial class MusselChartView
         var high = Math.Max(bottom, top);
         var lowText = stacked ? null : ChartFormat.Position(low - valueBase);
         var heightText = stacked ? null : ChartFormat.Position(high - low);
-        state.Bars.Add(new SeriesBar(sequence, text, ChartFormat.Position(value), lowText, heightText, low, high, value, slot));
+        state.Bars.Add(new SeriesBar(sequence, text, value.ToString(CultureInfo.InvariantCulture), lowText, heightText, low, high, value, slot));
     }
 
     private (double Top, double Bottom) Stack((ChartSeriesKind Kind, string Group) key, long slot, double value)

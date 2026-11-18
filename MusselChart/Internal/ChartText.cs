@@ -47,7 +47,7 @@ internal static class ChartText
 
         var limit = maxWidth - Measure(Ellipsis, fontSize);
         var used = 0d;
-        var builder = new StringBuilder();
+        var length = 0;
         foreach (var rune in text.EnumerateRunes())
         {
             used += GetRatio(rune) * fontSize;
@@ -56,14 +56,10 @@ internal static class ChartText
                 break;
             }
 
-#if NET11_0_OR_GREATER
-            builder.Append(rune);
-#else
-            builder.Append(rune.ToString());
-#endif
+            length += rune.Utf16SequenceLength;
         }
 
-        return builder.Length > 0 ? builder.ToString().TrimEnd() + Ellipsis : string.Empty;
+        return length > 0 ? String.Concat(text.AsSpan(0, length).TrimEnd(), Ellipsis) : string.Empty;
     }
 
     private static double GetRatio(Rune rune)

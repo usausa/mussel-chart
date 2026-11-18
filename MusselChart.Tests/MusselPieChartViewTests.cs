@@ -192,9 +192,9 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Theory]
-    [InlineData(double.NaN)]
-    [InlineData(double.PositiveInfinity)]
-    [InlineData(double.NegativeInfinity)]
+    [InlineData(Double.NaN)]
+    [InlineData(Double.PositiveInfinity)]
+    [InlineData(Double.NegativeInfinity)]
     public void ACenterValueThatIsNotFiniteHidesTheCenter(double center)
     {
         var cut = Render<MusselPieChartView>(parameters => parameters
@@ -333,12 +333,28 @@ public sealed class MusselPieChartViewTests : BunitContext
         Assert.Empty(runtime.Module.Calls);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DisposingCleansUpThroughWhatAttachReturned(bool fails)
+    [Fact]
+    public async Task DisposingTellsTheScriptAndReleasesIt()
     {
-        var instance = new LateModule { Fail = fails ? "dispose" : null };
+        var instance = new LateModule();
+        var runtime = new LateRuntime { Module = { Returned = instance } };
+        Services.AddSingleton<IJSRuntime>(runtime);
+        var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));
+        await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
+        await cut.WaitForAssertionAsync(() => Assert.Equal(["attach"], runtime.Module.Calls));
+
+        await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+
+        Assert.Equal(["attach"], runtime.Module.Calls);
+        Assert.Equal(["dispose"], instance.Calls);
+        Assert.True(instance.Released);
+        Assert.True(runtime.Module.Released);
+    }
+
+    [Fact]
+    public async Task AFailedDisposeStillReleasesTheScript()
+    {
+        var instance = new LateModule { Fail = "dispose" };
         var runtime = new LateRuntime { Module = { Returned = instance } };
         Services.AddSingleton<IJSRuntime>(runtime);
         var cut = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, Entries));

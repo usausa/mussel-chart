@@ -174,8 +174,7 @@ export function readSeries(chart) {
         }
 
         for (const marker of group.querySelectorAll('.mussel-markers > *')) {
-            const y = Number(marker.dataset.y);
-            values.set(Number(marker.dataset.x), { y, value: y + base, size: marker.dataset.size });
+            values.set(Number(marker.dataset.x), markerEntry(marker, base));
         }
 
         return {
@@ -283,7 +282,7 @@ function showPoint(chart, series, ctm, event) {
             const current = (dx * dx) + (dy * dy);
             if (current < distance) {
                 distance = current;
-                best = { item, x, y, size: marker.dataset.size };
+                best = { item, marker, x, y };
             }
         }
     }
@@ -307,7 +306,7 @@ function showPoint(chart, series, ctm, event) {
         return;
     }
 
-    fillTooltip(tooltip, formatPosition(chart, best.x), [[best.item.color, best.item.title, formatEntry(best.item, { value: best.y + valueBase(chart), size: best.size }, chart.dataset.culture)]]);
+    fillTooltip(tooltip, formatPosition(chart, best.x), [[best.item.color, best.item.title, formatEntry(best.item, markerEntry(best.marker, valueBase(chart)), chart.dataset.culture)]]);
     const svg = chart.querySelector('svg');
     const scale = svg.getBoundingClientRect().width / Number(svg.getAttribute('width') || 1);
     placeTooltip(chart, tooltip, px * scale, py * scale);
@@ -348,7 +347,7 @@ function formatEntry(item, entry, culture) {
     return entry.size === undefined ? text : `${text} (${compact(Number(entry.size), culture)})`;
 }
 
-function formatPosition(chart, x) {
+export function formatPosition(chart, x) {
     const kind = chart.dataset.xKind ?? 'time';
     if (kind === 'category') {
         return readCategories(chart)[x] ?? '';
@@ -585,6 +584,11 @@ export function horizontalTooltipLeft(plotLeft, scale, width, tooltipWidth) {
     return Math.max(Math.min((plotLeft * scale) + 8, width - tooltipWidth), 0);
 }
 
+export function markerEntry(marker, base) {
+    const y = Number(marker.dataset.y);
+    return { y, value: y + base, size: marker.dataset.size };
+}
+
 export function barEntry(rect, range, base) {
     const value = Number(rect.dataset.v);
     const center = Number(rect.getAttribute('x')) + Number(rect.parentNode.dataset.offset);
@@ -594,7 +598,7 @@ export function barEntry(rect, range, base) {
     }
 
     const high = low + Number(rect.getAttribute('height'));
-    return { y: value < 0 ? low : high, value, low: low + base, high: high + base, center };
+    return { y: value < 0 ? low : high, value, center };
 }
 
 export function plotMatrix(plot) {

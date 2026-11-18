@@ -98,17 +98,22 @@ public sealed partial class MusselStatView : IDisposable
     private void Prepare()
     {
         var culture = Culture ?? CultureInfo.CurrentCulture;
-        sources.Add(TrendValues);
+        var trended = TrendPlacement != ChartTrendPlacement.None;
+        sources.Add(trended ? TrendValues : null);
         sources.Apply();
         var value = Double.IsFinite(Value) ? Value : Double.NaN;
         var threshold = ChartFormat.FindThreshold(Thresholds, value);
         tileColor = Fill ?? threshold?.Color ?? (threshold is { Level: not ChartThresholdLevel.None } ? ChartColor.Level(threshold.Level) : null) ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         valueText = Double.IsNaN(value) ? EmptyText ?? "-" : ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
-        trend = TrendPath.Create(TrendValues, copied, null, null, false, 4);
+        trend = trended ? TrendPath.Create(TrendValues, copied, null, null, false, 4) : TrendPath.Empty;
 
         var filled = (ColorMode == ChartStatColorMode.Background) && (FillMode == ChartFillMode.Gradient);
-        gradientFrom = ChartColor.Shift(tileColor, 8, -15);
-        gradientTo = ChartColor.Shift(tileColor, -8, -5);
+        if (ColorMode == ChartStatColorMode.Background)
+        {
+            gradientFrom = ChartColor.Shift(tileColor, 8, -15);
+            gradientTo = ChartColor.Shift(tileColor, -8, -5);
+        }
+
         backgroundFill = filled ? $"url(#{gradientId})" : tileColor;
         backgroundOpacity = filled ? "1" : "0.15";
         valueStyle = (ColorMode == ChartStatColorMode.Value) && !Double.IsNaN(value) ? $"color: {tileColor}" : null;

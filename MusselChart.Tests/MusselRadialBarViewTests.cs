@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Text.RegularExpressions;
+
 using MusselChart.Internal;
 
 public sealed class MusselRadialBarViewTests : BunitContext
@@ -71,6 +73,18 @@ public sealed class MusselRadialBarViewTests : BunitContext
         Assert.Equal("Total", total.Find(".mussel-radial-caption").TextContent);
         Assert.Equal("OK", text.Find(".mussel-radial-center").TextContent);
         Assert.Empty(none.FindAll(".mussel-radial-center"));
+    }
+
+    [Fact]
+    public void ATotalThatIsNotFiniteShowsNoCenter()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 1e308), new ChartEntry("B", 1e308)])
+            .Add(static p => p.CenterValueMode, ChartCenterValueMode.Total)
+            .Add(static p => p.CenterLabel, "Total"));
+
+        Assert.Empty(cut.FindAll(".mussel-radial-center"));
+        Assert.Empty(cut.FindAll(".mussel-radial-caption"));
     }
 
     [Fact]
@@ -172,7 +186,7 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(static p => p.BarGlow, true));
 
         var wrap = cut.Find(".mussel-ring").Children[^1].GetAttribute("stroke");
-        var last = System.Text.RegularExpressions.Regex.Matches(cut.Find(".mussel-radial-sweep div").GetAttribute("style")!, "#[0-9A-Fa-f]{6}")[^1].Value;
+        var last = Regex.Matches(cut.Find(".mussel-radial-sweep div").GetAttribute("style")!, "#[0-9A-Fa-f]{6}")[^1].Value;
         Assert.Equal(ChartColor.Shift(last, 0, -15), wrap);
         Assert.Contains(wrap, cut.FindAll(".mussel-radial-glow path").Select(static x => x.GetAttribute("stroke")));
     }
@@ -188,6 +202,31 @@ public sealed class MusselRadialBarViewTests : BunitContext
         var style = cut.Find(".mussel-radial-sweep div").GetAttribute("style");
         Assert.Contains(ChartColor.Level(ChartThresholdLevel.Good), style, StringComparison.Ordinal);
         Assert.Contains(ChartColor.Level(ChartThresholdLevel.Warning) + " 252deg", style, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThresholdsOfTheSameValueTakeTheLaterOneEverywhere()
+    {
+        ChartThreshold[] thresholds =
+        [
+            new() { Value = 50, Level = ChartThresholdLevel.Warning },
+            new() { Value = 50, Level = ChartThresholdLevel.Critical },
+            new() { Value = 10, Level = ChartThresholdLevel.Good }
+        ];
+        var gradient = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 60)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(p => p.Thresholds, thresholds));
+        var marked = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 60)])
+            .Add(p => p.Thresholds, thresholds)
+            .Add(static p => p.ThresholdMarkersVisible, true));
+
+        var critical = ChartColor.Level(ChartThresholdLevel.Critical);
+        var stops = Regex.Matches(gradient.Find(".mussel-radial-sweep div").GetAttribute("style")!, "(#[0-9A-Fa-f]{6}) 180deg");
+        Assert.Equal(critical, stops[^1].Groups[1].Value);
+        Assert.Equal(critical, marked.FindAll(".mussel-radial-markers path")[^1].GetAttribute("stroke"));
+        Assert.Equal(critical, marked.Find(".mussel-ring").QuerySelector("path:not(.mussel-radial-track)")!.GetAttribute("stroke"));
     }
 
     [Fact]

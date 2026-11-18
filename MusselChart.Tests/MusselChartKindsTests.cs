@@ -240,9 +240,29 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.High, static x => x.Other)));
 
         var bars = cut.FindAll(".mussel-bars rect");
+        Assert.Equal("RangeBar", cut.Find(".mussel-series").GetAttribute("data-kind"));
         Assert.Equal("-10", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
         Assert.Equal(["12355.67", "0"], bars.Select(static x => x.GetAttribute("y")));
         Assert.Equal(["12350.12", "-5"], bars.Select(static x => x.GetAttribute("data-v")));
+    }
+
+    [Fact]
+    public void RangeBarsOfTenDigitsKeepEveryDigitOfTheTop()
+    {
+        CategoryItem[] items = [new("A", 1234567880, 1234567955)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<RangeBarSeries<CategoryItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.Category, static x => x.Name)
+                .Add(static p => p.Low, static x => x.Value)
+                .Add(static p => p.High, static x => x.Other)));
+
+        var bar = cut.Find(".mussel-bars rect");
+        Assert.Equal("1234567880", cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base"));
+        Assert.Equal(["0", "75"], [bar.GetAttribute("y"), bar.GetAttribute("height")]);
+        Assert.Equal("1234567955", bar.GetAttribute("data-v"));
     }
 
     [Fact]

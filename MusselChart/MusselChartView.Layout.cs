@@ -647,19 +647,7 @@ public sealed partial class MusselChartView
         var top = ChartFormat.Pixel(plotTop);
         var bottom = ChartFormat.Pixel(plotBottom);
         var sorted = sortedThresholds;
-        sorted.Clear();
-        // ReSharper disable once ForCanBeConvertedToForeach
-        for (var i = 0; i < Thresholds.Count; i++)
-        {
-            var threshold = Thresholds[i];
-            var index = sorted.Count;
-            while ((index > 0) && (sorted[index - 1].Value > threshold.Value))
-            {
-                index--;
-            }
-
-            sorted.Insert(index, threshold);
-        }
+        ChartFormat.SortThresholds(Thresholds, sorted);
 
         for (var i = 0; i < sorted.Count; i++)
         {

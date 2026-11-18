@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { barEntry, compact, formatTime, fromPosition, horizontalTooltipLeft, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
+import { barEntry, compact, formatPosition, formatTime, fromPosition, horizontalTooltipLeft, markerEntry, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
+
+const parentNode = { dataset: { offset: '0.5' } };
+const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
 
 test('compact notation moves to the next unit after rounding', () => {
     const cases = [
@@ -48,18 +51,14 @@ test('a time between two offset changes uses the offset of its period', () => {
 });
 
 test('a range bar takes its low end from the rect and puts the dot on the high end', () => {
-    const parentNode = { dataset: { offset: '0.5' } };
-    const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
     assert.deepEqual(barEntry(rect({ x: '1', y: '12345.67', height: '4.45' }, { v: '12350.12' }), true, 0), { y: 12350.12, value: 12350.12, low: 12345.67, high: 12350.12, center: 1.5 });
     assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '5' }, { v: '-5' }), true, 0), { y: -5, value: -5, low: -10, high: -5, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '2', y: '-3', height: '3' }, { v: '-3' }), false, 0), { y: -3, value: -3, low: -3, high: 0, center: 2.5 });
 });
 
-test('a bar shows its ends with the value base and keeps its dot in the plot', () => {
-    const parentNode = { dataset: { offset: '0.5' } };
-    const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
+test('a range bar shows its ends with the value base, and every bar keeps its dot in the plot', () => {
+    assert.deepEqual(barEntry(rect({ x: '2', y: '-3', height: '3' }, { v: '-3' }), false, 0), { y: -3, value: -3, center: 2.5 });
     assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '75' }, { v: '1234567955' }), true, 1234567890), { y: 65, value: 1234567955, low: 1234567880, high: 1234567955, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '-1234567890', height: '1234567955' }, { v: '1234567955' }), false, 1234567890), { y: 65, value: 1234567955, low: 0, high: 1234567955, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '-1234567890', height: '1234567955' }, { v: '1234567955' }), false, 1234567890), { y: 65, value: 1234567955, center: 1.5 });
 });
 
 test('a numeric position adds the base of its chart', () => {
@@ -82,6 +81,31 @@ test('series values add the value base unless the line keeps its own values', ()
     const [series] = readSeries(chart);
 
     assert.deepEqual([...series.values], [[0, { y: 0, value: 1234567890 }], [1, { y: 65, value: 1234567955 }], [2, { y: 3, value: 7 }], [3, { y: 10, value: 1234567900, size: '2' }]]);
+});
+
+test('a series of range bars reads its bars as ranges', () => {
+    const bars = [rect({ x: '1', y: '0', height: '5' }, { v: '-5' })];
+    const group = {
+        dataset: { title: 'r', color: '#fff', format: '', kind: 'RangeBar' },
+        querySelectorAll: (selector) => (selector === '.mussel-bars rect' ? bars : []),
+    };
+    const chart = { querySelectorAll: () => [group], querySelector: () => ({ dataset: { valueBase: '-10' } }) };
+
+    const [series] = readSeries(chart);
+
+    assert.deepEqual([...series.values], [[1, { y: 5, value: -5, low: -10, high: -5, center: 1.5 }]]);
+});
+
+test('a marker shows its value with the value base', () => {
+    assert.deepEqual(markerEntry({ dataset: { y: '10', size: '2' } }, 1234567890), { y: 10, value: 1234567900, size: '2' });
+});
+
+test('a position is written with the base of its chart, and a time with the offset of its period', () => {
+    const chart = (dataset, base) => ({ dataset, querySelector: () => ({ dataset: { base } }) });
+    assert.equal(formatPosition(chart({ xKind: 'number', xFormat: 'N0', culture: 'en-US' }, '1000000'), 2), '1,000,002');
+    const time = chart({ offset: '60', offsetChanges: '1792890000,120', timeFormat: 'HH:mm:ss' }, '1792889000');
+    assert.equal(formatPosition(time, 999), '02:59:59');
+    assert.equal(formatPosition(time, 1000), '02:00:00');
 });
 
 test('a horizontal tooltip starts at the plot and stays inside the chart', () => {
