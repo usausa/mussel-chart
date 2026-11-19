@@ -2,8 +2,10 @@
     transition: opacity 150ms;
 }
 
-.mussel-slices-hover:hover .mussel-slice:not(:hover) {
-    opacity: 0.35;
+@media (hover: hover) {
+    .mussel-slices-hover:hover .mussel-slice:not(:hover) {
+        opacity: 0.35;
+    }
 }
 
 .mussel-pie-label {

@@ -163,7 +163,7 @@ public sealed partial class MusselChartView
         {
             var series = seriesList[i];
             var state = states[series];
-            state.Color = series.Color ?? (palette.Count > 0 ? palette[i % palette.Count] : "#808080");
+            state.Color = series.Color ?? ChartColor.At(palette, i);
             if (!state.Visible)
             {
                 continue;

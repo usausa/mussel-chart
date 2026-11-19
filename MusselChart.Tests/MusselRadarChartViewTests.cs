@@ -64,6 +64,18 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
+    public void AFixedEndThatIsNotFiniteLeavesNoNaN()
+    {
+        ChartEntry[] items = [new("A", 1), new("B", 2), new("C", 3)];
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .Add(static p => p.Minimum, Double.NegativeInfinity)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
+
+        Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheInnerRingsOfTheWidestValuesAreDrawn()
     {
         ChartEntry[] items = [new("A", 1e308), new("B", -1e308), new("C", 0)];
@@ -123,6 +135,17 @@ public sealed class MusselRadarChartViewTests : BunitContext
         Assert.Equal(4, polygons[0].GetAttribute("points")!.Split(' ').Length);
         Assert.Equal(2, polygons[1].GetAttribute("points")!.Split(' ').Length);
         Assert.Equal(5, cut.FindAll(".mussel-radar-areas path").Count);
+    }
+
+    [Fact]
+    public void SeriesBeyondThePaletteAreGray()
+    {
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Palette, ["#AA0000"])
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, First))
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, Second)));
+
+        Assert.Equal(["#AA0000", ChartColor.Other], cut.FindAll(".mussel-radar-fill").Select(static x => x.GetAttribute("fill")));
     }
 
     [Fact]
@@ -318,6 +341,22 @@ public sealed class MusselRadarChartViewTests : BunitContext
     {
         var cut = Render<MusselRadarChartView>(parameters => parameters
             .Add(static p => p.EmptyText, "No data"));
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+    }
+
+    [Fact]
+    public void ShowsEmptyTextWhenOnlyHiddenSeriesHaveValues()
+    {
+        ChartEntry[] empty = [new("A", Double.NaN), new("B", Double.NaN), new("C", Double.NaN)];
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.EmptyText, "No data")
+            .Add(static p => p.LegendToggleEnabled, true)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, First).Add(static p => p.Title, "One"))
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, empty).Add(static p => p.Title, "Two")));
+        Assert.Equal(string.Empty, cut.Find(".mussel-empty text").TextContent);
+
+        cut.FindAll(".mussel-view-legend-item")[0].Click();
 
         Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
     }

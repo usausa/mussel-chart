@@ -6,8 +6,10 @@
     transition: opacity 150ms;
 }
 
-.mussel-rings-hover:hover .mussel-ring:not(:hover) {
-    opacity: 0.35;
+@media (hover: hover) {
+    .mussel-rings-hover:hover .mussel-ring:not(:hover) {
+        opacity: 0.35;
+    }
 }
 
 .mussel-radial-glow {

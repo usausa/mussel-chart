@@ -47,27 +47,11 @@ internal sealed record RadialBarLayoutOptions
 
 internal sealed record RadialBarRow(int Slot, string? Label, double Ratio, double Percent, string? Color, string? PercentText, string? ValueText);
 
-internal sealed record RadialBarCenter(string Value, string? Caption, double ValueFontSize, double CaptionFontSize, double ValueY, double CaptionY);
-
 internal sealed class RadialBarLayout
 {
     private const double Padding = 8;
 
-    private const double LegendFontSize = 12;
-
-    private const double CenterPadding = 4;
-
-    private const double CaptionGap = 2;
-
-    private const double MaxCenterFontSize = 32;
-
-    private const double MinCenterFontSize = 6;
-
     private const double MaxThicknessRatio = 1d / 6;
-
-    private const double CenterFontRatio = 0.5;
-
-    private const double CaptionFontRatio = 0.45;
 
     private const double MinExtent = 1e-6;
 
@@ -93,15 +77,17 @@ internal sealed class RadialBarLayout
 
     private const double MaxMarkerSpacing = 12;
 
-    private const int FitAttempts = 3;
-
     private const string PercentPattern = "P0";
 
     private readonly List<RadialBarRow> rows = [];
 
     private double valueTotal;
 
+    private Area plot;
+
     public IReadOnlyList<RadialBarRow> Rows => rows;
+
+    public bool HasValues { get; private set; }
 
     public double CenterX { get; private set; }
 
@@ -117,7 +103,7 @@ internal sealed class RadialBarLayout
 
     public double MarkerWidth { get; private set; }
 
-    public RadialBarCenter? Center { get; private set; }
+    public ChartCenterText? Center { get; private set; }
 
     public double GlowSigma => GlowSigmaBase + (Thickness * GlowSigmaRatio);
 
@@ -140,8 +126,6 @@ internal sealed class RadialBarLayout
         var limit = (int)Math.Floor(length / (segmentGap + MinSegmentLength));
         return Math.Max(1, Math.Min(segmentCount, limit));
     }
-
-    private static double RoundSize(double size) => Math.Floor(size * 2) / 2;
 
     private static double ResolveThickness(double radius, double innerRadius, double? ringThickness, double spacing, int count)
     {
@@ -169,14 +153,20 @@ internal sealed class RadialBarLayout
     {
         rows.Clear();
         valueTotal = 0;
+        HasValues = false;
         var wrap = (options.OverflowMode == ChartOverflowMode.Wrap) && (options.DisplayMode != ChartRadialBarMode.Segmented);
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            valueTotal += Double.IsFinite(item.Value) ? item.Value : 0;
+            if (Double.IsFinite(item.Value))
+            {
+                valueTotal += item.Value;
+                HasValues = true;
+            }
+
             var maximum = item.Maximum ?? options.Maximum;
             var range = (maximum / 2) - (options.Minimum / 2);
-            var valid = Double.IsFinite(item.Value) && (range > 0);
+            var valid = Double.IsFinite(item.Value) && (range > 0) && Double.IsFinite(range);
             var raw = valid ? ((item.Value / 2) - (options.Minimum / 2)) / range : Double.NaN;
             var ratio = !valid ? 0 : wrap ? Math.Max(0, raw) : Math.Clamp(raw, 0, 1);
             var percent = valid ? raw.ToString(PercentPattern, options.Culture) : null;
@@ -187,6 +177,7 @@ internal sealed class RadialBarLayout
 
     private void PlaceRings(Area area, RadialBarLayoutOptions options, double sweep, double inner)
     {
+        plot = area;
         if (options.BarGlow)
         {
             var margin = Math.Min(area.Width, area.Height) * GlowMarginRatio;
@@ -229,61 +220,33 @@ internal sealed class RadialBarLayout
     private void PrepareCenter(RadialBarLayoutOptions options)
     {
         Center = null;
-        var edge = rows.Count > 0 ? GetRingRadius(rows.Count - 1) - (Thickness / 2) : OuterRadius;
-        var available = edge - CenterPadding;
-        if ((rows.Count == 0) || (available <= 0))
+        if (!HasValues)
         {
             return;
         }
 
+        var edge = GetRingRadius(rows.Count - 1) - (Thickness / 2);
+
         if (options.CenterText is { } text)
         {
-            Center = FitCenter(text, options.CenterLabel, available);
+            Center = FitCenter(text, options.CenterLabel, edge);
         }
         else if (options.CenterValueMode == ChartCenterValueMode.Auto)
         {
             var first = rows[0];
             if (first.PercentText is { } percent)
             {
-                Center = FitCenter(percent, options.CenterLabel ?? first.Label, available);
+                Center = FitCenter(percent, options.CenterLabel ?? first.Label, edge);
             }
         }
         else if ((options.CenterValueMode == ChartCenterValueMode.Total) && Double.IsFinite(valueTotal))
         {
-            Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, available);
+            Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, edge);
         }
     }
 
-    private RadialBarCenter? FitCenter(string value, string? caption, double available)
-    {
-        var valueSize = RoundSize(Math.Min(MaxCenterFontSize, (available + CenterPadding) * CenterFontRatio));
-        for (var attempt = 0; attempt < FitAttempts; attempt++)
-        {
-            if (valueSize < MinCenterFontSize)
-            {
-                return null;
-            }
-
-            var captionSize = RoundSize(Math.Min(LegendFontSize, valueSize * CaptionFontRatio));
-            var text = !String.IsNullOrEmpty(caption) && (captionSize >= MinCenterFontSize) ? caption : null;
-            var valueWidth = ChartText.Measure(value, valueSize);
-            var valueHeight = ChartText.LineHeight(valueSize);
-            var captionWidth = ChartText.Measure(text, captionSize);
-            var captionHeight = text is null ? 0 : ChartText.LineHeight(captionSize);
-            var height = valueHeight + (text is null ? 0 : CaptionGap + captionHeight);
-            var width = Math.Max(valueWidth, captionWidth);
-            var top = CenterY - (height / 2);
-            var extent = Math.Sqrt((width * width / 4) + (height * height / 4));
-            if (extent <= available)
-            {
-                return new RadialBarCenter(value, text, valueSize, captionSize, top + (valueHeight / 2), top + valueHeight + CaptionGap + (captionHeight / 2));
-            }
-
-            valueSize = RoundSize(valueSize * available / extent);
-        }
-
-        return null;
-    }
+    private ChartCenterText? FitCenter(string value, string? caption, double edge) =>
+        ChartCenterText.Fit(value, caption, edge, CenterY, plot.Y, plot.Y + plot.Height);
 
     private readonly record struct Area(double X, double Y, double Width, double Height);
 }

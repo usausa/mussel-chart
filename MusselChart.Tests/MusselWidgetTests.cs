@@ -121,8 +121,26 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void GaugeTrackCanBeLeftOut()
+    {
+        var shown = Render<MusselBarGaugeView>(parameters => parameters.Add(static p => p.Items, [new ChartEntry("Shop", 30)]));
+        var hidden = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("Shop", 30)])
+            .Add(static p => p.TrackVisible, false));
+
+        Assert.Single(shown.FindAll(".mussel-gauge-track"));
+        Assert.Empty(hidden.FindAll(".mussel-gauge-track"));
+    }
+
+    [Fact]
     public void GaugeDrawsRatioValueAndTarget()
     {
+        var infinite = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("Shop", 30)])
+            .Add(static p => p.Minimum, Double.NegativeInfinity)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+        Assert.DoesNotContain("NaN", infinite.Markup, StringComparison.Ordinal);
+
         var cut = Render<MusselBarGaugeView>(parameters => parameters
             .Add(static p => p.Items, [new ChartEntry("Shop", 30, null, 40, 35)])
             .Add(static p => p.ValueMode, ChartBarGaugeValueMode.ValueOfMaximum)
@@ -306,6 +324,28 @@ public sealed class MusselWidgetTests : BunitContext
         var points = area.Find("polygon").GetAttribute("points")!.Split(' ');
         Assert.StartsWith("2,", points[0], StringComparison.Ordinal);
         Assert.StartsWith("3,", points[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEmptyPaletteIsGray()
+    {
+        var stat = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 50)
+            .Add(static p => p.ColorMode, ChartStatColorMode.Value)
+            .Add(static p => p.Palette, Array.Empty<string>()));
+        var gauge = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.Palette, Array.Empty<string>()));
+        var line = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [1d, 2, 3])
+            .Add(static p => p.Palette, Array.Empty<string>()));
+        var plain = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, [1d, 2, 3]));
+
+        Assert.Equal("color: " + ChartColor.Other, stat.Find(".mussel-stat-value").GetAttribute("style"));
+        Assert.Equal(ChartColor.Other, gauge.Find(".mussel-gauge-value text").GetAttribute("fill"));
+        Assert.Equal(ChartColor.Other, line.Find("polyline").GetAttribute("stroke"));
+        Assert.Equal(ChartPalettes.DefaultLight[0], plain.Find("polyline").GetAttribute("stroke"));
     }
 
     [Fact]

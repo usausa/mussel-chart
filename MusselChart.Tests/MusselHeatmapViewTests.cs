@@ -29,6 +29,20 @@ public sealed class MusselHeatmapViewTests : BunitContext
             .Add(static p => p.Culture, CultureInfo.InvariantCulture));
 
     [Fact]
+    public void AnEndThatIsNotFiniteLeavesNoNaN()
+    {
+        var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
+            .Add(static p => p.Items, Items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Column, static x => x.Column)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.Maximum, Double.PositiveInfinity)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MatrixDrawsEveryCellAndEmptyOnesInTheTrack()
     {
         var cut = RenderMatrix(Items);

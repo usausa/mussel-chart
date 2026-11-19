@@ -205,6 +205,24 @@ public sealed class MusselChartKindsTests : BunitContext
     }
 
     [Fact]
+    public void RangeBarsOnAFixedValueAxisAreNotCut()
+    {
+        CategoryItem[] items = [new("A", -1000, 150)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<NumericAxis>(static axis => axis.Add(static p => p.Minimum, 100).Add(static p => p.Maximum, 200))
+            .AddChildContent<RangeBarSeries<CategoryItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.Category, static x => x.Name)
+                .Add(static p => p.Low, static x => x.Value)
+                .Add(static p => p.High, static x => x.Other)));
+
+        var valueBase = Double.Parse(cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base")!, CultureInfo.InvariantCulture);
+        Assert.Equal(-1000 - valueBase, Double.Parse(cut.Find(".mussel-bars rect").GetAttribute("y")!, CultureInfo.InvariantCulture), 3);
+    }
+
+    [Fact]
     public void RangeBarsSpanFromLowToHighWithoutZero()
     {
         CategoryItem[] items = [new("A", 10, 14), new("B", 22, 16)];
@@ -321,7 +339,9 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.MarkerShape, shape)));
 
         Assert.Empty(cut.FindAll(".mussel-markers circle"));
-        Assert.Equal(2, cut.FindAll(".mussel-markers path").Count);
+        var paths = cut.FindAll(".mussel-markers path");
+        Assert.Equal(2, paths.Count);
+        Assert.All(paths, static x => Assert.False(String.IsNullOrEmpty(x.GetAttribute("data-x")) || String.IsNullOrEmpty(x.GetAttribute("data-y"))));
     }
 
     [Fact]

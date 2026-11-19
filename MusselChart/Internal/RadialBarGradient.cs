@@ -16,7 +16,7 @@ internal static class RadialBarGradient
     {
         var colors = new List<string>(sorted.Count + 2);
         var positions = new List<double>(sorted.Count + 2);
-        if ((sorted.Count == 0) || !Double.IsNegativeInfinity(sorted[0].Value))
+        if (!Double.IsNegativeInfinity(sorted[0].Value))
         {
             colors.Add(baseColor);
             positions.Add(0);

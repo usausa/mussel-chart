@@ -99,7 +99,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
         var culture = Culture ?? CultureInfo.CurrentCulture;
         sources.Add(Items);
         sources.Apply();
-        var fallback = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+        var fallback = Color ?? ChartColor.At(Palette ?? ChartPalettes.DefaultLight, 0);
         rootClass = LabelPosition == ChartBarGaugeLabelPosition.Left ? "mussel-gauge mussel-gauge-left" : "mussel-gauge";
         barHeight = ChartFormat.Pixel(BarThickness);
         segmentWidth = ChartFormat.Pixel(SegmentWidth);
@@ -116,8 +116,9 @@ public sealed partial class MusselBarGaugeView : IDisposable
             var item = items[i];
             var maximum = item.Maximum ?? Maximum;
             var range = (maximum / 2) - (Minimum / 2);
-            var known = Double.IsFinite(item.Value);
-            var ratio = known && (range > 0) ? ((item.Value / 2) - (Minimum / 2)) / range : 0;
+            var scaled = (range > 0) && Double.IsFinite(range);
+            var known = Double.IsFinite(item.Value) && scaled;
+            var ratio = known ? ((item.Value / 2) - (Minimum / 2)) / range : 0;
             var percent = ratio * 100;
             var own = item.Color ?? fallback;
             var color = known ? ResolveColor(percent, own) : own;
@@ -141,7 +142,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
                 _ => FormatValue(item.Value, culture)
             };
             longest = Math.Max(longest, text.Length);
-            var target = (item.Target is { } goal) && (range > 0) ? ToPercent(((goal / 2) - (Minimum / 2)) / range) : null;
+            var target = (item.Target is { } goal) && scaled ? ToPercent(((goal / 2) - (Minimum / 2)) / range) : null;
             rows.Add(new GaugeRow(
                 item.Label,
                 ToPercent(ratio) ?? "0%",

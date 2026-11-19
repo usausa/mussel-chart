@@ -379,8 +379,8 @@ internal sealed class HeatmapLayout
         }
 
         HasValues = !Double.IsNaN(minimum);
-        var fixedMinimum = options.Minimum;
-        var fixedMaximum = options.Maximum;
+        var fixedMinimum = ChartRange.Finite(options.Minimum);
+        var fixedMaximum = ChartRange.Finite(options.Maximum);
         if ((fixedMinimum is { } low) && (fixedMaximum is { } high) && !(high > low))
         {
             fixedMinimum = null;

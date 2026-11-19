@@ -584,7 +584,7 @@ export function horizontalTooltipLeft(plotLeft, scale, width, tooltipWidth) {
     return Math.max(Math.min((plotLeft * scale) + 8, width - tooltipWidth), 0);
 }
 
-export function markerEntry(marker, base) {
+function markerEntry(marker, base) {
     const y = Number(marker.dataset.y);
     return { y, value: y + base, size: marker.dataset.size };
 }

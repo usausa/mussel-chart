@@ -127,7 +127,7 @@ public sealed class MusselStateTimelineViewTests : BunitContext
             [new StateItem("A", Origin, "x"), new StateItem("A", Origin.AddHours(1), null), new StateItem("A", Origin.AddHours(2), "y")],
             p => p.Add(static x => x.Maximum, Origin.AddHours(3)));
 
-        Assert.Equal(2, cut.FindAll(".mussel-timeline-bands rect").Count);
+        AssertTwoBandsApart(cut.FindAll(".mussel-timeline-bands rect"));
     }
 
     [Fact]
@@ -207,7 +207,26 @@ public sealed class MusselStateTimelineViewTests : BunitContext
             [new StateItem("A", Origin, 10d), new StateItem("A", Origin.AddHours(1), value), new StateItem("A", Origin.AddHours(2), 20d)],
             p => p.Add(static x => x.Maximum, Origin.AddHours(3)));
 
-        Assert.Equal(2, cut.FindAll(".mussel-timeline-bands rect").Count);
+        AssertTwoBandsApart(cut.FindAll(".mussel-timeline-bands rect"));
+    }
+
+    private static void AssertTwoBandsApart(IReadOnlyList<AngleSharp.Dom.IElement> bands)
+    {
+        Assert.Equal(2, bands.Count);
+        var firstEnd = Double.Parse(bands[0].GetAttribute("x")!, CultureInfo.InvariantCulture) + Double.Parse(bands[0].GetAttribute("width")!, CultureInfo.InvariantCulture);
+        Assert.True(Double.Parse(bands[1].GetAttribute("x")!, CultureInfo.InvariantCulture) > firstEnd);
+    }
+
+    [Fact]
+    public void TooltipsAreLeftOutWithoutTheTrackball()
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin, "x"), new StateItem("A", Origin.AddHours(1), "y")],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(2)).Add(static x => x.TrackballMode, ChartTrackballMode.None));
+
+        var bands = cut.FindAll(".mussel-timeline-bands rect");
+        Assert.Equal(2, bands.Count);
+        Assert.All(bands, static x => Assert.Null(x.GetAttribute("data-tip")));
     }
 
     [Fact]

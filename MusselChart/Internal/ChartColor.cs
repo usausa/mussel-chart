@@ -31,6 +31,8 @@ internal static class ChartColor
         return threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : Level(threshold.Level));
     }
 
+    public static string At(IReadOnlyList<string> palette, int index) => index < palette.Count ? palette[index] : Other;
+
     public static bool TryParse(string? text, out (int R, int G, int B) color)
     {
         color = default;

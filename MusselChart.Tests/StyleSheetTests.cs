@@ -42,6 +42,30 @@ public sealed partial class StyleSheetTests
         Assert.Contains("font-family: var(--mussel-font-family, inherit);", body, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("MusselPieChartView.razor.css", ".mussel-slices-hover:hover .mussel-slice:not(:hover)")]
+    [InlineData("MusselRadialBarView.razor.css", ".mussel-rings-hover:hover .mussel-ring:not(:hover)")]
+    public void DimmingTheOthersNeedsAPointerThatHovers(string file, string selector)
+    {
+        var css = File.ReadAllText(Path.Combine(TestPaths.Root, "MusselChart", file));
+
+        var start = css.IndexOf("@media (hover: hover)", StringComparison.Ordinal);
+
+        Assert.True(start >= 0);
+        Assert.True(css.IndexOf(selector, StringComparison.Ordinal) > start);
+    }
+
+    [Fact]
+    public void CornersAreNotRounded()
+    {
+        var files = Directory.GetFiles(Path.Combine(TestPaths.Root, "MusselChart"), "*.razor.css", SearchOption.AllDirectories)
+            .Append(Path.Combine(TestPaths.Root, "MusselChart", "wwwroot", "MusselChart.css"))
+            .ToList();
+
+        Assert.True(files.Count > 1);
+        Assert.All(files, static x => Assert.DoesNotMatch(RoundedCorner(), File.ReadAllText(x)));
+    }
+
     [GeneratedRegex(@"(?<selector>[^{}]+)\{(?<body>[^{}]*)\}")]
     private static partial Regex Rule();
 
@@ -50,6 +74,9 @@ public sealed partial class StyleSheetTests
 
     [GeneratedRegex(@",(?![^(]*\))")]
     private static partial Regex TopLevelComma();
+
+    [GeneratedRegex(@"border-radius\s*:(?!\s*50%)")]
+    private static partial Regex RoundedCorner();
 
     [GeneratedRegex(@"^(?::where\([^()]*\)\s*)+$")]
     private static partial Regex WhereOnly();

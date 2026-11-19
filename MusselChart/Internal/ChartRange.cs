@@ -35,8 +35,8 @@ internal static class ChartRange
             maximum += delta;
         }
 
-        var fixedMinimum = options.Minimum;
-        var fixedMaximum = options.Maximum;
+        var fixedMinimum = Finite(options.Minimum);
+        var fixedMaximum = Finite(options.Maximum);
         if ((fixedMinimum is { } low) && (fixedMaximum is { } high) && !(high > low))
         {
             fixedMinimum = null;
@@ -52,6 +52,8 @@ internal static class ChartRange
 
         return NiceScale.Create(minimum, maximum, divisions, options.Nice && (fixedMinimum is null), options.Nice && (fixedMaximum is null));
     }
+
+    public static double? Finite(double? value) => (value is { } number) && Double.IsFinite(number) ? number : null;
 
     public static (double Minimum, double Maximum) Pad(double minimum, double maximum, double padding, double length)
     {

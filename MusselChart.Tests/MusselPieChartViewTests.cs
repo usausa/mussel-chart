@@ -48,6 +48,16 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void SlicesBeyondThePaletteAreGray()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 1), new ChartEntry("B", 1)])
+            .Add(static p => p.Palette, ["#AA0000"]));
+
+        Assert.Equal(["#AA0000", ChartColor.Other], cut.FindAll(".mussel-slice").Select(static x => x.GetAttribute("fill")));
+    }
+
+    [Fact]
     public void ValuesThatAreNotPositiveAreSkipped()
     {
         var cut = Render<MusselPieChartView>(parameters => parameters
@@ -259,12 +269,36 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void ThePlotTellsTheScriptHowToTrack()
+    {
+        var shown = Render<MusselPieChartView>(parameters => parameters.Add(static p => p.Items, [new ChartEntry("A", 75)]));
+        var hidden = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 75)])
+            .Add(static p => p.TrackballMode, ChartTrackballMode.None)
+            .Add(static p => p.TooltipVisible, false));
+
+        Assert.Equal(["hover", "true"], [shown.Find(".mussel-view-plot").GetAttribute("data-trackball"), shown.Find(".mussel-view-plot").GetAttribute("data-tooltip")]);
+        Assert.Equal(["none", "false"], [hidden.Find(".mussel-view-plot").GetAttribute("data-trackball"), hidden.Find(".mussel-view-plot").GetAttribute("data-tooltip")]);
+    }
+
+    [Fact]
     public void TooltipsAreLeftOutWithoutTheTrackball()
     {
         var cut = Render<MusselPieChartView>(parameters => parameters
             .Add(static p => p.Items, [new ChartEntry("A", 75), new ChartEntry("B", 25)])
             .Add(static p => p.TrackballMode, ChartTrackballMode.None));
 
+        Assert.All(cut.FindAll(".mussel-slice"), static x => Assert.Null(x.GetAttribute("data-tip")));
+    }
+
+    [Fact]
+    public void TooltipsAreLeftOutWhenTheTooltipIsHidden()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 75), new ChartEntry("B", 25)])
+            .Add(static p => p.TooltipVisible, false));
+
+        Assert.NotEmpty(cut.FindAll(".mussel-slice"));
         Assert.All(cut.FindAll(".mussel-slice"), static x => Assert.Null(x.GetAttribute("data-tip")));
     }
 
@@ -328,6 +362,18 @@ public sealed class MusselPieChartViewTests : BunitContext
 
         Assert.Contains("mussel-prerendering", cut.Find(".mussel-view-plot").ClassList);
         Assert.DoesNotContain("mussel-unmeasured", cut.Find(".mussel-view-plot").ClassList);
+    }
+
+    [Fact]
+    public void TheCenterOfAnUpperHalfDonutStaysInsideTheView()
+    {
+        var layout = new PieLayout();
+
+        layout.Update(640, 220, new PieLayoutOptions { StartAngle = 270, SweepAngle = 180, InnerRadius = 0.8, CenterLabel = "Total", Culture = CultureInfo.InvariantCulture }, Entries);
+
+        var center = layout.Center!;
+        Assert.Equal("Total", center.Caption);
+        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 220);
     }
 
     [Fact]

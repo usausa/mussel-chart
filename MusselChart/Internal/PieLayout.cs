@@ -51,8 +51,6 @@ internal sealed record PieSlice(int DataIndex, double Value, double Start, doubl
 
 internal readonly record struct PieOutsideLabel(PieSlice Slice, double X, double Y, double EdgeX, double EdgeY, double ElbowX, double ElbowY, double EndX, bool Right);
 
-internal sealed record PieCenterText(string Value, string? Caption, double ValueFontSize, double CaptionFontSize, double ValueY, double CaptionY);
-
 internal sealed class PieLayout
 {
     public const double DataLabelFontSize = 11;
@@ -62,20 +60,6 @@ internal sealed class PieLayout
     private const double LabelRadius = 0.62;
 
     private const double LabelPadding = 2;
-
-    private const double LegendFontSize = 12;
-
-    private const double CenterPadding = 4;
-
-    private const double CaptionGap = 2;
-
-    private const double MaxCenterFontSize = 32;
-
-    private const double MinCenterFontSize = 6;
-
-    private const double CenterFontRatio = 0.5;
-
-    private const double CaptionFontRatio = 0.45;
 
     private const double OutsideLineLength = 8;
 
@@ -90,8 +74,6 @@ internal sealed class PieLayout
     private const double MinExtent = 1e-6;
 
     private const double Tolerance = 1e-6;
-
-    private const int FitAttempts = 3;
 
     private const string HiddenPercentText = "-";
 
@@ -133,7 +115,7 @@ internal sealed class PieLayout
 
     public double Total { get; private set; }
 
-    public PieCenterText? Center { get; private set; }
+    public ChartCenterText? Center { get; private set; }
 
     private double StartAngle => options.StartAngle;
 
@@ -231,8 +213,6 @@ internal sealed class PieLayout
     }
 
     private static double Square(double value) => value * value;
-
-    private static double RoundSize(double size) => Math.Floor(size * 2) / 2;
 
     private static int LargerFirst(PieCandidate x, PieCandidate y)
     {
@@ -630,39 +610,10 @@ internal sealed class PieLayout
         Center = Double.IsFinite(value) ? FitCenter(value, options.CenterLabel) : null;
     }
 
-    private PieCenterText? FitCenter(double number, string? caption)
+    private ChartCenterText? FitCenter(double number, string? caption)
     {
         var (format, formatter) = ChartFormat.Pick(options.CenterValueFormat, options.CenterValueFormatter, options.ValueFormat, options.ValueFormatter);
-        var value = ChartFormat.Value(number, format, formatter, options.Culture);
-        var available = InnerRadius - CenterPadding;
-        var valueSize = RoundSize(Math.Min(MaxCenterFontSize, InnerRadius * CenterFontRatio));
-        for (var attempt = 0; attempt < FitAttempts; attempt++)
-        {
-            if ((available <= 0) || (valueSize < MinCenterFontSize))
-            {
-                return null;
-            }
-
-            var captionSize = RoundSize(Math.Min(LegendFontSize, valueSize * CaptionFontRatio));
-            var text = !String.IsNullOrEmpty(caption) && (captionSize >= MinCenterFontSize) ? caption : null;
-            var valueWidth = ChartText.Measure(value, valueSize);
-            var valueHeight = ChartText.LineHeight(valueSize);
-            var captionWidth = ChartText.Measure(text, captionSize);
-            var captionHeight = text is null ? 0 : ChartText.LineHeight(captionSize);
-            var height = valueHeight + (text is null ? 0 : CaptionGap + captionHeight);
-            var width = Math.Max(valueWidth, captionWidth);
-            var top = Math.Clamp(CenterY - (height / 2), area.Y, Math.Max(area.Y, area.Y + area.Height - height));
-            var reach = Math.Max(Math.Abs(top - CenterY), Math.Abs(top + height - CenterY));
-            var extent = Math.Sqrt((width * width / 4) + (reach * reach));
-            if (extent <= available)
-            {
-                return new PieCenterText(value, text, valueSize, captionSize, top + (valueHeight / 2), top + valueHeight + CaptionGap + (captionHeight / 2));
-            }
-
-            valueSize = RoundSize(valueSize * available / extent);
-        }
-
-        return null;
+        return ChartCenterText.Fit(ChartFormat.Value(number, format, formatter, options.Culture), caption, InnerRadius, CenterY, area.Y, area.Y + area.Height);
     }
 
     private readonly record struct PieCandidate(double Value, int Index);

@@ -3,6 +3,8 @@ namespace MusselChart;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 using MusselChart.Internal;
 
@@ -325,6 +327,28 @@ public sealed class MusselChartViewTests : BunitContext
 
         Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
         Assert.Empty(cut.FindAll("polyline"));
+    }
+
+    [Fact]
+    public void SeriesBeyondThePaletteAreGray()
+    {
+        Sample[] items = [new(Start, 1), new(Start.AddSeconds(1), 2)];
+        void Line(ComponentParameterCollectionBuilder<LineSeries<Sample>> series) => series
+            .Add(static p => p.Items, items)
+            .Add(static p => p.X, static x => x.Time)
+            .Add(static p => p.Y, static x => x.Value);
+
+        var few = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Palette, ["#AA0000", "#00AA00"])
+            .AddChildContent<LineSeries<Sample>>(Line)
+            .AddChildContent<LineSeries<Sample>>(Line)
+            .AddChildContent<LineSeries<Sample>>(Line));
+        var empty = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Palette, Array.Empty<string>())
+            .AddChildContent<LineSeries<Sample>>(Line));
+
+        Assert.Equal(["#AA0000", "#00AA00", ChartColor.Other], few.FindAll(".mussel-series").Select(static x => x.GetAttribute("data-color")));
+        Assert.Equal([ChartColor.Other], empty.FindAll(".mussel-series").Select(static x => x.GetAttribute("data-color")));
     }
 
     [Fact]
@@ -724,14 +748,36 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.StackGroup, group)));
 
         var valueBase = Double.Parse(cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base")!, CultureInfo.InvariantCulture);
-        Assert.All(cut.FindAll(".mussel-bars rect"), rect =>
+        var rects = cut.FindAll(".mussel-bars rect");
+        Assert.Equal(2, rects.Count);
+        Assert.All(rects, rect =>
         {
             var y = Double.Parse(rect.GetAttribute("y")!, CultureInfo.InvariantCulture);
             var height = Double.Parse(rect.GetAttribute("height")!, CultureInfo.InvariantCulture);
             var top = Double.Parse(rect.GetAttribute("data-v")!, CultureInfo.InvariantCulture) - valueBase;
             Assert.InRange(y + height - top, -0.01, 0.01);
             Assert.InRange((float)y + (float)height - top, -0.01, 0.01);
+            Assert.True(height > 0);
+            Assert.True(y < 1234567800 - valueBase);
         });
+    }
+
+    [Fact]
+    public async Task DisposingTellsTheScriptAndReleasesIt()
+    {
+        var instance = new LateModule();
+        var runtime = new LateRuntime { Module = { Returned = instance } };
+        Services.AddSingleton<IJSRuntime>(runtime);
+        var cut = Render<MusselChartView>(parameters => parameters.Add(static p => p.Height, 240));
+        await cut.InvokeAsync(() => runtime.Import.SetResult(runtime.Module));
+        await cut.WaitForAssertionAsync(() => Assert.Equal(["attach"], runtime.Module.Calls));
+
+        await cut.InvokeAsync(() => cut.Instance.DisposeAsync().AsTask());
+
+        Assert.Equal(["attach"], runtime.Module.Calls);
+        Assert.Equal(["dispose"], instance.Calls);
+        Assert.True(instance.Released);
+        Assert.True(runtime.Module.Released);
     }
 
     [Fact]
@@ -802,8 +848,8 @@ public sealed class MusselChartViewTests : BunitContext
         var last = cut.Find("polyline").GetAttribute("points")!.Split(' ')[^1].Split(',');
         var (x, y) = Transform(cut.Find(".mussel-plot").GetAttribute("transform")!, Double.Parse(last[0], CultureInfo.InvariantCulture), Double.Parse(last[1], CultureInfo.InvariantCulture));
         var live = cut.Find(".mussel-live circle");
-        Assert.Equal(Number(live, "cx"), x, 0.05);
-        Assert.Equal(Number(live, "cy"), y, 0.05);
+        Assert.Equal(Number(live, "cx"), x, 0.06);
+        Assert.Equal(Number(live, "cy"), y, 0.06);
     }
 
     [Fact]

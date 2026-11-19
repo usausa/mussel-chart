@@ -24,7 +24,6 @@
 .sample-card {
     padding: 8px;
     border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 2px;
     background: var(--mud-palette-surface);
 }
 
@@ -89,7 +88,6 @@
 .panel {
     padding: 6px 8px;
     border: 1px solid rgba(204, 204, 220, 0.12);
-    border-radius: 2px;
     background: #181B1F;
 }
 

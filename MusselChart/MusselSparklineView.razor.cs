@@ -61,7 +61,7 @@ public sealed partial class MusselSparklineView : IDisposable
         sources.Apply();
         bars = Kind is ChartSparklineKind.Bar or ChartSparklineKind.WinLoss;
         path = Kind == ChartSparklineKind.WinLoss ? TrendPath.CreateWinLoss(Values, copied, Height) : TrendPath.Create(Values, copied, Minimum, Maximum, bars, bars ? 0 : 4);
-        color = Color ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+        color = Color ?? ChartColor.At(Palette ?? ChartPalettes.DefaultLight, 0);
         negative = NegativeColor ?? (Kind == ChartSparklineKind.WinLoss ? null : color);
     }
 

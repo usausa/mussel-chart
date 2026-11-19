@@ -10,6 +10,8 @@ public sealed class ChartSourceTests : BunitContext
 {
     private static readonly DateTime Start = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+    private static string Seconds(DateTime time) => ((time.Ticks - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture);
+
     public ChartSourceTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
@@ -238,6 +240,33 @@ public sealed class ChartSourceTests : BunitContext
 
         Assert.Equal(before, cut.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
         Assert.Contains(cut.FindAll("polyline"), static x => x.GetAttribute("points")!.EndsWith(" 120000,2000", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task APushPastTheRebaseMovesTheTimeBaseToTheOldestPoint()
+    {
+        var buffer = new ChartRingBuffer<Sample>(2);
+        buffer.Push(new Sample(Start, 0));
+        buffer.Push(new Sample(Start.AddDays(2), 1));
+        var cut = RenderLines(buffer, buffer);
+
+        await cut.InvokeAsync(() => buffer.Push(new Sample(Start.AddDays(2).AddSeconds(1), 2)));
+        await cut.InvokeAsync(static () => { });
+
+        Assert.Equal(Seconds(Start.AddDays(2)), cut.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
+    }
+
+    [Fact]
+    public void TheTimeBaseOfPointsOutOfOrderComesFromTheOldestKeptPoint()
+    {
+        var buffer = new ChartRingBuffer<Sample>(100);
+        buffer.Push(new Sample(Start.AddHours(30), 0));
+        buffer.Push(new Sample(Start, 1));
+        buffer.Push(new Sample(Start.AddMinutes(1), 2));
+
+        var cut = RenderLines(buffer, buffer);
+
+        Assert.Equal(Seconds(Start.AddHours(30)), cut.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
     }
 
     [Fact]

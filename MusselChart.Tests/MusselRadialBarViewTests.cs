@@ -35,6 +35,16 @@ public sealed class MusselRadialBarViewTests : BunitContext
     }
 
     [Fact]
+    public void RingsBeyondThePaletteAreGray()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50), new ChartEntry("B", 25)])
+            .Add(static p => p.Palette, ["#AA0000"]));
+
+        Assert.Equal(["#AA0000", ChartColor.Other], cut.FindAll(".mussel-ring").Select(static x => x.QuerySelector("path:not(.mussel-radial-track)")!.GetAttribute("stroke")));
+    }
+
+    [Fact]
     public void TrackCanBeLeftOut()
     {
         var cut = Render<MusselRadialBarView>(parameters => parameters
@@ -120,6 +130,17 @@ public sealed class MusselRadialBarViewTests : BunitContext
     }
 
     [Fact]
+    public void TooltipsAreLeftOutWhenTheTooltipIsHidden()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 90), new ChartEntry("B", 10)])
+            .Add(static p => p.TooltipVisible, false));
+
+        Assert.NotEmpty(cut.FindAll(".mussel-ring"));
+        Assert.All(cut.FindAll(".mussel-ring"), static x => Assert.Null(x.GetAttribute("data-tip")));
+    }
+
+    [Fact]
     public void EachRingTipsOnlyItsOwnRow()
     {
         var cut = Render<MusselRadialBarView>(parameters => parameters
@@ -174,6 +195,64 @@ public sealed class MusselRadialBarViewTests : BunitContext
         var ring = cut.Find(".mussel-ring");
         Assert.Equal(10, ring.QuerySelectorAll("path").Length);
         Assert.Equal(5, ring.QuerySelectorAll(".mussel-radial-unlit").Length);
+    }
+
+    [Fact]
+    public void SegmentedLeavesOutTheCellsThatAreNotLitWithoutTheTrack()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.DisplayMode, ChartRadialBarMode.Segmented)
+            .Add(static p => p.SegmentCount, 10)
+            .Add(static p => p.TrackVisible, false));
+
+        var ring = cut.Find(".mussel-ring");
+        Assert.Equal(5, ring.QuerySelectorAll("path").Length);
+        Assert.Empty(ring.QuerySelectorAll(".mussel-radial-unlit"));
+    }
+
+    [Fact]
+    public void ShowsEmptyTextWithoutData()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, Array.Empty<ChartEntry>())
+            .Add(static p => p.EmptyText, "No data"));
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+        Assert.Empty(cut.FindAll(".mussel-ring"));
+    }
+
+    [Theory]
+    [InlineData(ChartCenterValueMode.Auto, null)]
+    [InlineData(ChartCenterValueMode.Total, null)]
+    [InlineData(ChartCenterValueMode.Auto, "OK")]
+    public void ShowsEmptyTextAndNoCenterWithoutAFiniteValue(ChartCenterValueMode mode, string? text)
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", Double.NaN), new ChartEntry("B", Double.PositiveInfinity)])
+            .Add(static p => p.CenterValueMode, mode)
+            .Add(static p => p.CenterText, text)
+            .Add(static p => p.CenterLabel, "Total")
+            .Add(static p => p.EmptyText, "No data"));
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+        Assert.Empty(cut.FindAll(".mussel-radial-center"));
+        Assert.Empty(cut.FindAll(".mussel-radial-caption"));
+        Assert.Equal(2, cut.FindAll(".mussel-radial-track").Count);
+        Assert.Equal(["A", "B"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void AnyFiniteValueHidesTheEmptyText()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", Double.NaN), new ChartEntry("B", 10)])
+            .Add(static p => p.CenterValueMode, ChartCenterValueMode.Total)
+            .Add(static p => p.EmptyText, "No data")
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.Equal(string.Empty, cut.Find(".mussel-empty text").TextContent);
+        Assert.Equal("10", cut.Find(".mussel-radial-center").TextContent);
     }
 
     [Fact]
@@ -301,7 +380,7 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(p => p.Thresholds, thresholds)
             .Add(static p => p.ThresholdMarkersVisible, true));
 
-        Assert.Empty(marked.FindAll(".mussel-radial-markers path"));
+        Assert.Empty(marked.FindAll(".mussel-radial-markers > *"));
         Assert.Equal(plain.Find(".mussel-radial-sweep div").GetAttribute("style"), marked.Find(".mussel-radial-sweep div").GetAttribute("style"));
         Assert.Equal(plain.Find(".mussel-radial-track").GetAttribute("d"), marked.Find(".mussel-radial-track").GetAttribute("d"));
     }
@@ -315,6 +394,44 @@ public sealed class MusselRadialBarViewTests : BunitContext
 
         Assert.NotNull(cut.Find("filter feGaussianBlur"));
         Assert.Single(cut.FindAll(".mussel-radial-glow path"));
+    }
+
+    [Fact]
+    public void GlowCopiesTheRoundEndsOfAGradient()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50, "#5794F2")])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.CapStyle, ChartCapStyle.Round)
+            .Add(static p => p.BarGlow, true));
+        cut.Render();
+
+        var ends = cut.Find(".mussel-ring").QuerySelectorAll("circle").Select(static x => (x.GetAttribute("cx"), x.GetAttribute("cy"), x.GetAttribute("fill"))).ToList();
+        Assert.Equal(2, ends.Count);
+        Assert.Equal(ends, cut.FindAll(".mussel-radial-glow circle").Select(static x => (x.GetAttribute("cx"), x.GetAttribute("cy"), x.GetAttribute("fill"))));
+    }
+
+    [Fact]
+    public void GlowCopiesTheThresholdRingInEitherFill()
+    {
+        var solid = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.ThresholdMarkersVisible, true)
+            .Add(static p => p.BarGlow, true));
+        var gradient = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.ThresholdMarkersVisible, true)
+            .Add(static p => p.BarGlow, true));
+
+        var arcs = solid.FindAll(".mussel-radial-markers path").Select(static x => x.GetAttribute("d")).ToList();
+        var glows = solid.FindAll(".mussel-radial-glow path").Select(static x => x.GetAttribute("d")).ToList();
+        Assert.Equal(3, arcs.Count);
+        Assert.All(arcs, x => Assert.Contains(x, glows));
+        var sweep = gradient.Find(".mussel-radial-markers .mussel-radial-sweep div").GetAttribute("style");
+        Assert.Contains(sweep, gradient.FindAll(".mussel-radial-glow .mussel-radial-sweep div").Select(static x => x.GetAttribute("style")));
     }
 
     [Fact]
@@ -361,6 +478,30 @@ public sealed class MusselRadialBarViewTests : BunitContext
         Assert.Equal(100, layout.OuterRadius, 3);
         Assert.Equal(100d / 6, layout.Thickness, 3);
         Assert.True(layout.GetRingRadius(1) < layout.GetRingRadius(0));
+    }
+
+    [Fact]
+    public void TheCenterOfAnUpperHalfGaugeStaysInsideTheView()
+    {
+        var layout = new RadialBarLayout();
+
+        layout.Update(640, 220, new RadialBarLayoutOptions { StartAngle = 270, SweepAngle = 180, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("CPU", 50)]);
+
+        var center = layout.Center!;
+        Assert.Equal("CPU", center.Caption);
+        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 220);
+    }
+
+    [Fact]
+    public void AnEndThatIsNotFiniteLeavesNoNaN()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.Minimum, Double.NegativeInfinity)
+            .Add(static p => p.LegendVisible, true)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

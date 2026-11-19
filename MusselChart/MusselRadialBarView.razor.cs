@@ -41,6 +41,8 @@ public sealed partial class MusselRadialBarView
 
     private readonly List<SweepView> glowSweeps = [];
 
+    private readonly List<CapView> glowCaps = [];
+
     private SweepView? markerSweep;
 
     private string ringClass = string.Empty;
@@ -176,26 +178,29 @@ public sealed partial class MusselRadialBarView
             Culture = culture
         }, items);
 
-        ringClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-rings mussel-rings-hover" : "mussel-rings";
+        var hover = TrackballMode == ChartTrackballMode.Hover;
+        ringClass = hover ? "mussel-rings mussel-rings-hover" : "mussel-rings";
+        var tips = hover && TooltipVisible;
         centerX = ChartGeometry.Text(layout.CenterX);
         thicknessText = ChartGeometry.Text(layout.Thickness);
         markerWidthText = ChartGeometry.Text(layout.MarkerWidth);
         capRadius = ChartGeometry.Text(layout.Thickness / 2);
         glowSigma = ChartGeometry.Text(layout.GlowSigma);
-        emptyText = layout.Rows.Count > 0 ? string.Empty : EmptyText ?? string.Empty;
+        emptyText = layout.HasValues ? string.Empty : EmptyText ?? string.Empty;
 
         ringViews.Clear();
         glowArcs.Clear();
         glowSweeps.Clear();
+        glowCaps.Clear();
         markerArcs.Clear();
         markerSweep = null;
         legendItems.Clear();
         var palette = Palette ?? ChartPalettes.DefaultLight;
         foreach (var row in layout.Rows)
         {
-            var baseColor = row.Color ?? (row.Slot < palette.Count ? palette[row.Slot] : ChartColor.Other);
+            var baseColor = row.Color ?? ChartColor.At(palette, row.Slot);
             var color = GetThresholdColor(row.Percent, baseColor);
-            ringViews.Add(CreateRing(row, baseColor, color));
+            ringViews.Add(CreateRing(row, baseColor, color, tips));
             if ((LegendVisible ?? true) && !String.IsNullOrEmpty(row.Label))
             {
                 var value = LegendValueMode switch
@@ -211,7 +216,7 @@ public sealed partial class MusselRadialBarView
         if (markers && (layout.Rows.Count > 0) && (layout.MarkerWidth > 0))
         {
             var first = layout.Rows[0];
-            AddMarkerArcs(first.Color ?? (palette.Count > 0 ? palette[0] : ChartColor.Other));
+            AddMarkerArcs(first.Color ?? ChartColor.At(palette, 0));
         }
     }
 
@@ -222,7 +227,7 @@ public sealed partial class MusselRadialBarView
     private string CreateArc(double radius, double from, double to) =>
         ChartGeometry.Arc(layout.CenterX, layout.CenterY, radius, GetAngle(from), Sweep * (to - from));
 
-    private RingView CreateRing(RadialBarRow row, string baseColor, string color)
+    private RingView CreateRing(RadialBarRow row, string baseColor, string color, bool tips)
     {
         var radius = layout.GetRingRadius(row.Slot);
         var arcs = new List<ArcView>();
@@ -282,11 +287,13 @@ public sealed partial class MusselRadialBarView
                 {
                     glowSweeps.Add(value);
                 }
+
+                glowCaps.AddRange(caps);
             }
         }
 
         string? tip = null;
-        if (TrackballMode == ChartTrackballMode.Hover)
+        if (tips)
         {
             tipRows.Clear();
             tipRows.Add(new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})"));

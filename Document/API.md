@@ -3,7 +3,7 @@
 ## 📈 MusselChartView
 
 Draws line, area, bar, range bar, scatter and bubble series on a date and time, a numeric or a category axis, mixed in one chart.  
-Axes and series are written as child components, and every component passes other attributes such as `class` and `id` to its root element. The child components are rendered again when the chart gets parameters, not when the chart redraws itself. The element a chart measures (the root of `MusselChartView`, and the plot of the pie, radial bar, radar, heatmap and state timeline views) gets `data-attached` once its script is attached, and loses it when the chart is disposed.  
+Axes and series are written as child components, and every component passes other attributes such as `class` and `id` to its root element. The child components are rendered again when the chart gets parameters, not when the chart redraws itself. The element a chart measures (the root of `MusselChartView`, and the plot of the pie, radial bar, radar, heatmap and state timeline views) gets `data-attached` once its script is attached, and loses it when the script is disposed.  
 
 | Name | Type | Default | Description |
 |---|---|---|---|
@@ -68,7 +68,7 @@ Angles are degrees clockwise from 12 o'clock.
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `Items` | `IReadOnlyList<ChartEntry>?` | `null` | Label, value and color of each slice; values that are not positive are skipped |
+| `Items` | `IReadOnlyList<ChartEntry>?` | `null` | Label, value and color of each slice; values that are not positive or not finite are skipped |
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the colors in data order; slices beyond the palette are gray |
 | `InnerRadius` | `double` | `0.6` | Hole as a fraction of the radius, from 0 to 0.95 |
 | `StartAngle`, `SweepAngle` | `double` | `0`, `360` | Start and length of the sweep |
@@ -76,7 +76,7 @@ Angles are degrees clockwise from 12 o'clock.
 | `SortMode` | `ChartSortMode` | `None` | Order of the slices; colors keep the data order |
 | `MaxSlices`, `OthersThreshold`, `OthersLabel` | `int`, `double`, `string` | `8`, `0`, `Other` | The smallest items over the limit and two or more items below the share become one merged slice |
 | `LabelsMode`, `LabelContent` | `ChartPieLabelsMode`, `ChartPieLabelContent` | `None`, `Percent` | `Inside` draws the labels that fit in their slices; `Outside` draws them beside the pie with leader lines |
-| `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Bottom`, `None` | The legend and the value or the percentage in it |
+| `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Bottom`, `None` | The legend and the value or the percentage in it; `null` shows the legend |
 | `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows the slice by its name; the merged slice and the last visible slice stay |
 | `CenterValueMode`, `CenterValue`, `CenterLabel` | `ChartCenterValueMode`, `double?`, `string?` | `Auto`, `null`, `null` | The total or `CenterValue` in the hole, shrunk to fit, with the label under it; a value that is not finite shows neither |
 | `CenterValueFormat`, `CenterValueFormatter` | `string?`, `Func<double, string>?` | `null` | Format of the center value; when neither is set, `ValueFormat` and `ValueFormatter` apply |
@@ -91,18 +91,18 @@ Concentric rings that compare several progress values, the first item being the 
 |---|---|---|---|
 | `Items` | `IReadOnlyList<ChartEntry>?` | `null` | Label, value, color and the maximum of each ring |
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the ring colors |
-| `Minimum`, `Maximum` | `double` | `0`, `100` | Range of every ring; the maximum of an item comes first |
+| `Minimum`, `Maximum` | `double` | `0`, `100` | Range of every ring; the maximum of an item comes first; a range that is not finite shows an item like a value that is not finite |
 | `StartAngle`, `SweepAngle` | `double` | `0`, `360` | Start and length of the rings; `250` and `220` give the gauge open at the bottom |
 | `InnerRadius`, `RingThickness`, `RingSpacing` | `double`, `double?`, `double` | `0.4`, `null`, `4` | `null` divides the area outside `InnerRadius`, up to 1/6 of the radius |
 | `CapStyle` | `ChartCapStyle` | `Flat` | Ends of the rings and the track |
 | `DisplayMode`, `SegmentCount`, `SegmentGap` | `ChartRadialBarMode`, `int`, `double` | `Basic`, `20`, `2` | `Segmented` lights a cell when its start is before the value; fewer cells on short rings |
 | `FillMode` | `ChartFillMode` | `Solid` | `Gradient` draws a sweep of the threshold colors, or of the shades of the ring color |
-| `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring, a glow under the values and a thin ring of the threshold ranges outside the rings |
+| `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring; a glow under the values and the threshold ring; a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
-| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite |
+| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite; with no finite value in any item, `EmptyText` is drawn instead of the center |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
-| `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it |
+| `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it; `null` shows the legend |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other rings and shows the tooltip |
 
 ⚠️ `Gradient` uses a CSS `conic-gradient` in a `foreignObject`, since SVG has no sweep gradient.  
@@ -115,7 +115,7 @@ Compares several series on axes that spread from the center, one axis per item.
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the series colors |
-| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null` is chosen from the visible series with 0 included and nice levels |
+| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter` |
 | `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays |
@@ -142,11 +142,11 @@ The colors follow the Grafana heatmap, spread over 64 steps.
 | `Date` | `Func<TItem, DateTime>?` | `null` | Date of a calendar |
 | `LayoutMode` | `ChartHeatmapLayoutMode` | `Matrix` | A `Matrix` or a `Calendar` |
 | `Height` | `double` | `240` | Height in pixels |
-| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null` takes the smallest and the largest value |
+| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value |
 | `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more; `OrangesDark` suits a dark theme |
 | `CellGap` | `double` | `1` | Space after each cell |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the week starts on the `FirstDayOfWeek` of the culture |
-| `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The color scale and its side |
+| `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The color scale and its side; `null` shows it |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering frames the cell and shows the tooltip |
 
 Rows and columns follow the order of appearance, the first value of a cell is used and a cell without a value is drawn in `--mussel-track`.  
@@ -170,7 +170,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `ShowValue`, `AlignValue` | `ChartVisibilityMode`, `ChartValueAlignment` | `Auto`, `Left` | Text on each band; `Auto` writes it where its first two characters fit |
 | `RowHeight`, `FillOpacity`, `LineWidth` | `double` | `0.9`, `0.7`, `0` | Share of the height taken by the bands, the fill and the outline |
 | `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, and the order of the day and the month follows the culture |
-| `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps |
+| `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps; `null` shows them |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`) |
 
 Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`, in the color of a step without a level. A lone step at `-∞` without `Label` has no name: its bands carry no text, the legend leaves it out, and the tooltip leaves the state empty.  
@@ -195,18 +195,18 @@ A KPI tile that fills the height of its container.
 | `Values`, `Kind` | Values as a `Line`, an `Area`, `Bar`s or `WinLoss`, where wins fill the upper half and losses the lower half; a value that is not finite is skipped, so a line or an area joins the others and a bar leaves its place empty |
 | `Color`, `Palette`, `Thickness` | Colors and the line width |
 | `NegativeColor` | Negative bars and losses; `null` is the color of the bars and `--mussel-critical` for losses |
-| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels |
+| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels; `Bar` widens the range to include 0, and `WinLoss` does not use it |
 
 ## 📶 MusselBarGaugeView
 
 | Name | Description |
 |---|---|
 | `Items` | `ChartEntry` with a label, a value, a color, a maximum and a target; a value that is not finite shows `-` and an empty bar |
-| `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first |
+| `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first; a range that is not finite shows `-` and an empty bar |
 | `DisplayMode`, `SegmentWidth`, `BarThickness` | `Basic` or `Segmented` bars |
 | `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` (one column for every bar, up to 40 % of the width) or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the numbers |
-| `TrackVisible`, `Thresholds`, `Color`, `Palette` | Track, threshold colors by percentage and the bar color |
+| `TrackVisible`, `Thresholds`, `Color`, `Palette` | Track, threshold colors by percentage and the bar color; `Segmented` always draws the cells that are not lit |
 
 ## 🧰 ChartRingBuffer
 
@@ -222,7 +222,7 @@ Series of one chart that share a buffer read the same items, and items pushed wh
 
 ## 🎨 Theme
 
-Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables, which an app changes from any selector and in any file order. `mussel-dark` on a container or on the view itself switches to the dark values, the same class as the other Mussel libraries. A value an app sets on the element with `mussel-dark`, or on an element inside it, is used in both themes, so include `.mussel-dark` in the selector to change a dark value. A shared value set above that element, such as on `:root`, gives way to the dark values.  
+Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables, which an app changes from any selector and in any file order. `mussel-dark` on a container or on the view itself switches to the dark values, the same class as the other Mussel libraries. A value an app sets on the element with `mussel-dark`, or on an element inside it, is used in both themes, so include `.mussel-dark` in the selector to change a dark value. A shared color set above that element, such as on `:root`, gives way to the dark values.  
 
 These are shared with the other Mussel libraries. Their light defaults follow the look of each library, so set them on a container to give several libraries the same colors.  
 
@@ -234,6 +234,8 @@ These are shared with the other Mussel libraries. Their light defaults follow th
 | `--mussel-tooltip-background`, `--mussel-tooltip-border`, `--mussel-tooltip-text` | Tooltip |
 | `--mussel-good`, `--mussel-warning`, `--mussel-serious`, `--mussel-critical` | Threshold lines and bands, and the losses of sparklines |
 | `--mussel-font-family` | Font family |
+
+The level colors of `MusselRadialBarView`, `MusselBarGaugeView`, `MusselStatView` and `MusselStateTimelineView` stay the dark values in both themes and do not follow these variables. Series, slices and rings beyond the palette, and every view with an empty palette, are gray (`#B5B3AA`).  
 
 ## 🚧 Not supported yet
 

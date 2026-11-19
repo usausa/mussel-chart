@@ -132,7 +132,8 @@ public sealed partial class MusselPieChartView
             Culture = culture
         }, Items is ChartRingBuffer<ChartEntry> buffer ? buffer.CopyTo(copied) : Items ?? []);
 
-        sliceClass = TrackballMode == ChartTrackballMode.Hover ? "mussel-slices mussel-slices-hover" : "mussel-slices";
+        var hover = TrackballMode == ChartTrackballMode.Hover;
+        sliceClass = hover ? "mussel-slices mussel-slices-hover" : "mussel-slices";
         centerX = ChartGeometry.Text(layout.CenterX);
         emptyText = layout.Slices.Count > 0 ? string.Empty : EmptyText ?? string.Empty;
 
@@ -140,12 +141,12 @@ public sealed partial class MusselPieChartView
         insideLabels.Clear();
         outsideLabels.Clear();
         var palette = Palette ?? ChartPalettes.DefaultLight;
-        var hover = TrackballMode == ChartTrackballMode.Hover;
+        var tips = hover && TooltipVisible;
         foreach (var slice in layout.Slices)
         {
             var color = GetColor(slice, palette);
             string? tip = null;
-            if (hover)
+            if (tips)
             {
                 tipRows.Clear();
                 tipRows.Add(new ChartTipRow(color, slice.Label, $"{slice.ValueText} ({slice.PercentText})"));
@@ -191,7 +192,7 @@ public sealed partial class MusselPieChartView
             return slice.Color;
         }
 
-        return !slice.IsOthers && (slice.Rank >= 0) && (slice.Rank < palette.Count) ? palette[slice.Rank] : ChartColor.Other;
+        return !slice.IsOthers && (slice.Rank >= 0) ? ChartColor.At(palette, slice.Rank) : ChartColor.Other;
     }
 
     private void ToggleSlice(string label)

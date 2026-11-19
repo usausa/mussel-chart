@@ -51,16 +51,21 @@ test('a time between two offset changes uses the offset of its period', () => {
 });
 
 test('the root loses its mark when the script is disposed', () => {
-    globalThis.ResizeObserver ??= class { observe() { } disconnect() { } };
-    globalThis.MutationObserver ??= class { observe() { } disconnect() { } };
-    globalThis.cancelAnimationFrame ??= () => { };
-    const element = { dataset: {}, addEventListener() { }, removeEventListener() { }, querySelectorAll: () => [], querySelector: () => null };
+    const saved = [globalThis.ResizeObserver, globalThis.MutationObserver, globalThis.cancelAnimationFrame];
+    globalThis.ResizeObserver = class { observe() { } disconnect() { } };
+    globalThis.MutationObserver = class { observe() { } disconnect() { } };
+    globalThis.cancelAnimationFrame = () => { };
+    try {
+        const element = { dataset: {}, addEventListener() { }, removeEventListener() { }, querySelectorAll: () => [], querySelector: () => null };
 
-    const attached = attach(element, null);
-    const marked = Object.hasOwn(element.dataset, 'attached');
-    attached.dispose();
+        const attached = attach(element, null);
+        const marked = Object.hasOwn(element.dataset, 'attached');
+        attached.dispose();
 
-    assert.deepEqual([marked, Object.hasOwn(element.dataset, 'attached')], [true, false]);
+        assert.deepEqual([marked, Object.hasOwn(element.dataset, 'attached')], [true, false]);
+    } finally {
+        [globalThis.ResizeObserver, globalThis.MutationObserver, globalThis.cancelAnimationFrame] = saved;
+    }
 });
 
 test('a range bar takes its low end from the rect and puts the dot on the high end', () => {

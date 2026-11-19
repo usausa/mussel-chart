@@ -99,14 +99,12 @@ public sealed partial class MusselChartView
                 state.Clear();
             }
 
-            var minimum = Int64.MaxValue;
             var leftmost = Double.PositiveInfinity;
             foreach (var (state, _, start, count) in reads)
             {
                 for (var i = start; i < start + count; i++)
                 {
                     var point = reading[i];
-                    minimum = state.Visible && (point.Ticks != 0) ? Math.Min(minimum, point.Ticks) : minimum;
                     leftmost = state.Visible && (state.Series.XKind == ChartXKind.Number) && Double.IsFinite(point.Number) ? Math.Min(leftmost, point.Number) : leftmost;
                     if ((xKind == ChartXKind.Category) && (point.Category is { } category))
                     {
@@ -115,7 +113,7 @@ public sealed partial class MusselChartView
                 }
             }
 
-            baseTicks = (xKind != ChartXKind.Time) || (minimum == Int64.MaxValue) ? 0 : minimum - (minimum % TimeSpan.TicksPerSecond);
+            baseTicks = (xKind == ChartXKind.Time) && (OldestVisibleTicks() is { } first) ? first - (first % TimeSpan.TicksPerSecond) : 0;
             numberBase = (xKind == ChartXKind.Number) && Double.IsFinite(leftmost) ? leftmost : 0;
             baseText = xKind == ChartXKind.Time
                 ? ((baseTicks - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture)

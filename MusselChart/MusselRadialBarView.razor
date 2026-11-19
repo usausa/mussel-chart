@@ -22,9 +22,17 @@
                 {
                     <foreignObject class="mussel-radial-sweep" x="@sweep.X" y="@sweep.Y" width="@sweep.Size" height="@sweep.Size"><div style="@sweep.Style"></div></foreignObject>
                 }
+                @foreach (var cap in glowCaps)
+                {
+                    <circle cx="@cap.X" cy="@cap.Y" r="@capRadius" fill="@cap.Color" />
+                }
                 @foreach (var arc in markerArcs)
                 {
                     <path d="@arc.Path" stroke="@arc.Color" stroke-width="@markerWidthText" />
+                }
+                @if (markerSweep is { } markerGlow)
+                {
+                    <foreignObject class="mussel-radial-sweep" x="@markerGlow.X" y="@markerGlow.Y" width="@markerGlow.Size" height="@markerGlow.Size"><div style="@markerGlow.Style"></div></foreignObject>
                 }
             </g>
         }
