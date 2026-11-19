@@ -222,6 +222,25 @@ public sealed class ChartSourceTests : BunitContext
     }
 
     [Fact]
+    public async Task AFullBufferWiderThanTheRebaseKeepsItsTimeBaseOnAPush()
+    {
+        var buffer = new ChartRingBuffer<Sample>(2000);
+        for (var i = 0; i < 2000; i++)
+        {
+            buffer.Push(new Sample(Start.AddMinutes(i), i));
+        }
+
+        var cut = RenderLines(buffer, buffer);
+        var before = cut.Find("svg.mussel-chart-svg").GetAttribute("data-base");
+
+        await cut.InvokeAsync(() => buffer.Push(new Sample(Start.AddMinutes(2000), 2000)));
+        await cut.InvokeAsync(static () => { });
+
+        Assert.Equal(before, cut.Find("svg.mussel-chart-svg").GetAttribute("data-base"));
+        Assert.Contains(cut.FindAll("polyline"), static x => x.GetAttribute("points")!.EndsWith(" 120000,2000", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task APushDrawnWithTheParentDrawsOnce()
     {
         var points = new ChartRingBuffer<Sample>(10);

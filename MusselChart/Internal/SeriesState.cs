@@ -231,17 +231,19 @@ internal sealed class SeriesState
     }
 }
 
-internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, string Format, double StackGap, Dictionary<long, StackTop>? StackTops, List<MarkerView>? Markers, double ValueBase)
+internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, string Format, double StackGap, Dictionary<long, StackTop>? StackTops, List<MarkerView>? Markers, double ValueBase, double ClipLow, double ClipHigh)
 {
     public (string? Y, string? Height) GetBarExtent(in SeriesBar bar)
     {
-        if (bar.BottomText is not null)
+        var bottom = bar.Bottom;
+        var top = bar.Top;
+        var far = bar.Value >= 0 ? bottom : top;
+        var clipped = (Kind == ChartSeriesKind.Bar) && ((far < ClipLow) || (far > ClipHigh));
+        if ((bar.BottomText is not null) && !clipped)
         {
             return (bar.BottomText, bar.HeightText);
         }
 
-        var bottom = bar.Bottom;
-        var top = bar.Top;
         if (StackGap > 0)
         {
             var half = StackGap / 2;
@@ -262,6 +264,15 @@ internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, strin
             {
                 return (null, null);
             }
+        }
+
+        if (clipped && (bar.Value >= 0))
+        {
+            bottom = Math.Min(Math.Clamp(bottom, ClipLow, ClipHigh), top);
+        }
+        else if (clipped)
+        {
+            top = Math.Max(Math.Clamp(top, ClipLow, ClipHigh), bottom);
         }
 
         return (ChartFormat.Position(bottom - ValueBase), ChartFormat.Position(top - bottom));

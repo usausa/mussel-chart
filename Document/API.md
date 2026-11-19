@@ -14,7 +14,7 @@ Axes and series are written as child components, and every component passes othe
 | `LegendVisible` | `bool?` | `null` | `null` shows the legend for two or more series with a title |
 | `LegendMode`, `LegendValues` | `ChartLegendMode`, `ChartLegendValues` | `List`, `None` | A list, or a table with `Last`, `Min`, `Max` and `Mean` of the points in view |
 | `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows its series; the last visible series stays |
-| `TrackballMode` | `ChartTrackballMode` | `Hover` | `None` turns the crosshair and the tooltip off |
+| `TrackballMode` | `ChartTrackballMode` | `Hover` | `None` turns the crosshair and the tooltip off for the pointer over this chart; a chart in a `TrackingGroup` still follows the others |
 | `TooltipVisible` | `bool` | `true` | `false` keeps only the crosshair and the points |
 | `TrackingGroup`, `TrackingGroupMode` | `string?`, `ChartTrackingGroupMode` | `null`, `Crosshair` | Charts of the same group follow the chart under the pointer; `Tooltip` also shows their tooltips |
 | `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis |
@@ -49,7 +49,7 @@ Categories merge the names of all series in order of appearance, hidden series i
 | `ScatterSeries` | `MarkerSize` (8), `MarkerShape` (`Circle`, `Square` or `Diamond`) and `FillOpacity` (0.5) |
 | `BubbleSeries` | The scatter parameters, `Size`, `MinBubbleSize` (8), `MaxBubbleSize` (40) and `SizeIncludesZero` (`true`) |
 
-The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip. Without `ValueFormat` and `ValueFormatter`, it takes the `LabelFormat` or `LabelFormatter` of the value axis in the legend. Neither is taken when stacked to 100%.  
+The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip. Without `ValueFormat` and `ValueFormatter`, it takes the `LabelFormat` or `LabelFormatter` of the value axis in the legend. Neither is taken on an axis of only 100% stacks.  
 
 | Item | Rule |
 |---|---|
@@ -57,7 +57,7 @@ The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the 
 | Stacking | Series of the same kind and the same `StackGroup` stack at the same X: positive values up from 0, negative values down from 0, and `Percent` scales each side to its own total. Segments of bars are separated by 2 pixels. The tooltip keeps the original values, and an axis of only 100% stacks labels percentages |
 | Range bars | A bar from the low to the high value; swapped values are drawn from the smaller one, a point without both values is skipped, the value axis does not include 0 and the tooltip shows `12 – 25` |
 | Scatter | Points filled at `FillOpacity` and outlined with the series color. With only scatter and bubble series, the crosshair snaps to the nearest point in both directions and the tooltip shows only that point |
-| Bubbles | The area grows from 0 to the largest size among all the bubble series: 0 and below get `MinBubbleSize` and the largest value gets `MaxBubbleSize`. `SizeIncludesZero` set to `false` starts from the smallest value. A point without a size is skipped, larger bubbles are drawn first and the automatic ranges grow by the radius of the largest bubble |
+| Bubbles | The area grows from 0 to the largest size among the visible bubble series: 0 and below get `MinBubbleSize` and the largest value gets `MaxBubbleSize`. `SizeIncludesZero` set to `false` starts from the smallest value. A point without a size is skipped, larger bubbles are drawn first and the automatic ranges grow by the radius of the largest bubble |
 | Updates | Only a time axis with absolute values appends new points, and only while every series reads a `ChartRingBuffer`; with a series that reads an array, on numeric and category axes and in `Percent` stacks, every point is read again at each render |
 
 ## 🍩 MusselPieChartView
@@ -222,7 +222,7 @@ Series of one chart that share a buffer read the same items, and items pushed wh
 
 ## 🎨 Theme
 
-Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables, which an app changes from any selector and in any file order. `mussel-dark` on a container or on the view itself switches to the dark values, the same class as the other Mussel libraries. A value an app sets is used in both themes, so include `.mussel-dark` in the selector to change a dark value.  
+Link `_content/MusselChart/MusselChart.css` in the page head. Colors come from CSS variables, which an app changes from any selector and in any file order. `mussel-dark` on a container or on the view itself switches to the dark values, the same class as the other Mussel libraries. A value an app sets on the element with `mussel-dark`, or on an element inside it, is used in both themes, so include `.mussel-dark` in the selector to change a dark value. A shared value set above that element, such as on `:root`, gives way to the dark values.  
 
 These are shared with the other Mussel libraries. Their light defaults follow the look of each library, so set them on a container to give several libraries the same colors.  
 

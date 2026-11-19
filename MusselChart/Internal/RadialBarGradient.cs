@@ -12,7 +12,7 @@ internal static class RadialBarGradient
 
     private const double Lighten = 10;
 
-    public static (string[] Colors, double[] Positions) GetThresholdStops(IReadOnlyList<(double Value, string Color)> sorted, string baseColor)
+    public static (string[] Colors, double[] Positions) GetThresholdStops(List<ChartThreshold> sorted, string baseColor)
     {
         var colors = new List<string>(sorted.Count + 2);
         var positions = new List<double>(sorted.Count + 2);
@@ -22,15 +22,16 @@ internal static class RadialBarGradient
             positions.Add(0);
         }
 
-        foreach (var (value, color) in sorted)
+        foreach (var threshold in sorted)
         {
+            var value = threshold.Value;
             if (value > 100)
             {
                 break;
             }
 
-            colors.Add(color);
-            positions.Add(Double.IsNegativeInfinity(value) ? 0 : Math.Clamp(value / 100, 0, 1));
+            colors.Add(ChartColor.Threshold(threshold, baseColor));
+            positions.Add(Math.Clamp(value / 100, 0, 1));
         }
 
         if (positions[^1] < 1)

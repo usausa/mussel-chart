@@ -175,9 +175,9 @@ internal sealed class RadialBarLayout
             var item = items[i];
             valueTotal += Double.IsFinite(item.Value) ? item.Value : 0;
             var maximum = item.Maximum ?? options.Maximum;
-            var range = maximum - options.Minimum;
+            var range = (maximum / 2) - (options.Minimum / 2);
             var valid = Double.IsFinite(item.Value) && (range > 0);
-            var raw = valid ? (item.Value - options.Minimum) / range : Double.NaN;
+            var raw = valid ? ((item.Value / 2) - (options.Minimum / 2)) / range : Double.NaN;
             var ratio = !valid ? 0 : wrap ? Math.Max(0, raw) : Math.Clamp(raw, 0, 1);
             var percent = valid ? raw.ToString(PercentPattern, options.Culture) : null;
             var value = valid ? ChartFormat.Value(item.Value, options.ValueFormat, options.ValueFormatter, options.Culture) : null;

@@ -2,6 +2,7 @@
     display: grid;
     gap: 12px;
     color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
     font-size: 12px;
 }
 

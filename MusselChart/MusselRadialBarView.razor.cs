@@ -138,7 +138,7 @@ public sealed partial class MusselRadialBarView
     [Parameter]
     public ChartLegendValueMode LegendValueMode { get; set; }
 
-    private bool HasThresholds => Thresholds is { Count: > 0 };
+    private bool HasThresholds => sorted.Count > 0;
 
     private double Sweep => SweepAngle > 0 ? Math.Min(SweepAngle, 360) : 360;
 
@@ -215,8 +215,7 @@ public sealed partial class MusselRadialBarView
         }
     }
 
-    private string GetThresholdColor(double percent, string baseColor) =>
-        Double.IsNaN(percent) || !HasThresholds ? baseColor : ChartColor.Threshold(ChartFormat.FindThreshold(Thresholds, percent), baseColor);
+    private string GetThresholdColor(double percent, string baseColor) => ChartColor.Threshold(ChartFormat.FindThreshold(Thresholds, percent), baseColor);
 
     private double GetAngle(double fraction) => StartAngle + (Sweep * fraction);
 
@@ -286,9 +285,14 @@ public sealed partial class MusselRadialBarView
             }
         }
 
-        tipRows.Clear();
-        tipRows.Add(new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})"));
-        var tip = ChartTip.Create(null, tipRows);
+        string? tip = null;
+        if (TrackballMode == ChartTrackballMode.Hover)
+        {
+            tipRows.Clear();
+            tipRows.Add(new ChartTipRow(color, row.Label, row.ValueText is null ? null : $"{row.ValueText} ({row.PercentText})"));
+            tip = ChartTip.Create(null, tipRows);
+        }
+
         return new RingView(row.Slot, tip, arcs, caps, sweep, wrap);
     }
 
@@ -314,7 +318,7 @@ public sealed partial class MusselRadialBarView
     private (SweepView Sweep, string LastColor) AddGradient(List<ArcView> arcs, List<CapView> caps, double radius, double ratio, string baseColor)
     {
         var (colors, positions) = HasThresholds
-            ? RadialBarGradient.GetThresholdStops(GetSteps(baseColor), baseColor)
+            ? RadialBarGradient.GetThresholdStops(sorted, baseColor)
             : RadialBarGradient.GetColorStops(baseColor, ratio);
         var drawn = Math.Min(ratio, 1);
 
@@ -366,7 +370,7 @@ public sealed partial class MusselRadialBarView
     private static void AppendSweepMask(StringBuilder builder, double inner, double outer)
     {
         builder.Append("radial-gradient(circle closest-side,transparent ").AppendNumber(Math.Max(inner - 0.5, 0));
-        builder.Append("px,#000 ").AppendNumber(inner).Append("px,#000 ").AppendNumber(outer - 0.5);
+        builder.Append("px,#000000 ").AppendNumber(inner).Append("px,#000000 ").AppendNumber(outer - 0.5);
         builder.Append("px,transparent ").AppendNumber(outer).Append("px)");
     }
 
@@ -376,37 +380,22 @@ public sealed partial class MusselRadialBarView
         caps.Add(new CapView(ChartGeometry.Text(x), ChartGeometry.Text(y), color));
     }
 
-    private List<(double Value, string Color)> GetSteps(string baseColor)
-    {
-        var steps = new List<(double Value, string Color)>(sorted.Count);
-        foreach (var threshold in sorted)
-        {
-            steps.Add((threshold.Value, ChartColor.Threshold(threshold, baseColor)));
-        }
-
-        return steps;
-    }
-
     private void AddMarkerArcs(string baseColor)
     {
         var radius = layout.MarkerRadius;
         if (FillMode == ChartFillMode.Gradient)
         {
-            var (colors, positions) = RadialBarGradient.GetThresholdStops(GetSteps(baseColor), baseColor);
+            var (colors, positions) = RadialBarGradient.GetThresholdStops(sorted, baseColor);
             markerSweep = CreateSweep(radius, layout.MarkerWidth, 1, colors, positions);
             return;
         }
 
         var color = baseColor;
         var from = 0d;
-        foreach (var (value, stepColor) in GetSteps(baseColor))
+        foreach (var threshold in sorted)
         {
-            if (Double.IsNegativeInfinity(value))
-            {
-                color = stepColor;
-                continue;
-            }
-
+            var value = threshold.Value;
+            var stepColor = ChartColor.Threshold(threshold, baseColor);
             var to = Math.Clamp(value / 100, from, 1);
             if (to > from)
             {
@@ -429,5 +418,5 @@ public sealed partial class MusselRadialBarView
 
     private readonly record struct SweepView(string X, string Y, string Size, string Style);
 
-    private sealed record RingView(int Key, string Tip, List<ArcView> Arcs, List<CapView> Caps, SweepView? Sweep, ArcView? Wrap);
+    private sealed record RingView(int Key, string? Tip, List<ArcView> Arcs, List<CapView> Caps, SweepView? Sweep, ArcView? Wrap);
 }

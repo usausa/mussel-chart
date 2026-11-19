@@ -7,12 +7,15 @@
     @if (ColorMode == ChartStatColorMode.Background)
     {
         <svg class="mussel-stat-background" width="100%" height="100%">
-            <defs>
-                <linearGradient id="@gradientId" x1="0" y1="1" x2="1" y2="0">
-                    <stop offset="0" stop-color="@gradientFrom" />
-                    <stop offset="1" stop-color="@gradientTo" />
-                </linearGradient>
-            </defs>
+            @if (FillMode == ChartFillMode.Gradient)
+            {
+                <defs>
+                    <linearGradient id="@gradientId" x1="0" y1="1" x2="1" y2="0">
+                        <stop offset="0" stop-color="@gradientFrom" />
+                        <stop offset="1" stop-color="@gradientTo" />
+                    </linearGradient>
+                </defs>
+            }
             <rect width="100%" height="100%" fill="@backgroundFill" fill-opacity="@backgroundOpacity" />
         </svg>
     }

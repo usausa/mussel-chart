@@ -52,6 +52,19 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal("0 0 2 100", cut.Find(".mussel-stat-trend-background").GetAttribute("viewBox"));
     }
 
+    [Fact]
+    public void ASolidBackgroundWritesNoGradient()
+    {
+        var cut = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 10)
+            .Add(static p => p.Fill, "#1F60C4")
+            .Add(static p => p.ColorMode, ChartStatColorMode.Background)
+            .Add(static p => p.FillMode, ChartFillMode.Solid));
+
+        Assert.Empty(cut.FindAll("linearGradient"));
+        Assert.Equal("#1F60C4", cut.Find(".mussel-stat-background rect").GetAttribute("fill"));
+    }
+
     [Theory]
     [InlineData(1e17)]
     [InlineData(2e-323)]
@@ -137,6 +150,33 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void ThresholdsThatAreNotNumbersAreLeftOutOfTheStops()
+    {
+        ChartThreshold[] marked = [Levels[0], new() { Value = Double.NaN, Level = ChartThresholdLevel.Critical }, .. Levels[1..]];
+        var plain = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("C:", 90)])
+            .Add(static p => p.DisplayMode, ChartBarGaugeMode.Segmented)
+            .Add(static p => p.Thresholds, Levels));
+        var cut = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("C:", 90)])
+            .Add(static p => p.DisplayMode, ChartBarGaugeMode.Segmented)
+            .Add(p => p.Thresholds, marked));
+
+        Assert.Equal(plain.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))), cut.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))));
+    }
+
+    [Fact]
+    public void AThresholdAtInfinityLeavesTheGaugeInItsOwnColor()
+    {
+        var cut = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("C:", 50, "#5794F2")])
+            .Add(static p => p.Thresholds, [new ChartThreshold { Value = Double.PositiveInfinity, Level = ChartThresholdLevel.Critical }]));
+
+        var stops = cut.FindAll("stop").Select(static x => (x.GetAttribute("offset"), x.GetAttribute("stop-color"))).ToList();
+        Assert.Equal([("0", "#5794F2"), ("1", "#5794F2")], stops[..2]);
+    }
+
+    [Fact]
     public void GaugeWithoutABaseStepStartsInItsOwnColor()
     {
         var cut = Render<MusselBarGaugeView>(parameters => parameters
@@ -199,6 +239,35 @@ public sealed class MusselWidgetTests : BunitContext
         var cut = Render<MusselSparklineView>(parameters => parameters.Add(static p => p.Values, new[] { 1e308, -1e308, 0 }));
 
         Assert.DoesNotContain("NaN", cut.Find("polyline").GetAttribute("points"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASparklineAboveItsOnlyMaximumStaysFinite()
+    {
+        var cut = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Values, new[] { -1e308 })
+            .Add(static p => p.Maximum, -1.7e308));
+
+        Assert.DoesNotContain("NaN", cut.Find("polyline").GetAttribute("points"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AGaugeOfTheWidestRangeShowsTheSameShareAsAnOrdinaryOne()
+    {
+        var wide = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 0) { Target = 5e307 }])
+            .Add(static p => p.Minimum, -1e308)
+            .Add(static p => p.Maximum, 1e308)
+            .Add(static p => p.ValueMode, ChartBarGaugeValueMode.Percent));
+        var plain = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 0) { Target = 0.5 }])
+            .Add(static p => p.Minimum, -1)
+            .Add(static p => p.Maximum, 1)
+            .Add(static p => p.ValueMode, ChartBarGaugeValueMode.Percent));
+
+        Assert.Equal(plain.FindAll("rect").Select(static x => x.GetAttribute("width")), wide.FindAll("rect").Select(static x => x.GetAttribute("width")));
+        Assert.Equal(plain.FindAll("svg[x]").Select(static x => x.GetAttribute("x")), wide.FindAll("svg[x]").Select(static x => x.GetAttribute("x")));
+        Assert.Equal(plain.Find(".mussel-gauge-value text").TextContent, wide.Find(".mussel-gauge-value text").TextContent);
     }
 
     [Fact]

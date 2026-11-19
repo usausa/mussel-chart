@@ -6,6 +6,7 @@
     overflow: hidden;
     border-radius: 2px;
     color: var(--mussel-primary-text, #0B0B0B);
+    font-family: var(--mussel-font-family, inherit);
 }
 
 .mussel-stat-background, .mussel-stat-indicator {

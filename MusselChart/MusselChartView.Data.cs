@@ -82,7 +82,7 @@ public sealed partial class MusselChartView
 
         var appendable = (xKind == ChartXKind.Time) && (stackMode == ChartStackMode.Normal);
         var rebuild = rebuildRequired || !appendable || !Read(ordered, false);
-        if (!rebuild && (reading.Count > 0) && (reading[^1].Ticks - baseTicks > RebaseTicks))
+        if (!rebuild && (OldestVisibleTicks() is { } oldest) && (oldest - baseTicks > RebaseTicks))
         {
             rebuild = true;
         }
@@ -154,6 +154,41 @@ public sealed partial class MusselChartView
         }
 
         rebuildRequired = false;
+    }
+
+    private long? OldestVisibleTicks()
+    {
+        long? oldest = null;
+        foreach (var (state, read, start, count) in reads)
+        {
+            if (state.Visible && (FirstTicks(state, read.Sequence - read.Count + 1, start, count) is { } first))
+            {
+                oldest = Math.Min(oldest ?? first, first);
+            }
+        }
+
+        return oldest;
+    }
+
+    private long? FirstTicks(SeriesState state, long kept, int start, int count)
+    {
+        foreach (var point in state.Points)
+        {
+            if ((point.Sequence >= kept) && (point.Ticks != 0))
+            {
+                return point.Ticks;
+            }
+        }
+
+        for (var i = start; i < start + count; i++)
+        {
+            if (reading[i].Ticks != 0)
+            {
+                return reading[i].Ticks;
+            }
+        }
+
+        return null;
     }
 
     private ChartXKind ResolveXKind() => xAxis switch

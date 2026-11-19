@@ -103,12 +103,12 @@ public sealed partial class MusselStatView : IDisposable
         sources.Apply();
         var value = Double.IsFinite(Value) ? Value : Double.NaN;
         var threshold = ChartFormat.FindThreshold(Thresholds, value);
-        tileColor = Fill ?? threshold?.Color ?? (threshold is { Level: not ChartThresholdLevel.None } ? ChartColor.Level(threshold.Level) : null) ?? (Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
+        tileColor = Fill ?? ChartColor.Threshold(threshold, Palette is { Count: > 0 } ? Palette[0] : ChartPalettes.DefaultLight[0]);
         valueText = Double.IsNaN(value) ? EmptyText ?? "-" : ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
         trend = trended ? TrendPath.Create(TrendValues, copied, null, null, false, 4) : TrendPath.Empty;
 
         var filled = (ColorMode == ChartStatColorMode.Background) && (FillMode == ChartFillMode.Gradient);
-        if (ColorMode == ChartStatColorMode.Background)
+        if (filled)
         {
             gradientFrom = ChartColor.Shift(tileColor, 8, -15);
             gradientTo = ChartColor.Shift(tileColor, -8, -5);

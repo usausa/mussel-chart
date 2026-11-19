@@ -1,5 +1,6 @@
 namespace MusselChart;
 
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using MusselChart.Internal;
@@ -85,6 +86,47 @@ public sealed class MusselRadialBarViewTests : BunitContext
 
         Assert.Empty(cut.FindAll(".mussel-radial-center"));
         Assert.Empty(cut.FindAll(".mussel-radial-caption"));
+    }
+
+    [Fact]
+    public void ARingOfTheWidestRangeShowsTheSameShareAsAnOrdinaryOne()
+    {
+        var wide = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 1e308)])
+            .Add(static p => p.Minimum, -1e308)
+            .Add(static p => p.Maximum, 0)
+            .Add(static p => p.OverflowMode, ChartOverflowMode.Wrap)
+            .Add(static p => p.LegendValueMode, ChartLegendValueMode.Percent));
+        var plain = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 1)])
+            .Add(static p => p.Minimum, -1)
+            .Add(static p => p.Maximum, 0)
+            .Add(static p => p.OverflowMode, ChartOverflowMode.Wrap)
+            .Add(static p => p.LegendValueMode, ChartLegendValueMode.Percent));
+
+        Assert.Equal(plain.Find(".mussel-radial-center").TextContent, wide.Find(".mussel-radial-center").TextContent);
+        Assert.Equal(plain.Find(".mussel-view-legend-value").TextContent, wide.Find(".mussel-view-legend-value").TextContent);
+        Assert.Equal(plain.FindAll("path").Select(static x => x.GetAttribute("d")), wide.FindAll("path").Select(static x => x.GetAttribute("d")));
+    }
+
+    [Fact]
+    public void TooltipsAreLeftOutWithoutTheTrackball()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 90), new ChartEntry("B", 10)])
+            .Add(static p => p.TrackballMode, ChartTrackballMode.None));
+
+        Assert.All(cut.FindAll(".mussel-ring"), static x => Assert.Null(x.GetAttribute("data-tip")));
+    }
+
+    [Fact]
+    public void EachRingTipsOnlyItsOwnRow()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 90), new ChartEntry("B", 10)]));
+
+        using var tip = JsonDocument.Parse(cut.FindAll(".mussel-ring")[1].GetAttribute("data-tip")!);
+        Assert.Equal(1, tip.RootElement.GetProperty("r").GetArrayLength());
     }
 
     [Fact]
@@ -186,7 +228,8 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(static p => p.BarGlow, true));
 
         var wrap = cut.Find(".mussel-ring").Children[^1].GetAttribute("stroke");
-        var last = Regex.Matches(cut.Find(".mussel-radial-sweep div").GetAttribute("style")!, "#[0-9A-Fa-f]{6}")[^1].Value;
+        var style = cut.Find(".mussel-radial-sweep div").GetAttribute("style")!;
+        var last = Regex.Matches(style[..style.IndexOf(";-webkit-mask", StringComparison.Ordinal)], "#[0-9A-Fa-f]{6}")[^1].Value;
         Assert.Equal(ChartColor.Shift(last, 0, -15), wrap);
         Assert.Contains(wrap, cut.FindAll(".mussel-radial-glow path").Select(static x => x.GetAttribute("stroke")));
     }
@@ -242,6 +285,25 @@ public sealed class MusselRadialBarViewTests : BunitContext
 
         Assert.Empty(plain.FindAll(".mussel-radial-markers path"));
         Assert.Equal(3, marked.FindAll(".mussel-radial-markers path").Count);
+    }
+
+    [Fact]
+    public void ThresholdsThatAreNotNumbersDrawAsNoThresholds()
+    {
+        ChartThreshold[] thresholds = [new() { Value = Double.NaN, Level = ChartThresholdLevel.Critical }];
+        var plain = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.ThresholdMarkersVisible, true));
+        var marked = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(p => p.Thresholds, thresholds)
+            .Add(static p => p.ThresholdMarkersVisible, true));
+
+        Assert.Empty(marked.FindAll(".mussel-radial-markers path"));
+        Assert.Equal(plain.Find(".mussel-radial-sweep div").GetAttribute("style"), marked.Find(".mussel-radial-sweep div").GetAttribute("style"));
+        Assert.Equal(plain.Find(".mussel-radial-track").GetAttribute("d"), marked.Find(".mussel-radial-track").GetAttribute("d"));
     }
 
     [Fact]
@@ -311,7 +373,9 @@ public sealed class MusselRadialBarViewTests : BunitContext
     [Fact]
     public void ThresholdStopsSitAtTheirPositions()
     {
-        var (colors, positions) = RadialBarGradient.GetThresholdStops([(Double.NegativeInfinity, "#111111"), (50, "#222222"), (120, "#333333")], "#000000");
+        var (colors, positions) = RadialBarGradient.GetThresholdStops(
+            [new ChartThreshold { Value = Double.NegativeInfinity, Color = "#111111" }, new ChartThreshold { Value = 50, Color = "#222222" }, new ChartThreshold { Value = 120, Color = "#333333" }],
+            "#000000");
 
         Assert.Equal(["#111111", "#222222", "#222222"], colors);
         Assert.Equal([0, 0.5, 1], positions);

@@ -253,6 +253,7 @@ public sealed partial class MusselChartView
         ArrangeThresholds(scale, map, plotLeft, plotRight, plotTop, plotBottom);
 
         ArrangeBars(visible, position, scaleP);
+        var reach = (valueLength + Math.Max(clipMargin, LiveRadius)) / scaleV;
         foreach (var state in visible)
         {
             var series = state.Series;
@@ -266,7 +267,9 @@ public sealed partial class MusselChartView
                 stacked ? SegmentGap / scaleV : 0,
                 stacked ? stacks.GetValueOrDefault((kind, series.StackKey!)) : null,
                 IsMarkerKind(kind) ? CreateMarkers(state, options, map, position) : null,
-                valueBase));
+                valueBase,
+                scale.Minimum - reach,
+                scale.Maximum + reach));
 
             if (options.Live && !IsBarKind(kind) && !IsMarkerKind(kind))
             {

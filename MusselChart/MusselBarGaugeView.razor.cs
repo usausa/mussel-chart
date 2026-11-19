@@ -115,12 +115,12 @@ public sealed partial class MusselBarGaugeView : IDisposable
         {
             var item = items[i];
             var maximum = item.Maximum ?? Maximum;
-            var range = maximum - Minimum;
+            var range = (maximum / 2) - (Minimum / 2);
             var known = Double.IsFinite(item.Value);
-            var ratio = known && (range > 0) ? (item.Value - Minimum) / range : 0;
+            var ratio = known && (range > 0) ? ((item.Value / 2) - (Minimum / 2)) / range : 0;
             var percent = ratio * 100;
             var own = item.Color ?? fallback;
-            var color = known && (Thresholds is { Count: > 0 }) ? ResolveColor(percent, own) : own;
+            var color = known ? ResolveColor(percent, own) : own;
             if (!stops.TryGetValue(own, out var gradient))
             {
                 gradient = CreateStops(own);
@@ -141,7 +141,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
                 _ => FormatValue(item.Value, culture)
             };
             longest = Math.Max(longest, text.Length);
-            var target = (item.Target is { } goal) && (range > 0) ? ToPercent((goal - Minimum) / range) : null;
+            var target = (item.Target is { } goal) && (range > 0) ? ToPercent(((goal / 2) - (Minimum / 2)) / range) : null;
             rows.Add(new GaugeRow(
                 item.Label,
                 ToPercent(ratio) ?? "0%",
@@ -159,11 +159,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
 
     private string FormatValue(double value, CultureInfo culture) => ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
 
-    private string ResolveColor(double percent, string fallback)
-    {
-        var threshold = ChartFormat.FindThreshold(Thresholds, percent);
-        return threshold is null ? fallback : threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : ChartColor.Level(threshold.Level));
-    }
+    private string ResolveColor(double percent, string fallback) => ChartColor.Threshold(ChartFormat.FindThreshold(Thresholds, percent), fallback);
 
     private List<GaugeStop> CreateStops(string fallback)
     {
@@ -175,7 +171,7 @@ public sealed partial class MusselBarGaugeView : IDisposable
         var gradient = new List<GaugeStop>();
         if (!Double.IsNegativeInfinity(sorted[0].Value))
         {
-            var first = Double.IsFinite(sorted[0].Value) ? Math.Clamp(sorted[0].Value / 100, 0, 1) : 0;
+            var first = Math.Clamp(sorted[0].Value / 100, 0, 1);
             gradient.Add(new GaugeStop("0", fallback));
             gradient.Add(new GaugeStop(first.ToString("0.####", CultureInfo.InvariantCulture), fallback));
         }
@@ -183,8 +179,8 @@ public sealed partial class MusselBarGaugeView : IDisposable
         for (var i = 0; i < sorted.Count; i++)
         {
             var threshold = sorted[i];
-            var color = threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : ChartColor.Level(threshold.Level));
-            var start = Double.IsFinite(threshold.Value) ? Math.Clamp(threshold.Value / 100, 0, 1) : 0;
+            var color = ChartColor.Threshold(threshold, fallback);
+            var start = Math.Clamp(threshold.Value / 100, 0, 1);
             var end = i + 1 < sorted.Count ? Math.Clamp(sorted[i + 1].Value / 100, 0, 1) : 1;
             gradient.Add(new GaugeStop(start.ToString("0.####", CultureInfo.InvariantCulture), color));
             gradient.Add(new GaugeStop(end.ToString("0.####", CultureInfo.InvariantCulture), color));

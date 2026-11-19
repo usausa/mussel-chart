@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Text.Json;
+
 using MusselChart.Internal;
 
 public sealed record StateItem(string? Row, DateTime Start, object? State, DateTime? End = null);
@@ -180,6 +182,43 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Equal(ChartColor.Level(ChartThresholdLevel.Good), bands[0].GetAttribute("fill"));
         Assert.Equal(ChartColor.Level(ChartThresholdLevel.Critical), bands[2].GetAttribute("fill"));
         Assert.Equal(["< 60", "Busy", "85+"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void ThresholdsThatAreNotNumbersAreLeftOutOfTheSteps()
+    {
+        ChartThreshold[] marked = [Levels[0], new() { Value = Double.NaN, Level = ChartThresholdLevel.Critical }, .. Levels[1..]];
+
+        var cut = RenderItems(
+            [new StateItem("A", Origin, 10d), new StateItem("A", Origin.AddHours(1), 20), new StateItem("A", Origin.AddHours(2), 70), new StateItem("A", Origin.AddHours(3), 90m)],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(4)).Add(x => x.Thresholds, marked));
+
+        Assert.Equal(3, cut.FindAll(".mussel-timeline-bands rect").Count);
+        Assert.Equal(["< 60", "Busy", "85+"], cut.FindAll(".mussel-view-legend-name").Select(static x => x.TextContent));
+    }
+
+    [Theory]
+    [InlineData(Double.NaN)]
+    [InlineData(Double.PositiveInfinity)]
+    [InlineData(Double.NegativeInfinity)]
+    public void ANumberThatIsNotFiniteEndsThePreviousState(double value)
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin, 10d), new StateItem("A", Origin.AddHours(1), value), new StateItem("A", Origin.AddHours(2), 20d)],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(3)));
+
+        Assert.Equal(2, cut.FindAll(".mussel-timeline-bands rect").Count);
+    }
+
+    [Fact]
+    public void EachBandTipsOnlyItsOwnState()
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin, "x"), new StateItem("A", Origin.AddHours(1), "y")],
+            p => p.Add(static x => x.Maximum, Origin.AddHours(2)));
+
+        using var tip = JsonDocument.Parse(cut.FindAll(".mussel-timeline-bands rect")[1].GetAttribute("data-tip")!);
+        Assert.Equal(2, tip.RootElement.GetProperty("r").GetArrayLength());
     }
 
     [Fact]

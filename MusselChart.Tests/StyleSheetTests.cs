@@ -19,6 +19,29 @@ public sealed partial class StyleSheetTests
         Assert.All(selectors, static x => Assert.Matches(WhereOnly(), x));
     }
 
+    [Fact]
+    public void ScopedStyleSheetsDeclareNoThemeVariables()
+    {
+        var files = Directory.GetFiles(Path.Combine(TestPaths.Root, "MusselChart"), "*.razor.css", SearchOption.AllDirectories);
+
+        Assert.NotEmpty(files);
+        Assert.All(files, static x => Assert.DoesNotContain(Rule().Matches(File.ReadAllText(x)), static y => Declaration().IsMatch(y.Groups["body"].Value)));
+    }
+
+    [Theory]
+    [InlineData("MusselChartView.razor.css", ".mussel-chart")]
+    [InlineData("Internal/ChartFrame.razor.css", ".mussel-view")]
+    [InlineData("MusselStatView.razor.css", ".mussel-stat")]
+    [InlineData("MusselBarGaugeView.razor.css", ".mussel-gauge")]
+    public void EveryViewWithTextTakesTheFontFamilyOfTheTheme(string file, string root)
+    {
+        var css = File.ReadAllText(Path.Combine(TestPaths.Root, "MusselChart", file));
+
+        var body = Rule().Matches(css).Single(x => x.Groups["selector"].Value.Trim() == root).Groups["body"].Value;
+
+        Assert.Contains("font-family: var(--mussel-font-family, inherit);", body, StringComparison.Ordinal);
+    }
+
     [GeneratedRegex(@"(?<selector>[^{}]+)\{(?<body>[^{}]*)\}")]
     private static partial Regex Rule();
 

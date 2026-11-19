@@ -90,8 +90,9 @@ internal sealed class TrendPath
 
         if (!(high > low))
         {
-            var tenth = Math.Abs(low) * 0.1;
-            var delta = Double.IsNormal(tenth) ? Math.Min(tenth, Double.MaxValue - Math.Abs(low)) : 1;
+            var kept = Math.Abs((maximum is not null) && (minimum is null) ? high : low);
+            var tenth = kept * 0.1;
+            var delta = Double.IsNormal(tenth) ? Math.Min(tenth, Double.MaxValue - kept) : 1;
             if ((minimum is not null) && (maximum is null))
             {
                 high = low + delta;

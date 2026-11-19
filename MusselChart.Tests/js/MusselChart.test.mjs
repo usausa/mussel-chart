@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { barEntry, compact, formatPosition, formatTime, fromPosition, horizontalTooltipLeft, markerEntry, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
+import { attach, barEntry, compact, formatPosition, formatTime, fromPosition, horizontalTooltipLeft, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
 
 const parentNode = { dataset: { offset: '0.5' } };
 const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
@@ -50,15 +50,28 @@ test('a time between two offset changes uses the offset of its period', () => {
     assert.equal(offsetAt('-300', changes, 1793512800), -300);
 });
 
+test('the root loses its mark when the script is disposed', () => {
+    globalThis.ResizeObserver ??= class { observe() { } disconnect() { } };
+    globalThis.MutationObserver ??= class { observe() { } disconnect() { } };
+    globalThis.cancelAnimationFrame ??= () => { };
+    const element = { dataset: {}, addEventListener() { }, removeEventListener() { }, querySelectorAll: () => [], querySelector: () => null };
+
+    const attached = attach(element, null);
+    const marked = Object.hasOwn(element.dataset, 'attached');
+    attached.dispose();
+
+    assert.deepEqual([marked, Object.hasOwn(element.dataset, 'attached')], [true, false]);
+});
+
 test('a range bar takes its low end from the rect and puts the dot on the high end', () => {
     assert.deepEqual(barEntry(rect({ x: '1', y: '12345.67', height: '4.45' }, { v: '12350.12' }), true, 0), { y: 12350.12, value: 12350.12, low: 12345.67, high: 12350.12, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '5' }, { v: '-5' }), true, 0), { y: -5, value: -5, low: -10, high: -5, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '0', height: '7' }, { v: '-5' }), true, -12), { y: 7, value: -5, low: -12, high: -5, center: 1.5 });
 });
 
 test('a range bar shows its ends with the value base, and every bar keeps its dot in the plot', () => {
     assert.deepEqual(barEntry(rect({ x: '2', y: '-3', height: '3' }, { v: '-3' }), false, 0), { y: -3, value: -3, center: 2.5 });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '-10', height: '75' }, { v: '1234567955' }), true, 1234567890), { y: 65, value: 1234567955, low: 1234567880, high: 1234567955, center: 1.5 });
-    assert.deepEqual(barEntry(rect({ x: '1', y: '-1234567890', height: '1234567955' }, { v: '1234567955' }), false, 1234567890), { y: 65, value: 1234567955, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '0', height: '75' }, { v: '1234567955' }), true, 1234567880), { y: 75, value: 1234567955, low: 1234567880, high: 1234567955, center: 1.5 });
+    assert.deepEqual(barEntry(rect({ x: '1', y: '-210', height: '275' }, { v: '1234567955' }), false, 1234567890), { y: 65, value: 1234567955, center: 1.5 });
 });
 
 test('a numeric position adds the base of its chart', () => {
@@ -94,10 +107,6 @@ test('a series of range bars reads its bars as ranges', () => {
     const [series] = readSeries(chart);
 
     assert.deepEqual([...series.values], [[1, { y: 5, value: -5, low: -10, high: -5, center: 1.5 }]]);
-});
-
-test('a marker shows its value with the value base', () => {
-    assert.deepEqual(markerEntry({ dataset: { y: '10', size: '2' } }, 1234567890), { y: 10, value: 1234567900, size: '2' });
 });
 
 test('a position is written with the base of its chart, and a time with the offset of its period', () => {

@@ -140,12 +140,18 @@ public sealed partial class MusselPieChartView
         insideLabels.Clear();
         outsideLabels.Clear();
         var palette = Palette ?? ChartPalettes.DefaultLight;
+        var hover = TrackballMode == ChartTrackballMode.Hover;
         foreach (var slice in layout.Slices)
         {
             var color = GetColor(slice, palette);
-            tipRows.Clear();
-            tipRows.Add(new ChartTipRow(color, slice.Label, $"{slice.ValueText} ({slice.PercentText})"));
-            var tip = ChartTip.Create(null, tipRows);
+            string? tip = null;
+            if (hover)
+            {
+                tipRows.Clear();
+                tipRows.Add(new ChartTipRow(color, slice.Label, $"{slice.ValueText} ({slice.PercentText})"));
+                tip = ChartTip.Create(null, tipRows);
+            }
+
             sliceViews.Add(new SliceView(slice.DataIndex, layout.GetPath(slice), color, tip));
             if ((LabelsMode == ChartPieLabelsMode.Inside) && (layout.GetInsideLabel(slice) is { } point))
             {
@@ -201,7 +207,7 @@ public sealed partial class MusselPieChartView
         }
     }
 
-    private readonly record struct SliceView(int Key, string Path, string Color, string Tip);
+    private readonly record struct SliceView(int Key, string Path, string Color, string? Tip);
 
     private readonly record struct InsideLabel(string X, string Y, string Text, string Color);
 

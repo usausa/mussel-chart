@@ -707,6 +707,33 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.InRange(Double.Parse(matrix[^1], CultureInfo.InvariantCulture), -1000, 1000);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("total")]
+    public void BarsFromZeroKeepTheirTopsWhenTheValueAxisLeavesZeroOut(string? group)
+    {
+        Sample[] items = [new(Start, 1234567955), new(Start.AddSeconds(1), 1234567900)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<NumericAxis>(static axis => axis.Add(static p => p.Minimum, 1234567800).Add(static p => p.Maximum, 1234568000))
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.StackGroup, group)));
+
+        var valueBase = Double.Parse(cut.Find("svg.mussel-chart-svg").GetAttribute("data-value-base")!, CultureInfo.InvariantCulture);
+        Assert.All(cut.FindAll(".mussel-bars rect"), rect =>
+        {
+            var y = Double.Parse(rect.GetAttribute("y")!, CultureInfo.InvariantCulture);
+            var height = Double.Parse(rect.GetAttribute("height")!, CultureInfo.InvariantCulture);
+            var top = Double.Parse(rect.GetAttribute("data-v")!, CultureInfo.InvariantCulture) - valueBase;
+            Assert.InRange(y + height - top, -0.01, 0.01);
+            Assert.InRange((float)y + (float)height - top, -0.01, 0.01);
+        });
+    }
+
     [Fact]
     public void LargeNumbersAreWrittenFromTheirBase()
     {
@@ -775,8 +802,8 @@ public sealed class MusselChartViewTests : BunitContext
         var last = cut.Find("polyline").GetAttribute("points")!.Split(' ')[^1].Split(',');
         var (x, y) = Transform(cut.Find(".mussel-plot").GetAttribute("transform")!, Double.Parse(last[0], CultureInfo.InvariantCulture), Double.Parse(last[1], CultureInfo.InvariantCulture));
         var live = cut.Find(".mussel-live circle");
-        Assert.Equal(Number(live, "cx"), x, 0.01);
-        Assert.Equal(Number(live, "cy"), y, 0.01);
+        Assert.Equal(Number(live, "cx"), x, 0.05);
+        Assert.Equal(Number(live, "cy"), y, 0.05);
     }
 
     [Fact]

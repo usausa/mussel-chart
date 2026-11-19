@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Text.Json;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -257,6 +259,27 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TooltipsAreLeftOutWithoutTheTrackball()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 75), new ChartEntry("B", 25)])
+            .Add(static p => p.TrackballMode, ChartTrackballMode.None));
+
+        Assert.All(cut.FindAll(".mussel-slice"), static x => Assert.Null(x.GetAttribute("data-tip")));
+    }
+
+    [Fact]
+    public void EachSliceTipsOnlyItsOwnRow()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 75), new ChartEntry("B", 25)])
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        using var tip = JsonDocument.Parse(cut.FindAll(".mussel-slice")[1].GetAttribute("data-tip")!);
+        Assert.Equal(1, tip.RootElement.GetProperty("r").GetArrayLength());
+    }
+
+    [Fact]
     public void AttributesGoToTheRootElement()
     {
         var cut = Render<MusselPieChartView>(parameters => parameters
@@ -383,6 +406,7 @@ public sealed class MusselPieChartViewTests : BunitContext
         await cut.InvokeAsync(runtime.Module.Resume.SetResult);
 
         await cut.WaitForAssertionAsync(() => Assert.True(instance.Released));
+        Assert.False(Renderer.UnhandledException.IsCompleted);
         Assert.Equal(["dispose"], instance.Calls);
         Assert.True(runtime.Module.Released);
     }

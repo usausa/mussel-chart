@@ -21,4 +21,10 @@ public sealed class ChartTextTests
         Assert.True(ChartText.Measure(text, 10) <= 60);
         Assert.Empty(ChartText.Truncate("Long", 10, 1));
     }
+
+    [Fact]
+    public void TruncateKeepsWholeCharactersOutsideTheBasicPlane()
+    {
+        Assert.Equal("\U0001F600\U0001F600" + ChartText.Ellipsis, ChartText.Truncate("\U0001F600\U0001F600\U0001F600\U0001F600", 10, 30));
+    }
 }
