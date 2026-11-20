@@ -64,7 +64,7 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
-    public void AFixedEndThatIsNotFiniteLeavesNoNaN()
+    public void AnEndThatIsNotFiniteLeavesNoNaN()
     {
         ChartEntry[] items = [new("A", 1), new("B", 2), new("C", 3)];
         var cut = Render<MusselRadarChartView>(parameters => parameters
@@ -73,6 +73,24 @@ public sealed class MusselRadarChartViewTests : BunitContext
             .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
 
         Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(10d, 0d)]
+    [InlineData(2d, 2d)]
+    public void EndsThatAreOutOfOrderAreDropped(double minimum, double maximum)
+    {
+        ChartEntry[] items = [new("A", 1), new("B", 2), new("C", 3)];
+        var ends = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
+        var plain = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.Height, 300)
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, items).Add(static p => p.Title, "One")));
+
+        Assert.Equal(plain.Find(".mussel-radar-fill").GetAttribute("points"), ends.Find(".mussel-radar-fill").GetAttribute("points"));
     }
 
     [Fact]
@@ -357,6 +375,17 @@ public sealed class MusselRadarChartViewTests : BunitContext
         Assert.Equal(string.Empty, cut.Find(".mussel-empty text").TextContent);
 
         cut.FindAll(".mussel-view-legend-item")[0].Click();
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+    }
+
+    [Fact]
+    public void ShowsEmptyTextWhenARepeatedNameKeepsAValueThatIsNotFinite()
+    {
+        ChartEntry[] repeated = [new("A", Double.NaN), new("A", 5)];
+        var cut = Render<MusselRadarChartView>(parameters => parameters
+            .Add(static p => p.EmptyText, "No data")
+            .AddChildContent<RadarSeries<ChartEntry>>(series => series.Add(static p => p.Items, repeated)));
 
         Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
     }

@@ -29,10 +29,10 @@ The pie, radial bar, radar, heatmap and state timeline views do the same.
 | Axis | Parameters |
 |---|---|
 | All | `IsVisible`, `LabelsVisible`, `LabelFormat`, `MaxLabelCount`, `GridLinesVisible` |
-| `DateTimeAxis` | The X axis of `X`: `WindowSize`, `Minimum`, `Maximum`, `LabelFormatter` |
+| `DateTimeAxis` | The X axis of `X`: `WindowSize`, `Minimum`, `Maximum`, `LabelFormatter`; `WindowSize` is the time up to `Maximum` or the last point, without `Minimum`; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the points are beyond is kept with the other end a second away |
 | `CategoryAxis` | The X axis of `Category`: `LabelPlacement` (`BetweenTicks` or `OnTicks`), `LabelMaxLength`, `LabelFormatter` |
 | `NumericXAxis` | The X axis of `XValue`, with the parameters of `NumericAxis` |
-| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter` |
+| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter`; a value that is not finite is not used, a `Minimum` that is not below `Maximum` fixes neither end, and an end that the values are beyond is kept with the other end 1 away |
 
 Without an X axis, the first series chooses it from the delegate it has, and the ends of a numeric X axis are not widened to the next tick.  
 Categories merge the names of all series in order of appearance, hidden series included, and overlapping labels are thinned keeping both ends.  
@@ -91,11 +91,11 @@ Concentric rings that compare several progress values, the first item being the 
 |---|---|---|---|
 | `Items` | `IReadOnlyList<ChartEntry>?` | `null` | Label, value, color and the maximum of each ring |
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the ring colors |
-| `Minimum`, `Maximum` | `double` | `0`, `100` | Range of every ring; the maximum of an item comes first; a range that is not finite shows an item like a value that is not finite |
+| `Minimum`, `Maximum` | `double` | `0`, `100` | Range of every ring; the maximum of an item comes first; a range that is not finite, or whose maximum is not above `Minimum`, makes the item count as a value that is not finite, for `Total` and `EmptyText` too |
 | `StartAngle`, `SweepAngle` | `double` | `0`, `360` | Start and length of the rings; `250` and `220` give the gauge open at the bottom |
 | `InnerRadius`, `RingThickness`, `RingSpacing` | `double`, `double?`, `double` | `0.4`, `null`, `4` | `null` divides the area outside `InnerRadius`, up to 1/6 of the radius |
 | `CapStyle` | `ChartCapStyle` | `Flat` | Ends of the rings and the track |
-| `DisplayMode`, `SegmentCount`, `SegmentGap` | `ChartRadialBarMode`, `int`, `double` | `Basic`, `20`, `2` | `Segmented` lights a cell when its start is before the value; fewer cells on short rings |
+| `DisplayMode`, `SegmentCount`, `SegmentGap` | `ChartRadialBarMode`, `int`, `double` | `Basic`, `20`, `2` | `Segmented` lights a cell when its start is before the value; fewer cells on short rings; `OverflowMode` and the `FillMode` and `CapStyle` of the rings work in `Basic` only, while the threshold ring follows `FillMode` in both |
 | `FillMode` | `ChartFillMode` | `Solid` | `Gradient` draws a sweep of the threshold colors, or of the shades of the ring color |
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring; a glow under the values and the threshold ring; a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
@@ -115,7 +115,7 @@ Compares several series on axes that spread from the center, one axis per item.
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the series colors |
-| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels |
+| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels, and so are both ends when `Minimum` is not below `Maximum` |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter` |
 | `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays |
@@ -142,7 +142,7 @@ The colors follow the Grafana heatmap, spread over 64 steps.
 | `Date` | `Func<TItem, DateTime>?` | `null` | Date of a calendar |
 | `LayoutMode` | `ChartHeatmapLayoutMode` | `Matrix` | A `Matrix` or a `Calendar` |
 | `Height` | `double` | `240` | Height in pixels |
-| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value |
+| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value, and so do both ends when `Minimum` is not below `Maximum` |
 | `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more; `OrangesDark` suits a dark theme |
 | `CellGap` | `double` | `1` | Space after each cell |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the week starts on the `FirstDayOfWeek` of the culture |
@@ -150,7 +150,7 @@ The colors follow the Grafana heatmap, spread over 64 steps.
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering frames the cell and shows the tooltip |
 
 Rows and columns follow the order of appearance, the first value of a cell is used and a cell without a value is drawn in `--mussel-track`.  
-A calendar runs from the first to the last date, up to the latest 1,000 weeks, with square cells and the month above the week where it starts.  
+A calendar runs from the first to the last date, up to the latest 1,000 weeks, with square cells and the month above the week where it starts. The months and the dates of the tooltips use the Gregorian calendar of the culture.  
 
 ## 🚥 MusselStateTimelineView
 
@@ -163,7 +163,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `Row`, `Start`, `End` | `Func<TItem, string?>?`, `Func<TItem, DateTime>?`, `Func<TItem, DateTime?>?` | `null` | Row name, the start and the optional end; without `Row` everything is one row; an end that is not after the start is ignored, and the state lasts until the next start of its row |
 | `State` | `Func<TItem, object?>?` | `null` | Text or a number; `null`, `NaN` and infinities end the previous state |
 | `Height` | `double` | `240` | Height in pixels |
-| `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum` |
+| `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum`; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the states are beyond is kept with the other end a second away |
 | `ValueMappings` | `IReadOnlyList<ChartValueMapping>?` | `null` | `Value` to match, `Text`, `Color` and `Level` of a state |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Steps of numeric states, named by `Label` or like `< 60` and `60+`. When some states are numbers, the legend shows the steps |
 | `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step, which then do not use `ValueMappings` |
@@ -195,14 +195,14 @@ A KPI tile that fills the height of its container.
 | `Values`, `Kind` | Values as a `Line`, an `Area`, `Bar`s or `WinLoss`, where wins fill the upper half and losses the lower half; a value that is not finite is skipped, so a line or an area joins the others and a bar leaves its place empty |
 | `Color`, `Palette`, `Thickness` | Colors and the line width |
 | `NegativeColor` | Negative bars and losses; `null` is the color of the bars and `--mussel-critical` for losses |
-| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels; `Bar` widens the range to include 0, and `WinLoss` does not use it |
+| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels; a value that is not finite is not fixed, and a `Minimum` that is not below `Maximum` fixes neither end; `Bar` widens the range to include 0, and `WinLoss` does not use it |
 
 ## 📶 MusselBarGaugeView
 
 | Name | Description |
 |---|---|
 | `Items` | `ChartEntry` with a label, a value, a color, a maximum and a target; a value that is not finite shows `-` and an empty bar |
-| `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first; a range that is not finite shows `-` and an empty bar |
+| `Minimum`, `Maximum` | Range of every item; the maximum of an item comes first; a range that is not finite, or whose maximum is not above `Minimum`, shows `-` and an empty bar |
 | `DisplayMode`, `SegmentWidth`, `BarThickness` | `Basic` or `Segmented` bars |
 | `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` (one column for every bar, up to 40 % of the width) or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the numbers |

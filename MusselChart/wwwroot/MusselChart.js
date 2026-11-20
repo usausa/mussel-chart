@@ -179,7 +179,7 @@ export function readSeries(chart) {
 
         return {
             title: group.dataset.title ?? '',
-            color: group.dataset.color ?? '#808080',
+            color: group.dataset.color ?? '#B5B3AA',
             format: group.dataset.format ?? '',
             kind: group.dataset.kind ?? 'Line',
             group,

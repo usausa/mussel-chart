@@ -1,5 +1,7 @@
 namespace MusselChart;
 
+using System.Text.Json;
+
 using MusselChart.Internal;
 
 public sealed record HeatItem(string Row, string Column, double Value);
@@ -28,18 +30,40 @@ public sealed class MusselHeatmapViewTests : BunitContext
             .Add(static p => p.Value, static x => x.Value)
             .Add(static p => p.Culture, CultureInfo.InvariantCulture));
 
-    [Fact]
-    public void AnEndThatIsNotFiniteLeavesNoNaN()
+    [Theory]
+    [InlineData(Double.NegativeInfinity, null)]
+    [InlineData(null, Double.PositiveInfinity)]
+    public void AnEndThatIsNotFiniteLeavesNoNaN(double? minimum, double? maximum)
     {
         var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
             .Add(static p => p.Items, Items)
             .Add(static p => p.Row, static x => x.Row)
             .Add(static p => p.Column, static x => x.Column)
             .Add(static p => p.Value, static x => x.Value)
-            .Add(static p => p.Maximum, Double.PositiveInfinity)
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum)
             .Add(static p => p.Culture, CultureInfo.InvariantCulture));
 
         Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(100d, 0d)]
+    [InlineData(2d, 2d)]
+    public void EndsThatAreOutOfOrderAreDropped(double minimum, double maximum)
+    {
+        var ends = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
+            .Add(static p => p.Items, Items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Column, static x => x.Column)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+        var plain = RenderMatrix(Items);
+
+        Assert.Equal(plain.Find(".mussel-heat-cells").InnerHtml, ends.Find(".mussel-heat-cells").InnerHtml);
+        Assert.Equal(plain.Find(".mussel-heat-scale").InnerHtml, ends.Find(".mussel-heat-scale").InnerHtml);
     }
 
     [Fact]
@@ -240,6 +264,26 @@ public sealed class MusselHeatmapViewTests : BunitContext
             .Add(static p => p.Culture, culture));
 
         Assert.Contains(gregorian.DateTimeFormat.GetAbbreviatedMonthName(5), cut.FindAll(".mussel-view-label").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void CalendarTipsUseGregorianDates()
+    {
+        var culture = CultureInfo.GetCultureInfo("ar-SA");
+        var gregorian = (CultureInfo)culture.Clone();
+        gregorian.DateTimeFormat.Calendar = culture.OptionalCalendars.OfType<GregorianCalendar>().First();
+        var start = new DateTime(2026, 5, 4, 0, 0, 0, DateTimeKind.Unspecified);
+        var items = Enumerable.Range(0, 20).Select(i => new DayItem(start.AddDays(i), i)).ToArray();
+
+        var cut = Render<MusselHeatmapView<DayItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.LayoutMode, ChartHeatmapLayoutMode.Calendar)
+            .Add(static p => p.Date, static x => x.Date)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.Culture, culture));
+
+        var titles = cut.FindAll(".mussel-heat-cells rect[data-tip]").Select(static x => JsonSerializer.Deserialize<JsonElement>(x.GetAttribute("data-tip")!).GetProperty("t").GetString()).ToArray();
+        Assert.Contains(start.ToString("d", gregorian) + " (" + gregorian.DateTimeFormat.GetAbbreviatedDayName(start.DayOfWeek) + ")", titles);
     }
 
     [Fact]

@@ -132,15 +132,28 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Empty(hidden.FindAll(".mussel-gauge-track"));
     }
 
+    [Theory]
+    [InlineData(Double.NegativeInfinity, 100d)]
+    [InlineData(100d, 0d)]
+    [InlineData(50d, 50d)]
+    public void AGaugeRangeThatIsNotValidShowsNoValue(double minimum, double maximum)
+    {
+        var cut = Render<MusselBarGaugeView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("Shop", 30, "#5794F2")])
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum)
+            .Add(static p => p.Thresholds, Levels)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);
+        Assert.Equal("-", cut.Find(".mussel-gauge-value text").TextContent);
+        Assert.Equal("#5794F2", cut.Find(".mussel-gauge-value text").GetAttribute("fill"));
+        Assert.Equal("0%", cut.Find(".mussel-gauge-bar > rect[fill-opacity='0.35']").GetAttribute("width"));
+    }
+
     [Fact]
     public void GaugeDrawsRatioValueAndTarget()
     {
-        var infinite = Render<MusselBarGaugeView>(parameters => parameters
-            .Add(static p => p.Items, [new ChartEntry("Shop", 30)])
-            .Add(static p => p.Minimum, Double.NegativeInfinity)
-            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
-        Assert.DoesNotContain("NaN", infinite.Markup, StringComparison.Ordinal);
-
         var cut = Render<MusselBarGaugeView>(parameters => parameters
             .Add(static p => p.Items, [new ChartEntry("Shop", 30, null, 40, 35)])
             .Add(static p => p.ValueMode, ChartBarGaugeValueMode.ValueOfMaximum)
@@ -348,19 +361,26 @@ public sealed class MusselWidgetTests : BunitContext
         Assert.Equal(ChartPalettes.DefaultLight[0], plain.Find("polyline").GetAttribute("stroke"));
     }
 
-    [Fact]
-    public void SparklineSwapsFixedEndsGivenTheWrongWayRound()
+    [Theory]
+    [InlineData(ChartSparklineKind.Line, 10d, 0d)]
+    [InlineData(ChartSparklineKind.Line, 5d, 5d)]
+    [InlineData(ChartSparklineKind.Line, Double.NegativeInfinity, null)]
+    [InlineData(ChartSparklineKind.Line, Double.NaN, null)]
+    [InlineData(ChartSparklineKind.Line, null, Double.PositiveInfinity)]
+    [InlineData(ChartSparklineKind.Bar, Double.NegativeInfinity, null)]
+    public void SparklineDropsEndsThatAreOutOfOrderOrNotFinite(ChartSparklineKind kind, double? minimum, double? maximum)
     {
-        var reversed = Render<MusselSparklineView>(parameters => parameters
+        var ends = Render<MusselSparklineView>(parameters => parameters
             .Add(static p => p.Values, [1d, 5, 3])
-            .Add(static p => p.Minimum, 10)
-            .Add(static p => p.Maximum, 0));
-        var ordered = Render<MusselSparklineView>(parameters => parameters
+            .Add(static p => p.Kind, kind)
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum));
+        var plain = Render<MusselSparklineView>(parameters => parameters
             .Add(static p => p.Values, [1d, 5, 3])
-            .Add(static p => p.Minimum, 0)
-            .Add(static p => p.Maximum, 10));
+            .Add(static p => p.Kind, kind));
 
-        Assert.Equal(ordered.Find("polyline").GetAttribute("points"), reversed.Find("polyline").GetAttribute("points"));
+        Assert.DoesNotContain("NaN", ends.Markup, StringComparison.Ordinal);
+        Assert.Equal(plain.Find("svg").InnerHtml, ends.Find("svg").InnerHtml);
     }
 
     [Fact]

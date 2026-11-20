@@ -57,6 +57,13 @@ internal static class ChartTime
         _ => Math.Clamp(value.Ticks - zone.GetUtcOffset(value).Ticks, 0, DateTime.MaxValue.Ticks)
     };
 
+    public static (long? Start, long? End) FixedEnds(DateTime? minimum, DateTime? maximum, TimeZoneInfo zone)
+    {
+        long? start = minimum is { } low ? ToUtcTicks(low, zone) : null;
+        long? end = maximum is { } high ? ToUtcTicks(high, zone) : null;
+        return (start is { } first) && (end is { } last) && (last <= first) ? (null, null) : (start, end);
+    }
+
     public static long ToZoneTicks(long utcTicks, TimeZoneInfo zone) =>
         utcTicks + OffsetOf(utcTicks, zone);
 

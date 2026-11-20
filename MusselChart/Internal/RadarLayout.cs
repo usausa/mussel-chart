@@ -92,6 +92,8 @@ internal sealed class RadarLayout
 
     public bool IsCircle { get; private set; }
 
+    public bool HasValues { get; private set; }
+
     public double GetValue(int series, int axis) => values[(series * AxisCount) + axis];
 
     public double GetRatio(double value)
@@ -290,6 +292,7 @@ internal sealed class RadarLayout
             }
         }
 
+        HasValues = minimum <= maximum;
         var range = new ChartRangeOptions(options.Minimum, options.Maximum, null, null, true, true);
         Scale = ChartRange.Resolve(minimum, maximum, range, Math.Max(options.LevelCount, 1));
         TickGenerator.Numeric(Scale, ticks);

@@ -315,6 +315,71 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal(2, cut.FindAll(".mussel-band").Count);
     }
 
+    [Theory]
+    [InlineData(10d, 0d, null, null)]
+    [InlineData(5d, 5d, null, null)]
+    [InlineData(Double.NegativeInfinity, null, null, null)]
+    [InlineData(null, Double.NaN, null, null)]
+    [InlineData(null, null, Double.NegativeInfinity, null)]
+    [InlineData(null, null, Double.NaN, null)]
+    [InlineData(null, null, null, Double.PositiveInfinity)]
+    public void TheValueAxisDropsEndsThatAreOutOfOrderOrNotFinite(double? minimum, double? maximum, double? softMinimum, double? softMaximum)
+    {
+        var ends = RenderWithValueAxis(minimum, maximum, softMinimum, softMaximum);
+        var plain = RenderWithValueAxis(null, null, null, null);
+
+        Assert.DoesNotContain("NaN", ends.Markup, StringComparison.Ordinal);
+        Assert.Equal(plain.Find(".mussel-plot").GetAttribute("transform"), ends.Find(".mussel-plot").GetAttribute("transform"));
+        Assert.Equal(plain.FindAll(".mussel-axis text").Select(static x => x.TextContent), ends.FindAll(".mussel-axis text").Select(static x => x.TextContent));
+    }
+
+    [Theory]
+    [InlineData(null, -5d, "-6", "-5")]
+    [InlineData(20d, null, "20", "21")]
+    public void TheValueAxisKeepsAnEndThatTheValuesAreBeyond(double? minimum, double? maximum, string first, string last)
+    {
+        var cut = RenderWithValueAxis(minimum, maximum, null, null);
+
+        var labels = cut.FindAll(".mussel-axis text[text-anchor='end']").Select(static x => x.TextContent).ToList();
+        Assert.Equal([first, last], [labels[0], labels[^1]]);
+    }
+
+    [Theory]
+    [InlineData(9, 0)]
+    [InlineData(5, 5)]
+    [InlineData(1, 0)]
+    public void ATimeAxisDropsEndsThatAreOutOfOrder(int minimum, int maximum)
+    {
+        var ends = RenderWithTimeAxis(Start.AddSeconds(minimum), Start.AddSeconds(maximum));
+        var plain = RenderWithTimeAxis(null, null);
+
+        Assert.Equal(plain.Find(".mussel-plot").GetAttribute("transform"), ends.Find(".mussel-plot").GetAttribute("transform"));
+        Assert.Equal(plain.FindAll(".mussel-axis text").Select(static x => x.TextContent), ends.FindAll(".mussel-axis text").Select(static x => x.TextContent));
+    }
+
+    [Fact]
+    public void AWindowSizeLeavesOutTheMinimumEvenOneAfterTheMaximum()
+    {
+        var ends = RenderWithTimeAxis(Start.AddSeconds(9), Start.AddSeconds(6), TimeSpan.FromSeconds(5));
+        var window = RenderWithTimeAxis(null, Start.AddSeconds(6), TimeSpan.FromSeconds(5));
+
+        Assert.Equal(window.Find(".mussel-plot").GetAttribute("transform"), ends.Find(".mussel-plot").GetAttribute("transform"));
+        Assert.Equal(window.FindAll(".mussel-axis text").Select(static x => x.TextContent), ends.FindAll(".mussel-axis text").Select(static x => x.TextContent));
+    }
+
+    [Theory]
+    [InlineData(null, -10, "23:59:49", "23:59:50")]
+    [InlineData(20, null, "00:00:20", "00:00:21")]
+    public void ATimeAxisKeepsAnEndThatThePointsAreBeyond(int? minimum, int? maximum, string first, string last)
+    {
+        var cut = RenderWithTimeAxis(minimum is { } low ? Start.AddSeconds(low) : null, maximum is { } high ? Start.AddSeconds(high) : null);
+
+        var transform = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var labels = cut.FindAll(".mussel-axis text[text-anchor='middle']").Select(static x => x.TextContent).ToList();
+        Assert.True(Transform(transform, 1, 0).X > Transform(transform, 0, 0).X);
+        Assert.Equal([first, last], [labels[0], labels[^1]]);
+    }
+
     [Fact]
     public void ShowsEmptyTextWithoutData()
     {
@@ -1054,6 +1119,21 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal("0,0 3600,1 3600,2", cut.Find("polyline").GetAttribute("points"));
     }
 
+    [Fact]
+    public void TheChartTellsTheScriptHowToTrack()
+    {
+        Sample[] items = [new(Start, 1), new(Start.AddSeconds(1), 2)];
+        var shown = Render<MusselChartView>(parameters => parameters
+            .AddChildContent<LineSeries<Sample>>(series => series.Add(static p => p.Items, items).Add(static p => p.X, static x => x.Time).Add(static p => p.Y, static x => x.Value)));
+        var hidden = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TrackballMode, ChartTrackballMode.None)
+            .Add(static p => p.TooltipVisible, false)
+            .AddChildContent<LineSeries<Sample>>(series => series.Add(static p => p.Items, items).Add(static p => p.X, static x => x.Time).Add(static p => p.Y, static x => x.Value)));
+
+        Assert.Equal(["hover", "true"], [shown.Find(".mussel-chart").GetAttribute("data-trackball"), shown.Find(".mussel-chart").GetAttribute("data-tooltip")]);
+        Assert.Equal(["none", "false"], [hidden.Find(".mussel-chart").GetAttribute("data-trackball"), hidden.Find(".mussel-chart").GetAttribute("data-tooltip")]);
+    }
+
     private IRenderedComponent<MusselChartView> RenderLine(ChartRingBuffer<Sample> buffer) =>
         Render<MusselChartView>(parameters => parameters
             .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
@@ -1062,6 +1142,29 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.X, static x => x.Time)
                 .Add(static p => p.Y, static x => x.Value)
                 .Add(static p => p.Title, "Value")));
+
+    private IRenderedComponent<MusselChartView> RenderWithValueAxis(double? minimum, double? maximum, double? softMinimum, double? softMaximum) =>
+        Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<NumericAxis>(axis => axis
+                .Add(static p => p.Minimum, minimum)
+                .Add(static p => p.Maximum, maximum)
+                .Add(static p => p.SoftMinimum, softMinimum)
+                .Add(static p => p.SoftMaximum, softMaximum))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, CreateBuffer(10, 10))
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+    private IRenderedComponent<MusselChartView> RenderWithTimeAxis(DateTime? minimum, DateTime? maximum, TimeSpan? window = null) =>
+        Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<DateTimeAxis>(axis => axis.Add(static p => p.Minimum, minimum).Add(static p => p.Maximum, maximum).Add(static p => p.WindowSize, window))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, CreateBuffer(10, 10))
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
 
     private static (double X, double Y) Transform(string transform, double x, double y)
     {

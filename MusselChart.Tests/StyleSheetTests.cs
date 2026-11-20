@@ -49,10 +49,10 @@ public sealed partial class StyleSheetTests
     {
         var css = File.ReadAllText(Path.Combine(TestPaths.Root, "MusselChart", file));
 
-        var start = css.IndexOf("@media (hover: hover)", StringComparison.Ordinal);
+        var media = HoverMedia().Match(css);
 
-        Assert.True(start >= 0);
-        Assert.True(css.IndexOf(selector, StringComparison.Ordinal) > start);
+        Assert.True(media.Success);
+        Assert.Contains(Rule().Matches(media.Groups["body"].Value), x => x.Groups["selector"].Value.Trim() == selector);
     }
 
     [Fact]
@@ -61,9 +61,16 @@ public sealed partial class StyleSheetTests
         var files = Directory.GetFiles(Path.Combine(TestPaths.Root, "MusselChart"), "*.razor.css", SearchOption.AllDirectories)
             .Append(Path.Combine(TestPaths.Root, "MusselChart", "wwwroot", "MusselChart.css"))
             .ToList();
+        var example = Rule().Matches(File.ReadAllText(Path.Combine(TestPaths.Root, "Example.Client", "wwwroot", "css", "app.css")))
+            .Where(static x => !x.Groups["selector"].Value.Contains("components-reconnect", StringComparison.Ordinal))
+            .Select(static x => x.Value)
+            .ToList();
 
         Assert.True(files.Count > 1);
+        Assert.Contains(example, static x => x.Contains(".sample-card", StringComparison.Ordinal));
+        Assert.Contains(example, static x => x.Contains(".panel", StringComparison.Ordinal));
         Assert.All(files, static x => Assert.DoesNotMatch(RoundedCorner(), File.ReadAllText(x)));
+        Assert.All(example, static x => Assert.DoesNotMatch(RoundedCorner(), x));
     }
 
     [GeneratedRegex(@"(?<selector>[^{}]+)\{(?<body>[^{}]*)\}")]
@@ -75,8 +82,11 @@ public sealed partial class StyleSheetTests
     [GeneratedRegex(@",(?![^(]*\))")]
     private static partial Regex TopLevelComma();
 
-    [GeneratedRegex(@"border-radius\s*:(?!\s*50%)")]
+    [GeneratedRegex(@"border(?:-[a-z]+-[a-z]+)?-radius\s*:(?!\s*(?:0(?:px)?|50%)\s*[;}])")]
     private static partial Regex RoundedCorner();
+
+    [GeneratedRegex(@"@media \(hover: hover\)\s*\{(?<body>(?:[^{}]*\{[^{}]*\})*[^{}]*)\}")]
+    private static partial Regex HoverMedia();
 
     [GeneratedRegex(@"^(?::where\([^()]*\)\s*)+$")]
     private static partial Regex WhereOnly();

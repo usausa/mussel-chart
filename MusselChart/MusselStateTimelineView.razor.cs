@@ -224,11 +224,19 @@ public sealed partial class MusselStateTimelineView<TItem>
             maximum = Math.Max(maximum, Double.IsFinite(segment.End) ? segment.End : segment.Start);
         }
 
-        var start = Minimum is { } low ? ChartTime.ToUtcTicks(low, zone) : minimum;
-        var end = Maximum is { } high ? ChartTime.ToUtcTicks(high, zone) : maximum;
+        var (low, high) = ChartTime.FixedEnds(Minimum, Maximum, zone);
+        var start = low ?? minimum;
+        var end = high ?? maximum;
         if (!(end > start) && Double.IsFinite(start))
         {
-            end = start + TimeSpan.TicksPerSecond;
+            if (high is null)
+            {
+                end = start + TimeSpan.TicksPerSecond;
+            }
+            else
+            {
+                start = end - TimeSpan.TicksPerSecond;
+            }
         }
 
         return (start, end);

@@ -343,7 +343,8 @@ public sealed partial class MusselChartView
         if (xKind == ChartXKind.Number)
         {
             var axis = xAxis as NumericAxis;
-            return new PositionWindow(axis?.Minimum ?? Double.NegativeInfinity, axis?.Maximum ?? Double.PositiveInfinity);
+            var (low, high) = ChartRange.FixedEnds(axis?.Minimum, axis?.Maximum);
+            return new PositionWindow(low ?? Double.NegativeInfinity, high ?? Double.PositiveInfinity);
         }
 
         if (xKind != ChartXKind.Time)
@@ -369,14 +370,24 @@ public sealed partial class MusselChartView
         }
 
         var axisTime = xAxis as DateTimeAxis;
-        var end = axisTime?.Maximum is { } maximum ? ChartTime.ToUtcTicks(maximum, zone) : latest ?? DateTime.UtcNow.Ticks;
-        var start = axisTime?.WindowSize is { } window
-            ? end - window.Ticks
-            : axisTime?.Minimum is { } minimum ? ChartTime.ToUtcTicks(minimum, zone) : earliest ?? (end - TimeSpan.TicksPerMinute);
+        var (fixedStart, fixedEnd) = ChartTime.FixedEnds(axisTime?.WindowSize is null ? axisTime?.Minimum : null, axisTime?.Maximum, zone);
+        var end = fixedEnd ?? latest ?? DateTime.UtcNow.Ticks;
+        var start = axisTime?.WindowSize is { } window ? end - window.Ticks : fixedStart ?? earliest ?? (end - TimeSpan.TicksPerMinute);
         if (end <= start)
         {
-            start -= TimeSpan.TicksPerSecond;
-            end += TimeSpan.TicksPerSecond;
+            if (fixedEnd is not null)
+            {
+                start = end - TimeSpan.TicksPerSecond;
+            }
+            else if (fixedStart is not null)
+            {
+                end = start + TimeSpan.TicksPerSecond;
+            }
+            else
+            {
+                start -= TimeSpan.TicksPerSecond;
+                end += TimeSpan.TicksPerSecond;
+            }
         }
 
         var barSpacing = MeasureBarSpacing(visible);

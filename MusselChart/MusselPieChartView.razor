@@ -23,10 +23,10 @@
         }
         @if (layout.Center is { } center)
         {
-            <g><text class="mussel-pie-center" x="@centerX" y="@ChartGeometry.Text(center.ValueY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.ValueFontSize)">@center.Value</text></g>
+            <g><text class="mussel-pie-center" x="@ChartGeometry.Text(center.X)" y="@ChartGeometry.Text(center.ValueY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.ValueFontSize)">@center.Value</text></g>
             @if (center.Caption is not null)
             {
-                <g><text class="mussel-pie-caption" x="@centerX" y="@ChartGeometry.Text(center.CaptionY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.CaptionFontSize)">@center.Caption</text></g>
+                <g><text class="mussel-pie-caption" x="@ChartGeometry.Text(center.X)" y="@ChartGeometry.Text(center.CaptionY)" text-anchor="middle" dominant-baseline="central" font-size="@ChartFormat.Pixel(center.CaptionFontSize)">@center.Caption</text></g>
             }
         }
         <g class="mussel-empty"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">@emptyText</text></g>

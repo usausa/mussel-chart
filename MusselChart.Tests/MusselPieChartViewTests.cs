@@ -288,6 +288,7 @@ public sealed class MusselPieChartViewTests : BunitContext
             .Add(static p => p.Items, [new ChartEntry("A", 75), new ChartEntry("B", 25)])
             .Add(static p => p.TrackballMode, ChartTrackballMode.None));
 
+        Assert.NotEmpty(cut.FindAll(".mussel-slice"));
         Assert.All(cut.FindAll(".mussel-slice"), static x => Assert.Null(x.GetAttribute("data-tip")));
     }
 
@@ -373,7 +374,35 @@ public sealed class MusselPieChartViewTests : BunitContext
 
         var center = layout.Center!;
         Assert.Equal("Total", center.Caption);
-        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 220);
+        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 212);
+    }
+
+    [Fact]
+    public void TheCenterOfAQuarterDonutStaysInsideThePlotSideways()
+    {
+        var layout = new PieLayout();
+
+        layout.Update(220, 220, new PieLayoutOptions { StartAngle = 0, SweepAngle = 90, InnerRadius = 0.8, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("A", 60), new ChartEntry("B", 40)]);
+
+        var center = layout.Center!;
+        var half = ChartText.Measure(center.Value, center.ValueFontSize) / 2;
+        Assert.Equal("100", center.Value);
+        Assert.InRange(center.X - half, 8, 212);
+        Assert.InRange(center.X + half, 8, 212);
+    }
+
+    [Fact]
+    public void TheCenterOfAQuarterDonutMovedSidewaysStaysInsideTheHole()
+    {
+        var layout = new PieLayout();
+
+        layout.Update(220, 220, new PieLayoutOptions { StartAngle = 0, SweepAngle = 90, InnerRadius = 0.3, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("A", 60), new ChartEntry("B", 40)]);
+
+        var center = layout.Center!;
+        var side = Math.Abs(center.X - layout.CenterX) + (ChartText.Measure(center.Value, center.ValueFontSize) / 2);
+        var reach = Math.Abs(center.ValueY - layout.CenterY) + (ChartText.LineHeight(center.ValueFontSize) / 2);
+        Assert.True(center.X > layout.CenterX);
+        Assert.True(Math.Sqrt((side * side) + (reach * reach)) <= layout.InnerRadius);
     }
 
     [Fact]

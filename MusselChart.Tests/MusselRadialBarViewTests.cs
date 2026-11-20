@@ -126,6 +126,7 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(static p => p.Items, [new ChartEntry("A", 90), new ChartEntry("B", 10)])
             .Add(static p => p.TrackballMode, ChartTrackballMode.None));
 
+        Assert.NotEmpty(cut.FindAll(".mussel-ring"));
         Assert.All(cut.FindAll(".mussel-ring"), static x => Assert.Null(x.GetAttribute("data-tip")));
     }
 
@@ -252,6 +253,39 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(static p => p.Culture, CultureInfo.InvariantCulture));
 
         Assert.Equal(string.Empty, cut.Find(".mussel-empty text").TextContent);
+        Assert.Equal("10", cut.Find(".mussel-radial-center").TextContent);
+    }
+
+    [Theory]
+    [InlineData(Double.NegativeInfinity, 100d, ChartCenterValueMode.Total, null)]
+    [InlineData(100d, 0d, ChartCenterValueMode.Total, null)]
+    [InlineData(50d, 50d, ChartCenterValueMode.Total, null)]
+    [InlineData(Double.NegativeInfinity, 100d, ChartCenterValueMode.Auto, "OK")]
+    public void ARangeThatIsNotValidShowsEmptyTextAndNoCenter(double minimum, double maximum, ChartCenterValueMode mode, string? text)
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.Minimum, minimum)
+            .Add(static p => p.Maximum, maximum)
+            .Add(static p => p.CenterValueMode, mode)
+            .Add(static p => p.CenterText, text)
+            .Add(static p => p.CenterLabel, "Total")
+            .Add(static p => p.EmptyText, "No data")
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+        Assert.Empty(cut.FindAll(".mussel-radial-center"));
+        Assert.Empty(cut.FindAll(".mussel-radial-caption"));
+    }
+
+    [Fact]
+    public void TheTotalLeavesOutAnItemWithoutAValidRange()
+    {
+        var cut = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 10), new ChartEntry("B", 20, null, 0)])
+            .Add(static p => p.CenterValueMode, ChartCenterValueMode.Total)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture));
+
         Assert.Equal("10", cut.Find(".mussel-radial-center").TextContent);
     }
 
@@ -441,7 +475,24 @@ public sealed class MusselRadialBarViewTests : BunitContext
             .Add(static p => p.Items, [new ChartEntry("A", 50)])
             .Add(static p => p.CapStyle, ChartCapStyle.Round));
 
+        Assert.NotEmpty(cut.FindAll(".mussel-ring path"));
         Assert.All(cut.FindAll(".mussel-ring path"), static x => Assert.Equal("round", x.GetAttribute("stroke-linecap")));
+    }
+
+    [Fact]
+    public void OnlyRoundEndsThatAreDrawnShrinkAPartialRing()
+    {
+        var flat = new RadialBarLayout();
+        var round = new RadialBarLayout();
+        var segmented = new RadialBarLayout();
+
+        flat.Update(640, 240, new RadialBarLayoutOptions { StartAngle = 250, SweepAngle = 220, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("CPU", 50)]);
+        round.Update(640, 240, new RadialBarLayoutOptions { StartAngle = 250, SweepAngle = 220, CapStyle = ChartCapStyle.Round, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("CPU", 50)]);
+        segmented.Update(640, 240, new RadialBarLayoutOptions { StartAngle = 250, SweepAngle = 220, CapStyle = ChartCapStyle.Round, DisplayMode = ChartRadialBarMode.Segmented, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("CPU", 50)]);
+
+        Assert.True(round.OuterRadius < flat.OuterRadius);
+        Assert.Equal(flat.OuterRadius, segmented.OuterRadius, 6);
+        Assert.Equal(flat.Thickness, segmented.Thickness, 6);
     }
 
     [Fact]
@@ -489,7 +540,21 @@ public sealed class MusselRadialBarViewTests : BunitContext
 
         var center = layout.Center!;
         Assert.Equal("CPU", center.Caption);
-        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 220);
+        Assert.True(center.CaptionY + (center.CaptionFontSize / 2) <= 212);
+    }
+
+    [Fact]
+    public void TheCenterOfAQuarterGaugeStaysInsideThePlotSideways()
+    {
+        var layout = new RadialBarLayout();
+
+        layout.Update(220, 220, new RadialBarLayoutOptions { StartAngle = 0, SweepAngle = 90, Culture = CultureInfo.InvariantCulture }, [new ChartEntry("CPU", 50)]);
+
+        var center = layout.Center!;
+        var half = Math.Max(ChartText.Measure(center.Value, center.ValueFontSize), ChartText.Measure(center.Caption, center.CaptionFontSize)) / 2;
+        Assert.Equal("CPU", center.Caption);
+        Assert.InRange(center.X - half, 8, 212);
+        Assert.InRange(center.X + half, 8, 212);
     }
 
     [Fact]
@@ -498,7 +563,7 @@ public sealed class MusselRadialBarViewTests : BunitContext
         var cut = Render<MusselRadialBarView>(parameters => parameters
             .Add(static p => p.Items, [new ChartEntry("A", 50)])
             .Add(static p => p.Minimum, Double.NegativeInfinity)
-            .Add(static p => p.LegendVisible, true)
+            .Add(static p => p.LegendValueMode, ChartLegendValueMode.Percent)
             .Add(static p => p.Culture, CultureInfo.InvariantCulture));
 
         Assert.DoesNotContain("NaN", cut.Markup, StringComparison.Ordinal);

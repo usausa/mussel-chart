@@ -325,6 +325,22 @@ public sealed class MusselChartKindsTests : BunitContext
     }
 
     [Theory]
+    [InlineData(10d, 5d)]
+    [InlineData(3d, 3d)]
+    [InlineData(Double.NaN, null)]
+    [InlineData(Double.PositiveInfinity, null)]
+    [InlineData(null, Double.NegativeInfinity)]
+    public void TheValueAxisTakesThePointsOfTheRangeThatANumericXAxisShows(double? minimum, double? maximum)
+    {
+        var ends = RenderScatterWithXEnds(minimum, maximum);
+        var plain = RenderScatterWithXEnds(null, null);
+
+        Assert.DoesNotContain("NaN", ends.Markup, StringComparison.Ordinal);
+        Assert.Equal(plain.Find(".mussel-plot").GetAttribute("transform"), ends.Find(".mussel-plot").GetAttribute("transform"));
+        Assert.Equal(plain.FindAll(".mussel-axis text").Select(static x => x.TextContent), ends.FindAll(".mussel-axis text").Select(static x => x.TextContent));
+    }
+
+    [Theory]
     [InlineData(ChartMarkerShape.Square)]
     [InlineData(ChartMarkerShape.Diamond)]
     public void ScatterShapesAreDrawnAsPaths(ChartMarkerShape shape)
@@ -342,6 +358,40 @@ public sealed class MusselChartKindsTests : BunitContext
         var paths = cut.FindAll(".mussel-markers path");
         Assert.Equal(2, paths.Count);
         Assert.All(paths, static x => Assert.False(String.IsNullOrEmpty(x.GetAttribute("data-x")) || String.IsNullOrEmpty(x.GetAttribute("data-y"))));
+    }
+
+    [Fact]
+    public void AScatterSeriesTellsTheScriptItsTitleColorKindAndFormat()
+    {
+        PointItem[] items = [new(1, 1), new(2, 2)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .AddChildContent<ScatterSeries<PointItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)
+                .Add(static p => p.Title, "Points")
+                .Add(static p => p.Color, "#123456")
+                .Add(static p => p.ValueFormat, "N1")));
+
+        var group = cut.Find(".mussel-series");
+        Assert.Equal(["Points", "#123456", "Scatter", "N1"], [group.GetAttribute("data-title"), group.GetAttribute("data-color"), group.GetAttribute("data-kind"), group.GetAttribute("data-format")]);
+    }
+
+    [Fact]
+    public void SquareBubblesTellTheScriptTheirSize()
+    {
+        PointItem[] items = [new(1, 1, 25), new(2, 2, 100)];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .AddChildContent<BubbleSeries<PointItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)
+                .Add(static p => p.Size, static x => x.Size)
+                .Add(static p => p.MarkerShape, ChartMarkerShape.Square)));
+
+        Assert.Equal(["100", "25"], cut.FindAll(".mussel-markers path").Select(static x => x.GetAttribute("data-size")));
     }
 
     [Fact]
@@ -521,4 +571,13 @@ public sealed class MusselChartKindsTests : BunitContext
         var line = cut.Find(".mussel-threshold");
         Assert.Equal(line.GetAttribute("x1"), line.GetAttribute("x2"));
     }
+
+    private IRenderedComponent<MusselChartView> RenderScatterWithXEnds(double? minimum, double? maximum) =>
+        Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<NumericXAxis>(axis => axis.Add(static p => p.Minimum, minimum).Add(static p => p.Maximum, maximum))
+            .AddChildContent<ScatterSeries<PointItem>>(series => series
+                .Add(static p => p.Items, [new PointItem(1, 50), new PointItem(3, 80), new PointItem(5, 100)])
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)));
 }

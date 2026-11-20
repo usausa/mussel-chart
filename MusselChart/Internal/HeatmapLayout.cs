@@ -160,7 +160,8 @@ internal sealed class HeatmapLayout
         if (options.LayoutMode == ChartHeatmapLayoutMode.Calendar)
         {
             var date = GetDate(cell);
-            return date.ToString("d", culture) + " (" + culture.DateTimeFormat.GetAbbreviatedDayName(date.DayOfWeek) + ")";
+            var format = GetMonthFormat(culture);
+            return date.ToString("d", format) + " (" + format.GetAbbreviatedDayName(date.DayOfWeek) + ")";
         }
 
         var row = rowNames[GetRow(cell)];
@@ -379,14 +380,7 @@ internal sealed class HeatmapLayout
         }
 
         HasValues = !Double.IsNaN(minimum);
-        var fixedMinimum = ChartRange.Finite(options.Minimum);
-        var fixedMaximum = ChartRange.Finite(options.Maximum);
-        if ((fixedMinimum is { } low) && (fixedMaximum is { } high) && !(high > low))
-        {
-            fixedMinimum = null;
-            fixedMaximum = null;
-        }
-
+        var (fixedMinimum, fixedMaximum) = ChartRange.FixedEnds(options.Minimum, options.Maximum);
         Minimum = fixedMinimum ?? (HasValues ? minimum : 0);
         Maximum = fixedMaximum ?? (HasValues ? maximum : 1);
     }

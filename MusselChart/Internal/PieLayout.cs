@@ -613,7 +613,7 @@ internal sealed class PieLayout
     private ChartCenterText? FitCenter(double number, string? caption)
     {
         var (format, formatter) = ChartFormat.Pick(options.CenterValueFormat, options.CenterValueFormatter, options.ValueFormat, options.ValueFormatter);
-        return ChartCenterText.Fit(ChartFormat.Value(number, format, formatter, options.Culture), caption, InnerRadius, CenterY, area.Y, area.Y + area.Height);
+        return ChartCenterText.Fit(ChartFormat.Value(number, format, formatter, options.Culture), caption, InnerRadius, CenterX, CenterY, area.X, area.Y, area.X + area.Width, area.Y + area.Height);
     }
 
     private readonly record struct PieCandidate(double Value, int Index);

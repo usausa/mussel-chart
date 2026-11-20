@@ -129,13 +129,11 @@ public sealed partial class MusselRadarChartView
         }
 
         ApplySources();
-        var hasData = false;
         for (var s = 0; s < seriesList.Count; s++)
         {
             points[s].Clear();
             seriesList[s].ReadPoints(points[s], copies);
             visible.Add(IsSeriesVisible(seriesList[s]));
-            hasData = hasData || (visible[s] && points[s].Exists(static p => Double.IsFinite(p.Value)));
         }
 
         copies.Clear();
@@ -144,7 +142,7 @@ public sealed partial class MusselRadarChartView
 
         gridPath = layout.AxisCount > 0 ? layout.CreateGridPath() : string.Empty;
         centerX = ChartGeometry.Text(layout.CenterX);
-        emptyText = hasData ? string.Empty : EmptyText ?? string.Empty;
+        emptyText = layout.HasValues ? string.Empty : EmptyText ?? string.Empty;
 
         var palette = Palette ?? ChartPalettes.DefaultLight;
         if (colors.Length != seriesList.Count)

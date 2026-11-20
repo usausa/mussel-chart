@@ -18,12 +18,12 @@ internal static class ChartRange
             maximum = Math.Max(maximum, 0);
         }
 
-        if (options.SoftMinimum is { } softMinimum)
+        if (Finite(options.SoftMinimum) is { } softMinimum)
         {
             minimum = Math.Min(minimum, softMinimum);
         }
 
-        if (options.SoftMaximum is { } softMaximum)
+        if (Finite(options.SoftMaximum) is { } softMaximum)
         {
             maximum = Math.Max(maximum, softMaximum);
         }
@@ -35,25 +35,30 @@ internal static class ChartRange
             maximum += delta;
         }
 
-        var fixedMinimum = Finite(options.Minimum);
-        var fixedMaximum = Finite(options.Maximum);
-        if ((fixedMinimum is { } low) && (fixedMaximum is { } high) && !(high > low))
-        {
-            fixedMinimum = null;
-            fixedMaximum = null;
-        }
-
+        var (fixedMinimum, fixedMaximum) = FixedEnds(options.Minimum, options.Maximum);
         minimum = fixedMinimum ?? minimum;
         maximum = fixedMaximum ?? maximum;
         if (maximum <= minimum)
         {
-            maximum = minimum + 1;
+            if (fixedMaximum is null)
+            {
+                maximum = minimum + 1;
+            }
+            else
+            {
+                minimum = maximum - 1;
+            }
         }
 
         return NiceScale.Create(minimum, maximum, divisions, options.Nice && (fixedMinimum is null), options.Nice && (fixedMaximum is null));
     }
 
-    public static double? Finite(double? value) => (value is { } number) && Double.IsFinite(number) ? number : null;
+    public static (double? Minimum, double? Maximum) FixedEnds(double? minimum, double? maximum)
+    {
+        var low = Finite(minimum);
+        var high = Finite(maximum);
+        return (low is { } start) && (high is { } end) && !(end > start) ? (null, null) : (low, high);
+    }
 
     public static (double Minimum, double Maximum) Pad(double minimum, double maximum, double padding, double length)
     {
@@ -65,4 +70,6 @@ internal static class ChartRange
         var extra = (maximum - minimum) / (1 - (padding * 2 / length)) * padding / length;
         return (minimum - extra, maximum + extra);
     }
+
+    private static double? Finite(double? value) => (value is { } number) && Double.IsFinite(number) ? number : null;
 }

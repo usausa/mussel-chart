@@ -47,8 +47,6 @@ public sealed partial class MusselRadialBarView
 
     private string ringClass = string.Empty;
 
-    private string centerX = string.Empty;
-
     private string emptyText = string.Empty;
 
     private string thicknessText = string.Empty;
@@ -181,7 +179,6 @@ public sealed partial class MusselRadialBarView
         var hover = TrackballMode == ChartTrackballMode.Hover;
         ringClass = hover ? "mussel-rings mussel-rings-hover" : "mussel-rings";
         var tips = hover && TooltipVisible;
-        centerX = ChartGeometry.Text(layout.CenterX);
         thicknessText = ChartGeometry.Text(layout.Thickness);
         markerWidthText = ChartGeometry.Text(layout.MarkerWidth);
         capRadius = ChartGeometry.Text(layout.Thickness / 2);
@@ -213,7 +210,7 @@ public sealed partial class MusselRadialBarView
             }
         }
 
-        if (markers && (layout.Rows.Count > 0) && (layout.MarkerWidth > 0))
+        if (layout.MarkerWidth > 0)
         {
             var first = layout.Rows[0];
             AddMarkerArcs(first.Color ?? ChartColor.At(palette, 0));
@@ -236,7 +233,7 @@ public sealed partial class MusselRadialBarView
         ArcView? wrap = null;
         if ((radius > 0) && (layout.Thickness > 0))
         {
-            var ratio = Double.IsNaN(row.Percent) ? 0 : row.Ratio;
+            var ratio = row.Ratio;
             if (DisplayMode == ChartRadialBarMode.Segmented)
             {
                 AddSegments(arcs, radius, ratio, baseColor);

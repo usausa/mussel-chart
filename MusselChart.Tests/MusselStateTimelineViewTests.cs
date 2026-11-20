@@ -10,6 +10,9 @@ public sealed class MusselStateTimelineViewTests : BunitContext
 {
     private static readonly DateTime Origin = new(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
 
+    private static readonly StateItem[] States =
+        [new("A", Origin, "x"), new("A", Origin.AddHours(1), "y"), new("A", Origin.AddHours(2), "z", Origin.AddHours(3))];
+
     private static readonly ChartValueMapping[] Mappings =
     [
         new() { Value = "Up", Text = "Running", Level = ChartThresholdLevel.Good },
@@ -42,6 +45,33 @@ public sealed class MusselStateTimelineViewTests : BunitContext
                 .Add(static p => p.TimeZone, TimeZoneInfo.Utc);
             configure?.Invoke(parameters);
         });
+
+    [Theory]
+    [InlineData(3, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 1)]
+    public void EndsThatAreOutOfOrderAreDropped(int minimum, int maximum)
+    {
+        var ends = RenderItems(States, parameters => parameters.Add(static p => p.Minimum, Origin.AddHours(minimum)).Add(static p => p.Maximum, Origin.AddHours(maximum)));
+        var plain = RenderItems(States);
+
+        Assert.Equal(plain.Find(".mussel-timeline-bands").InnerHtml, ends.Find(".mussel-timeline-bands").InnerHtml);
+        Assert.Equal(plain.FindAll("text.mussel-view-label").Select(static x => x.TextContent), ends.FindAll("text.mussel-view-label").Select(static x => x.TextContent));
+    }
+
+    [Theory]
+    [InlineData(null, -1, "06:59:59", "07:00:00")]
+    [InlineData(5, null, "13:00:00", "13:00:01")]
+    public void AnEndThatTheStatesAreBeyondIsKept(int? minimum, int? maximum, string first, string last)
+    {
+        var cut = RenderItems(States, parameters => parameters
+            .Add(static p => p.Minimum, minimum is { } low ? Origin.AddHours(low) : null)
+            .Add(static p => p.Maximum, maximum is { } high ? Origin.AddHours(high) : null));
+
+        var labels = cut.FindAll("text.mussel-view-label[text-anchor='middle']").Select(static x => x.TextContent).ToList();
+        Assert.Empty(cut.FindAll(".mussel-timeline-bands rect"));
+        Assert.Equal([first, last], [labels[0], labels[^1]]);
+    }
 
     [Fact]
     public void EachStateLastsUntilTheNextStartOfItsRow()
@@ -114,10 +144,7 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         var cut = RenderItems(
             [new StateItem("A", Origin, "x", Origin.AddHours(1)), new StateItem("A", Origin.AddHours(2), "x", Origin.AddHours(3))]);
 
-        var bands = cut.FindAll(".mussel-timeline-bands rect");
-        Assert.Equal(2, bands.Count);
-        var firstEnd = Double.Parse(bands[0].GetAttribute("x")!, CultureInfo.InvariantCulture) + Double.Parse(bands[0].GetAttribute("width")!, CultureInfo.InvariantCulture);
-        Assert.True(Double.Parse(bands[1].GetAttribute("x")!, CultureInfo.InvariantCulture) > firstEnd);
+        AssertTwoBandsApart(cut.FindAll(".mussel-timeline-bands rect"));
     }
 
     [Fact]
@@ -306,6 +333,8 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         var right = RenderItems(items, p => p.Add(static x => x.Maximum, Origin.AddHours(2)).Add(static x => x.AlignValue, ChartValueAlignment.Right));
 
         Assert.Empty(never.FindAll(".mussel-timeline-text"));
+        Assert.NotEmpty(centered.FindAll(".mussel-timeline-text"));
+        Assert.NotEmpty(right.FindAll(".mussel-timeline-text"));
         Assert.All(centered.FindAll(".mussel-timeline-text"), static x => Assert.Equal("middle", x.GetAttribute("text-anchor")));
         Assert.All(right.FindAll(".mussel-timeline-text"), static x => Assert.Equal("end", x.GetAttribute("text-anchor")));
     }

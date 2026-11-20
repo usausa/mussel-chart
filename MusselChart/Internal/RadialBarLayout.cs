@@ -83,8 +83,6 @@ internal sealed class RadialBarLayout
 
     private double valueTotal;
 
-    private Area plot;
-
     public IReadOnlyList<RadialBarRow> Rows => rows;
 
     public bool HasValues { get; private set; }
@@ -115,8 +113,9 @@ internal sealed class RadialBarLayout
         var sweep = options.SweepAngle > 0 ? Math.Min(options.SweepAngle, 360) : 360;
         var inner = Math.Clamp(options.InnerRadius, 0, 0.95);
         BuildRows(options, items);
-        PlaceRings(new Area(Padding, Padding, Math.Max(0, width - (Padding * 2)), Math.Max(0, height - (Padding * 2))), options, sweep, inner);
-        PrepareCenter(options);
+        var plot = new Area(Padding, Padding, Math.Max(0, width - (Padding * 2)), Math.Max(0, height - (Padding * 2)));
+        PlaceRings(plot, options, sweep, inner);
+        PrepareCenter(options, plot);
     }
 
     public static int GetSegmentCount(double radius, double thickness, double sweepAngle, int segmentCount, double segmentGap)
@@ -158,15 +157,15 @@ internal sealed class RadialBarLayout
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            if (Double.IsFinite(item.Value))
+            var maximum = item.Maximum ?? options.Maximum;
+            var range = (maximum / 2) - (options.Minimum / 2);
+            var valid = Double.IsFinite(item.Value) && (range > 0) && Double.IsFinite(range);
+            if (valid)
             {
                 valueTotal += item.Value;
                 HasValues = true;
             }
 
-            var maximum = item.Maximum ?? options.Maximum;
-            var range = (maximum / 2) - (options.Minimum / 2);
-            var valid = Double.IsFinite(item.Value) && (range > 0) && Double.IsFinite(range);
             var raw = valid ? ((item.Value / 2) - (options.Minimum / 2)) / range : Double.NaN;
             var ratio = !valid ? 0 : wrap ? Math.Max(0, raw) : Math.Clamp(raw, 0, 1);
             var percent = valid ? raw.ToString(PercentPattern, options.Culture) : null;
@@ -177,7 +176,6 @@ internal sealed class RadialBarLayout
 
     private void PlaceRings(Area area, RadialBarLayoutOptions options, double sweep, double inner)
     {
-        plot = area;
         if (options.BarGlow)
         {
             var margin = Math.Min(area.Width, area.Height) * GlowMarginRatio;
@@ -188,7 +186,7 @@ internal sealed class RadialBarLayout
         var (left, top, right, bottom) = ChartGeometry.GetUnitBounds(options.StartAngle, sweep, inner);
         var radius = Math.Max(0, Math.Min(area.Width / Math.Max(right - left, MinExtent), area.Height / Math.Max(bottom - top, MinExtent)));
         var thickness = ResolveThickness(radius, inner, options.RingThickness, Spacing, count);
-        if ((options.CapStyle == ChartCapStyle.Round) && (sweep < 360))
+        if ((options.CapStyle == ChartCapStyle.Round) && (options.DisplayMode != ChartRadialBarMode.Segmented) && (sweep < 360))
         {
             radius = Math.Max(0, radius - (thickness / 2));
             thickness = ResolveThickness(radius, inner, options.RingThickness, Spacing, count);
@@ -217,7 +215,7 @@ internal sealed class RadialBarLayout
         }
     }
 
-    private void PrepareCenter(RadialBarLayoutOptions options)
+    private void PrepareCenter(RadialBarLayoutOptions options, Area plot)
     {
         Center = null;
         if (!HasValues)
@@ -229,24 +227,24 @@ internal sealed class RadialBarLayout
 
         if (options.CenterText is { } text)
         {
-            Center = FitCenter(text, options.CenterLabel, edge);
+            Center = FitCenter(text, options.CenterLabel, edge, plot);
         }
         else if (options.CenterValueMode == ChartCenterValueMode.Auto)
         {
             var first = rows[0];
             if (first.PercentText is { } percent)
             {
-                Center = FitCenter(percent, options.CenterLabel ?? first.Label, edge);
+                Center = FitCenter(percent, options.CenterLabel ?? first.Label, edge, plot);
             }
         }
         else if ((options.CenterValueMode == ChartCenterValueMode.Total) && Double.IsFinite(valueTotal))
         {
-            Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, edge);
+            Center = FitCenter(ChartFormat.Value(valueTotal, options.ValueFormat, options.ValueFormatter, options.Culture), options.CenterLabel, edge, plot);
         }
     }
 
-    private ChartCenterText? FitCenter(string value, string? caption, double edge) =>
-        ChartCenterText.Fit(value, caption, edge, CenterY, plot.Y, plot.Y + plot.Height);
+    private ChartCenterText? FitCenter(string value, string? caption, double edge, Area plot) =>
+        ChartCenterText.Fit(value, caption, edge, CenterX, CenterY, plot.X, plot.Y, plot.X + plot.Width, plot.Y + plot.Height);
 
     private readonly record struct Area(double X, double Y, double Width, double Height);
 }

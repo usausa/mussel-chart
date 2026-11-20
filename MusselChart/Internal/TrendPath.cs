@@ -74,13 +74,10 @@ internal sealed class TrendPath
             }
         }
 
+        (minimum, maximum) = ChartRange.FixedEnds(minimum, maximum);
         var found = smallest <= largest;
         var low = minimum ?? (found ? smallest : 0);
         var high = maximum ?? (found ? largest : 1);
-        if ((minimum is not null) && (maximum is not null) && (low > high))
-        {
-            (low, high) = (high, low);
-        }
 
         if (bars)
         {
