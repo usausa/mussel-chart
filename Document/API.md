@@ -17,8 +17,8 @@ Axes and series are written as child components, and every component passes othe
 | `TrackballMode` | `ChartTrackballMode` | `Hover` | `None` turns the crosshair and the tooltip off for the pointer over this chart; a chart in a `TrackingGroup` still follows the others |
 | `TooltipVisible` | `bool` | `true` | `false` keeps only the crosshair and the points |
 | `TrackingGroup`, `TrackingGroupMode` | `string?`, `ChartTrackingGroupMode` | `null`, `Crosshair` | Charts of the same group follow the chart under the pointer; `Tooltip` also shows their tooltips |
-| `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis |
-| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; positions and lengths follow real time across a change of the offset, so the repeated hour of a change shows its labels twice; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture |
+| `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis, in the `Color` of each threshold, the color of its `Level`, or `--mussel-secondary-text` without either |
+| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; positions and lengths follow real time across a change of the offset, so the repeated hour of a change shows its labels twice; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture, and the tooltip adds the year when the view crosses a year |
 | `EmptyText` | `string?` | `null` | Text drawn when there is no data |
 
 A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size. While an interactive chart is prerendered, it stays hidden until it starts.  
@@ -29,12 +29,13 @@ The pie, radial bar, radar, heatmap and state timeline views do the same.
 | Axis | Parameters |
 |---|---|
 | All | `IsVisible`, `LabelsVisible`, `LabelFormat`, `MaxLabelCount`, `GridLinesVisible` |
-| `DateTimeAxis` | The X axis of `X`: `WindowSize`, `Minimum`, `Maximum`, `LabelFormatter`; `WindowSize` is the time up to `Maximum` or the last point, without `Minimum`; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the points are beyond is kept with the other end a second away |
+| `DateTimeAxis` | The X axis of `X`: `WindowSize`, `Minimum`, `Maximum`, `LabelFormatter`; `WindowSize` is the time up to `Maximum` or the last point, without `Minimum`; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the points are beyond is kept with the other end a second away, within the range of `DateTime` |
 | `CategoryAxis` | The X axis of `Category`: `LabelPlacement` (`BetweenTicks` or `OnTicks`), `LabelMaxLength`, `LabelFormatter` |
 | `NumericXAxis` | The X axis of `XValue`, with the parameters of `NumericAxis` |
-| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter`; a value that is not finite is not used, a `Minimum` that is not below `Maximum` fixes neither end, and an end that the values are beyond is kept with the other end 1 away |
+| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter`; a value that is not finite is not used, a `Minimum` that is not below `Maximum` fixes neither end, and an end that the values are beyond is kept with the other end 1 away, or a tenth of the end away when 1 is below its precision |
 
 Without an X axis, the first series chooses it from the delegate it has, and the ends of a numeric X axis are not widened to the next tick.  
+Without `LabelFormat` and `LabelFormatter`, the numbers of the value axis and of a numeric X axis take the compact number format with the decimals of the interval between ticks, per unit with `K`, `M`, `B` and `T`, so that next labels differ.  
 Categories merge the names of all series in order of appearance, hidden series included, and overlapping labels are thinned keeping both ends.  
 
 ### Series
@@ -42,23 +43,23 @@ Categories merge the names of all series in order of appearance, hidden series i
 | Series | Parameters |
 |---|---|
 | All | `Items`, one of `X` (`DateTime`), `XValue` (`double`) or `Category` (`string`), `Y`, `Title`, `Color`, `IsVisible`, `LegendVisible`, `ValueFormat`, `ValueFormatter` |
-| `LineSeries` | `Thickness` (2), `LiveIndicatorVisible` |
+| `LineSeries` | `Thickness` (2), `LiveIndicatorVisible` (a point on the last point, while it is inside the axes) |
 | `AreaSeries` | The line parameters, `FillOpacity` (0.1) and `StackGroup` |
 | `BarSeries` | `BarWidthRatio` (0.6), `MaxBarWidth` (24) and `StackGroup` |
 | `RangeBarSeries` | `Low` and `High` instead of `Y`, `BarWidthRatio` (0.6) and `MaxBarWidth` (24) |
 | `ScatterSeries` | `MarkerSize` (8), `MarkerShape` (`Circle`, `Square` or `Diamond`) and `FillOpacity` (0.5) |
 | `BubbleSeries` | The scatter parameters, `Size`, `MinBubbleSize` (8), `MaxBubbleSize` (40) and `SizeIncludesZero` (`true`) |
 
-The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip. Without `ValueFormat` and `ValueFormatter`, it takes the `LabelFormat` or `LabelFormatter` of the value axis in the legend. Neither is taken on an axis of only 100% stacks.  
+The tooltip formats values with `ValueFormat` (`N`, `F` and `P` formats and the compact number format) and does not call `ValueFormatter`. Without `ValueFormat`, a series takes the `LabelFormat` of the value axis in the tooltip. Without `ValueFormat` and `ValueFormatter`, it takes the `LabelFormat` or `LabelFormatter` of the value axis in the legend. Neither is taken on an axis of only 100% stacks. A point outside the axes gets no dot on hover and keeps its row in the tooltip.  
 
 | Item | Rule |
 |---|---|
 | Grouping | Each bar series and each stack takes an equal slot of the column, narrowed by `MaxBarWidth` and centered; a group uses the `BarWidthRatio` of its first visible series |
 | Stacking | Series of the same kind and the same `StackGroup` stack at the same X: positive values up from 0, negative values down from 0, and `Percent` scales each side to its own total. Segments of bars are separated by 2 pixels. The tooltip keeps the original values, and an axis of only 100% stacks labels percentages |
 | Range bars | A bar from the low to the high value; swapped values are drawn from the smaller one, a point without both values is skipped, the value axis does not include 0 and the tooltip shows `12 – 25` |
-| Scatter | Points filled at `FillOpacity` and outlined with the series color. With only scatter and bubble series, the crosshair snaps to the nearest point in both directions and the tooltip shows only that point |
+| Scatter | Points filled at `FillOpacity` and outlined with the series color. With only scatter and bubble series, the crosshair snaps to the nearest point inside the plot in both directions and the tooltip shows only that point |
 | Bubbles | The area grows from 0 to the largest size among the visible bubble series: 0 and below get `MinBubbleSize` and the largest value gets `MaxBubbleSize`. `SizeIncludesZero` set to `false` starts from the smallest value. A point without a size is skipped, larger bubbles are drawn first and the automatic ranges grow by the radius of the largest bubble |
-| Updates | Only a time axis with absolute values appends new points, and only while every series reads a `ChartRingBuffer`; with a series that reads an array, on numeric and category axes and in `Percent` stacks, every point is read again at each render |
+| Updates | Only a time axis with absolute values appends new points, and only while every series reads a `ChartRingBuffer` and the series of each stack read the same one; with a series that reads an array, on numeric and category axes and in `Percent` stacks, every point is read again at each render. A new `TimeZone` or a new delegate such as `Y` reads every point again; a static lambda, or one that uses only `this`, stays the same at each render, while one that captures a local variable does not |
 
 ## 🍩 MusselPieChartView
 
@@ -100,7 +101,7 @@ Concentric rings that compare several progress values, the first item being the 
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring; a glow under the values and the threshold ring; a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
-| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite; with no finite value in any item, `EmptyText` is drawn instead of the center |
+| `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite; `CenterText` takes the place of the value in every mode, `None` included, while an item has a finite value; with no finite value in any item, `EmptyText` is drawn instead of the center |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it; `null` shows the legend |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering dims the other rings and shows the tooltip |
@@ -117,7 +118,7 @@ Compares several series on axes that spread from the center, one axis per item.
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the series colors |
 | `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels, and so are both ends when `Minimum` is not below `Maximum` |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
-| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter` |
+| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter`; without either, the levels keep the decimals of the interval between them |
 | `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering marks the axis in that direction and shows the values of every series |
 
@@ -142,10 +143,10 @@ The colors follow the Grafana heatmap, spread over 64 steps.
 | `Date` | `Func<TItem, DateTime>?` | `null` | Date of a calendar |
 | `LayoutMode` | `ChartHeatmapLayoutMode` | `Matrix` | A `Matrix` or a `Calendar` |
 | `Height` | `double` | `240` | Height in pixels |
-| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value, and so do both ends when `Minimum` is not below `Maximum` |
-| `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more; `OrangesDark` suits a dark theme |
+| `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value, and so do both ends when `Minimum` is not below `Maximum`; an end that the values are beyond is kept with the other end 1 away, or a tenth of the end away when 1 is below its precision |
+| `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more, with their alpha; `OrangesDark` suits a dark theme |
 | `CellGap` | `double` | `1` | Space after each cell |
-| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the week starts on the `FirstDayOfWeek` of the culture |
+| `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; without either format, the labels of the color scale keep the decimals of the interval between them; the week starts on the `FirstDayOfWeek` of the culture |
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The color scale and its side; `null` shows it |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering frames the cell and shows the tooltip |
 
@@ -169,7 +170,7 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step, which then do not use `ValueMappings` |
 | `ShowValue`, `AlignValue` | `ChartVisibilityMode`, `ChartValueAlignment` | `Auto`, `Left` | Text on each band; `Auto` writes it where its first two characters fit |
 | `RowHeight`, `FillOpacity`, `LineWidth` | `double` | `0.9`, `0.7`, `0` | Share of the height taken by the bands, the fill and the outline |
-| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, and the order of the day and the month follows the culture |
+| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, the order of the day and the month follows the culture, and the tooltip adds the year when the view crosses a year |
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps; `null` shows them |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`) |
 
@@ -235,7 +236,7 @@ These are shared with the other Mussel libraries. Their light defaults follow th
 | `--mussel-good`, `--mussel-warning`, `--mussel-serious`, `--mussel-critical` | Threshold lines and bands, and the losses of sparklines |
 | `--mussel-font-family` | Font family |
 
-The level colors of `MusselRadialBarView`, `MusselBarGaugeView`, `MusselStatView` and `MusselStateTimelineView` stay the dark values in both themes and do not follow these variables. Series, slices and rings beyond the palette, and every view with an empty palette, are gray (`#B5B3AA`).  
+The level colors of `MusselRadialBarView`, `MusselBarGaugeView`, `MusselStatView` and `MusselStateTimelineView` stay the dark values in both themes and do not follow these variables. Series, slices and rings beyond the palette, and every view with an empty palette, are gray (`#B5B3AA`). Shades and gradients of a color, and the text on it, are worked out from hex colors (`#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`); shades keep the alpha of the color. The colors of `MusselStatView` and `MusselRadialBarView`, and the marks of tooltips, are CSS colors of up to 64 characters; a color that is longer, with `url(`, or with characters other than letters, digits, space and `# ( ) , . % - /` is not used: the tile and the rings take the color they would take without it, down to gray, and a tooltip shows no mark.  
 
 ## 🚧 Not supported yet
 

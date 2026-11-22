@@ -103,7 +103,7 @@ public sealed partial class MusselStatView : IDisposable
         sources.Apply();
         var value = Double.IsFinite(Value) ? Value : Double.NaN;
         var threshold = ChartFormat.FindThreshold(Thresholds, value);
-        tileColor = Fill ?? ChartColor.Threshold(threshold, ChartColor.At(Palette ?? ChartPalettes.DefaultLight, 0));
+        tileColor = ChartColor.IsSafe(Fill) ? Fill : ChartColor.SafeThreshold(threshold, ChartColor.SafeAt(Palette ?? ChartPalettes.DefaultLight, 0));
         valueText = Double.IsNaN(value) ? EmptyText ?? "-" : ChartFormat.Value(value, ValueFormat, ValueFormatter, culture);
         trend = trended ? TrendPath.Create(TrendValues, copied, null, null, false, 4) : TrendPath.Empty;
 

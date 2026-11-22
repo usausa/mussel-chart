@@ -104,6 +104,8 @@ public abstract class XySeries<TItem> : ChartSeries
 
     internal override object? Source => Items;
 
+    internal override SeriesOptions CreateOptions() => base.CreateOptions() with { Selectors = new(X, XValue, Category) { Y = Y } };
+
     internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, ChartBufferMark? until, TimeZoneInfo zone, List<ChartPointData> destination)
     {
         if ((Items is null) || (Y is null) || ((X is null) && (XValue is null) && (Category is null)))
@@ -207,7 +209,7 @@ public sealed class RangeBarSeries<TItem> : ChartSeries
 
     internal override object? Source => Items;
 
-    internal override SeriesOptions CreateOptions() => base.CreateOptions() with { Thickness = MaxBarWidth, Opacity = BarWidthRatio };
+    internal override SeriesOptions CreateOptions() => base.CreateOptions() with { Thickness = MaxBarWidth, Opacity = BarWidthRatio, Selectors = new(X, XValue, Category) { Low = Low, High = High } };
 
     internal override ChartBufferRead ReadPoints(long afterSequence, int afterGeneration, ChartBufferMark? until, TimeZoneInfo zone, List<ChartPointData> destination)
     {
@@ -260,7 +262,11 @@ public sealed class BubbleSeries<TItem> : ScatterSeries<TItem>
 
     internal override ChartSeriesKind Kind => ChartSeriesKind.Bubble;
 
-    internal override SeriesOptions CreateOptions() => base.CreateOptions() with { MinSize = MinBubbleSize, MaxSize = MaxBubbleSize, SizeIncludesZero = SizeIncludesZero };
+    internal override SeriesOptions CreateOptions()
+    {
+        var options = base.CreateOptions();
+        return options with { MinSize = MinBubbleSize, MaxSize = MaxBubbleSize, SizeIncludesZero = SizeIncludesZero, Selectors = options.Selectors with { Size = Size } };
+    }
 
     internal override double ReadSize(TItem item) => Size?.Invoke(item) ?? Double.NaN;
 }

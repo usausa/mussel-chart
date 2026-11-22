@@ -34,22 +34,6 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
         return (ticks % TimeSpan.TicksPerDay) == 0 ? GetDefaultFormat(TimeLabelPrecision.Day, dayFirst) : GetTrackingFormat(precision, true, dayFirst);
     }
 
-    public static TimeInterval FromUnits(ChartDateTimeIntervalType unit, double count)
-    {
-        while ((unit is > ChartDateTimeIntervalType.Seconds and < ChartDateTimeIntervalType.Months) && (Math.Abs(count - Math.Round(count)) > NiceScale.Tolerance))
-        {
-            (unit, count) = unit switch
-            {
-                ChartDateTimeIntervalType.Weeks => (ChartDateTimeIntervalType.Days, count * 7),
-                ChartDateTimeIntervalType.Days => (ChartDateTimeIntervalType.Hours, count * 24),
-                ChartDateTimeIntervalType.Hours => (ChartDateTimeIntervalType.Minutes, count * 60),
-                _ => (ChartDateTimeIntervalType.Seconds, count * 60)
-            };
-        }
-
-        return new TimeInterval(unit, (int)Math.Clamp(Math.Round(count, MidpointRounding.AwayFromZero), 1, Int32.MaxValue));
-    }
-
     public static string GetDefaultFormat(TimeLabelPrecision precision, bool dayFirst) => precision switch
     {
         TimeLabelPrecision.Second => "HH:mm:ss",
@@ -62,6 +46,14 @@ internal readonly record struct TimeInterval(ChartDateTimeIntervalType Unit, int
     {
         TimeLabelPrecision.Second => spansDays ? (dayFirst ? "d/M HH:mm:ss" : "M/d HH:mm:ss") : "HH:mm:ss",
         TimeLabelPrecision.Minute => spansDays ? (dayFirst ? "d/M HH:mm" : "M/d HH:mm") : "HH:mm",
+        _ => GetDefaultFormat(precision, dayFirst)
+    };
+
+    public static string GetYearTrackingFormat(TimeLabelPrecision precision, bool dayFirst) => precision switch
+    {
+        TimeLabelPrecision.Second => dayFirst ? "d/M/yyyy HH:mm:ss" : "yyyy/M/d HH:mm:ss",
+        TimeLabelPrecision.Minute => dayFirst ? "d/M/yyyy HH:mm" : "yyyy/M/d HH:mm",
+        TimeLabelPrecision.Day => dayFirst ? "d/M/yyyy" : "yyyy/M/d",
         _ => GetDefaultFormat(precision, dayFirst)
     };
 

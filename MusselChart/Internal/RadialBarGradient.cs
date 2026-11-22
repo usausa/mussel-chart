@@ -30,7 +30,7 @@ internal static class RadialBarGradient
                 break;
             }
 
-            colors.Add(ChartColor.Threshold(threshold, baseColor));
+            colors.Add(ChartColor.SafeThreshold(threshold, baseColor));
             positions.Add(Math.Clamp(value / 100, 0, 1));
         }
 

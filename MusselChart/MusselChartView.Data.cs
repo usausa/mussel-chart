@@ -42,8 +42,16 @@ public sealed partial class MusselChartView
 
     private ChartStackMode stackMode;
 
+    private TimeZoneInfo? readZone;
+
     private void SyncData()
     {
+        if (!zone.Equals(readZone))
+        {
+            readZone = zone;
+            rebuildRequired = true;
+        }
+
         var ordered = orderedStates;
         ordered.Clear();
         foreach (var series in seriesList)
@@ -80,7 +88,7 @@ public sealed partial class MusselChartView
             rebuildRequired = true;
         }
 
-        var appendable = (xKind == ChartXKind.Time) && (stackMode == ChartStackMode.Normal);
+        var appendable = (xKind == ChartXKind.Time) && (stackMode == ChartStackMode.Normal) && StacksShareSources(ordered);
         var rebuild = rebuildRequired || !appendable || !Read(ordered, false);
         if (!rebuild && (OldestVisibleTicks() is { } oldest) && (oldest - baseTicks > RebaseTicks))
         {
@@ -152,6 +160,29 @@ public sealed partial class MusselChartView
         }
 
         rebuildRequired = false;
+    }
+
+    private static bool StacksShareSources(List<SeriesState> ordered)
+    {
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var series = ordered[i].Series;
+            if (!ordered[i].Visible || (series.StackKey is not { } key))
+            {
+                continue;
+            }
+
+            for (var j = i + 1; j < ordered.Count; j++)
+            {
+                var other = ordered[j].Series;
+                if (ordered[j].Visible && (other.Kind == series.Kind) && String.Equals(other.StackKey, key, StringComparison.Ordinal) && !ReferenceEquals(other.Source, series.Source))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private long? OldestVisibleTicks()

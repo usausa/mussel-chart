@@ -391,6 +391,26 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Contains("\"50m\"", tips[1], StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("en-US", "2025/12/31 23:00 – 2026/1/1 01:00")]
+    [InlineData("de-DE", "31/12/2025 23:00 – 1/1/2026 01:00")]
+    public void TooltipsShowTheYearWhenTheRangeCrossesAYear(string culture, string title)
+    {
+        var first = new DateTime(2025, 12, 31, 23, 0, 0, DateTimeKind.Utc);
+        StateItem[] items = [new("A", first, "x"), new("A", first.AddHours(2), "y")];
+
+        var cut = Render<MusselStateTimelineView<StateItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Start, static x => x.Start)
+            .Add(static p => p.State, static x => x.State)
+            .Add(static p => p.Maximum, first.AddHours(3))
+            .Add(static p => p.Culture, new CultureInfo(culture))
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc));
+
+        Assert.Contains(title, cut.Find(".mussel-timeline-bands rect").GetAttribute("data-tip"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TooltipHasTheTimesTheStateAndTheDuration()
     {
@@ -435,6 +455,18 @@ public sealed class MusselStateTimelineViewTests : BunitContext
         Assert.Contains("01:00 – 04:00", tips[0], StringComparison.Ordinal);
         Assert.Contains("\"4h\"", tips[0], StringComparison.Ordinal);
         Assert.All(tips.Skip(1).Take(3), static x => Assert.Contains("30m", x, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(250, "250ms")]
+    [InlineData(1500, "1s 500ms")]
+    public void DurationsOfTimesWithMillisecondsKeepEveryTick(int milliseconds, string expected)
+    {
+        var cut = RenderItems(
+            [new StateItem("A", Origin, "ok"), new StateItem("A", Origin.AddMilliseconds(milliseconds), "ng")],
+            p => p.Add(static x => x.Maximum, Origin.AddSeconds(5)));
+
+        Assert.Contains($"\"{expected}\"", cut.FindAll(".mussel-timeline-bands rect")[0].GetAttribute("data-tip"), StringComparison.Ordinal);
     }
 
     [Fact]

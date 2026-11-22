@@ -305,6 +305,26 @@ public sealed class MusselRadialBarViewTests : BunitContext
     }
 
     [Fact]
+    public void ARadialBarLeavesOutAColorThatIsNotSafeForTheNextOne()
+    {
+        const string injected = "red 0deg);background:url(https://example.invalid/a.png);x:/*";
+        var gradient = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50, injected)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient));
+        var solid = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50, injected)]));
+        var stepped = Render<MusselRadialBarView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 50)])
+            .Add(static p => p.FillMode, ChartFillMode.Gradient)
+            .Add(static p => p.Thresholds, [new ChartThreshold { Level = ChartThresholdLevel.Good }, new ChartThreshold { Value = 40, Level = ChartThresholdLevel.Critical, Color = injected }]));
+
+        Assert.DoesNotContain("example.invalid", gradient.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("example.invalid", stepped.Markup, StringComparison.Ordinal);
+        Assert.Equal(ChartPalettes.DefaultLight[0], solid.Find(".mussel-ring path:not(.mussel-radial-track)").GetAttribute("stroke"));
+        Assert.Contains(ChartColor.Level(ChartThresholdLevel.Critical), stepped.Find(".mussel-radial-sweep div").GetAttribute("style"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GradientUsesAConicGradientCutToTheRing()
     {
         var cut = Render<MusselRadialBarView>(parameters => parameters

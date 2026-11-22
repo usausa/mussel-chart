@@ -53,14 +53,12 @@
 }
 
 .mussel-threshold {
-    stroke: var(--mussel-secondary-text, #52514E);
     stroke-width: 2;
     stroke-dasharray: 10 10;
     stroke-opacity: 0.7;
 }
 
 .mussel-threshold-label {
-    fill: var(--mussel-secondary-text, #52514E);
     font-size: 11px;
 }
 
@@ -68,39 +66,43 @@
     fill-opacity: 0.15;
 }
 
-.mussel-good .mussel-threshold, .mussel-band.mussel-good {
+.mussel-neutral .mussel-threshold {
+    stroke: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-good .mussel-threshold {
     stroke: var(--mussel-good, #56A64B);
-    fill: var(--mussel-good, #56A64B);
 }
 
-.mussel-warning .mussel-threshold, .mussel-band.mussel-warning {
+.mussel-warning .mussel-threshold {
     stroke: var(--mussel-warning, #F2CC0C);
-    fill: var(--mussel-warning, #F2CC0C);
 }
 
-.mussel-serious .mussel-threshold, .mussel-band.mussel-serious {
+.mussel-serious .mussel-threshold {
     stroke: var(--mussel-serious, #FF780A);
-    fill: var(--mussel-serious, #FF780A);
 }
 
-.mussel-critical .mussel-threshold, .mussel-band.mussel-critical {
+.mussel-critical .mussel-threshold {
     stroke: var(--mussel-critical, #E02F44);
-    fill: var(--mussel-critical, #E02F44);
 }
 
-.mussel-good .mussel-threshold-label {
+.mussel-neutral .mussel-threshold-label, .mussel-band.mussel-neutral {
+    fill: var(--mussel-secondary-text, #52514E);
+}
+
+.mussel-good .mussel-threshold-label, .mussel-band.mussel-good {
     fill: var(--mussel-good, #56A64B);
 }
 
-.mussel-warning .mussel-threshold-label {
+.mussel-warning .mussel-threshold-label, .mussel-band.mussel-warning {
     fill: var(--mussel-warning, #F2CC0C);
 }
 
-.mussel-serious .mussel-threshold-label {
+.mussel-serious .mussel-threshold-label, .mussel-band.mussel-serious {
     fill: var(--mussel-serious, #FF780A);
 }
 
-.mussel-critical .mussel-threshold-label {
+.mussel-critical .mussel-threshold-label, .mussel-band.mussel-critical {
     fill: var(--mussel-critical, #E02F44);
 }
 

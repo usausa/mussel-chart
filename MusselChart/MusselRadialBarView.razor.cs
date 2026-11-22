@@ -195,7 +195,7 @@ public sealed partial class MusselRadialBarView
         var palette = Palette ?? ChartPalettes.DefaultLight;
         foreach (var row in layout.Rows)
         {
-            var baseColor = row.Color ?? ChartColor.At(palette, row.Slot);
+            var baseColor = ChartColor.IsSafe(row.Color) ? row.Color : ChartColor.SafeAt(palette, row.Slot);
             var color = GetThresholdColor(row.Percent, baseColor);
             ringViews.Add(CreateRing(row, baseColor, color, tips));
             if ((LegendVisible ?? true) && !String.IsNullOrEmpty(row.Label))
@@ -213,11 +213,11 @@ public sealed partial class MusselRadialBarView
         if (layout.MarkerWidth > 0)
         {
             var first = layout.Rows[0];
-            AddMarkerArcs(first.Color ?? ChartColor.At(palette, 0));
+            AddMarkerArcs(ChartColor.IsSafe(first.Color) ? first.Color : ChartColor.SafeAt(palette, 0));
         }
     }
 
-    private string GetThresholdColor(double percent, string baseColor) => ChartColor.Threshold(ChartFormat.FindThreshold(Thresholds, percent), baseColor);
+    private string GetThresholdColor(double percent, string baseColor) => ChartColor.SafeThreshold(ChartFormat.FindThreshold(Thresholds, percent), baseColor);
 
     private double GetAngle(double fraction) => StartAngle + (Sweep * fraction);
 
@@ -399,7 +399,7 @@ public sealed partial class MusselRadialBarView
         foreach (var threshold in sorted)
         {
             var value = threshold.Value;
-            var stepColor = ChartColor.Threshold(threshold, baseColor);
+            var stepColor = ChartColor.SafeThreshold(threshold, baseColor);
             var to = Math.Clamp(value / 100, from, 1);
             if (to > from)
             {

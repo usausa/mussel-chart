@@ -24,7 +24,7 @@ public sealed partial class MusselHeatmapView<TItem>
 
     private readonly List<ChartTipRow> tipRows = [];
 
-    private IReadOnlyList<string>? paletteSource;
+    private readonly List<string> paletteStops = [];
 
     private string[] palette = [];
 
@@ -78,9 +78,10 @@ public sealed partial class MusselHeatmapView<TItem>
         var culture = Culture ?? CultureInfo.CurrentCulture;
         WatchSource(Items);
         ApplySources();
-        if (!ReferenceEquals(paletteSource, ColorScale))
+        if (!IsPaletteCurrent())
         {
-            paletteSource = ColorScale;
+            paletteStops.Clear();
+            paletteStops.AddRange(ColorScale);
             palette = HeatmapPalette.Build(ColorScale);
         }
 
@@ -102,6 +103,24 @@ public sealed partial class MusselHeatmapView<TItem>
         ArrangeCells();
         ArrangeLabels();
         ArrangeScale();
+    }
+
+    private bool IsPaletteCurrent()
+    {
+        if ((palette.Length == 0) || (paletteStops.Count != ColorScale.Count))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < paletteStops.Count; i++)
+        {
+            if (!String.Equals(paletteStops[i], ColorScale[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private List<HeatmapEntry> ReadEntries()

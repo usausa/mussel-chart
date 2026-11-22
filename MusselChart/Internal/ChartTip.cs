@@ -25,7 +25,7 @@ internal static class ChartTip
             }
 
             builder.Append('[');
-            AppendString(builder, rows[i].Color);
+            AppendString(builder, ChartColor.IsSafe(rows[i].Color) ? rows[i].Color : null);
             builder.Append(',');
             AppendString(builder, rows[i].Name);
             builder.Append(',');

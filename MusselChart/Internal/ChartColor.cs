@@ -1,10 +1,13 @@
 namespace MusselChart.Internal;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 internal static class ChartColor
 {
     public const string Other = "#B5B3AA";
+
+    private const int Opaque = 255;
 
     private const string DarkText = "#0B0B0B";
 
@@ -31,30 +34,48 @@ internal static class ChartColor
         return threshold.Color ?? (threshold.Level == ChartThresholdLevel.None ? fallback : Level(threshold.Level));
     }
 
+    public static string SafeThreshold(ChartThreshold? threshold, string fallback)
+    {
+        if (threshold is null)
+        {
+            return fallback;
+        }
+
+        if (IsSafe(threshold.Color))
+        {
+            return threshold.Color;
+        }
+
+        return threshold.Level == ChartThresholdLevel.None ? fallback : Level(threshold.Level);
+    }
+
     public static string At(IReadOnlyList<string> palette, int index) => index < palette.Count ? palette[index] : Other;
 
-    public static bool TryParse(string? text, out (int R, int G, int B) color)
+    public static string SafeAt(IReadOnlyList<string> palette, int index)
     {
-        color = default;
-        if ((text is null) || (text.Length == 0) || (text[0] != '#'))
+        var color = At(palette, index);
+        return IsSafe(color) ? color : Other;
+    }
+
+    public static bool IsSafe([NotNullWhen(true)] string? value)
+    {
+        if ((value is null) || (value.Length is 0 or > 64) || value.Contains("url(", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var hex = text.AsSpan(1);
-        if (hex.Length == 3)
+        foreach (var ch in value)
         {
-            Span<char> expanded = [hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]];
-            return TryParseHex(expanded, out color);
+            if (!Char.IsAsciiLetterOrDigit(ch) && (ch is not ('#' or '(' or ')' or ',' or '.' or '%' or ' ' or '-' or '/')))
+            {
+                return false;
+            }
         }
 
-        return hex.Length switch
-        {
-            6 => TryParseHex(hex, out color),
-            8 => TryParseHex(hex[..6], out color),
-            _ => false
-        };
+        return true;
     }
+
+    public static bool TryParse(string? text, out (int R, int G, int B) color) => TryParse(text, out color, out _);
 
     public static double Brightness(string? text) =>
         TryParse(text, out var color) ? ((color.R * 299) + (color.G * 587) + (color.B * 114)) / 1000d : 0;
@@ -63,7 +84,7 @@ internal static class ChartColor
 
     public static string Shift(string text, double hue, double saturation, double lightness)
     {
-        if (!TryParse(text, out var color))
+        if (!TryParse(text, out var color, out var alpha))
         {
             return text;
         }
@@ -72,29 +93,29 @@ internal static class ChartColor
         h = (((h + hue) % 360) + 360) % 360;
         s = Math.Clamp(s + (saturation / 100), 0, 1);
         l = Math.Clamp(l + (lightness / 100), 0, 1);
-        return ToHex(FromHsl(h, s, l));
+        return ToHex(FromHsl(h, s, l), alpha);
     }
 
     public static string Brighten(string text, double percent)
     {
-        if (!TryParse(text, out var color))
+        if (!TryParse(text, out var color, out var alpha))
         {
             return text;
         }
 
         var delta = (int)Math.Round(255 * percent / 100);
-        return ToHex((Math.Min(255, color.R + delta), Math.Min(255, color.G + delta), Math.Min(255, color.B + delta)));
+        return ToHex((Math.Min(255, color.R + delta), Math.Min(255, color.G + delta), Math.Min(255, color.B + delta)), alpha);
     }
 
     public static string Lerp(string from, string to, double progress)
     {
-        if (!TryParse(from, out var start) || !TryParse(to, out var end))
+        if (!TryParse(from, out var start, out var startAlpha) || !TryParse(to, out var end, out var endAlpha))
         {
             return to;
         }
 
         var t = Math.Clamp(progress, 0, 1);
-        return ToHex((Lerp(start.R, end.R, t), Lerp(start.G, end.G, t), Lerp(start.B, end.B, t)));
+        return ToHex((Lerp(start.R, end.R, t), Lerp(start.G, end.G, t), Lerp(start.B, end.B, t)), Lerp(startAlpha, endAlpha, t));
     }
 
     public static string Contrast(string background)
@@ -111,6 +132,44 @@ internal static class ChartColor
     public static string ToHex((int R, int G, int B) color) =>
         String.Create(CultureInfo.InvariantCulture, $"#{color.R:X2}{color.G:X2}{color.B:X2}");
 
+    public static string ToHex((int R, int G, int B) color, int alpha) =>
+        alpha < Opaque ? String.Create(CultureInfo.InvariantCulture, $"#{color.R:X2}{color.G:X2}{color.B:X2}{alpha:X2}") : ToHex(color);
+
+    public static bool TryParse(string? text, out (int R, int G, int B) color, out int alpha)
+    {
+        color = default;
+        alpha = Opaque;
+        if ((text is null) || (text.Length == 0) || (text[0] != '#'))
+        {
+            return false;
+        }
+
+        var hex = text.AsSpan(1);
+        if (hex.Length is 3 or 4)
+        {
+            Span<char> expanded = [hex[0], hex[0], hex[1], hex[1], hex[2], hex[2], hex[^1], hex[^1]];
+            if (!TryParseHex(expanded[..6], out color) || ((hex.Length == 4) && !TryParseChannel(expanded[6..], out alpha)))
+            {
+                (color, alpha) = (default, Opaque);
+                return false;
+            }
+
+            return true;
+        }
+
+        if ((hex.Length is not (6 or 8)) || !TryParseHex(hex[..6], out color))
+        {
+            return false;
+        }
+
+        if ((hex.Length == 8) && TryParseChannel(hex[6..], out var value))
+        {
+            alpha = value;
+        }
+
+        return true;
+    }
+
     private static int Lerp(int from, int to, double progress) => (int)Math.Round(from + ((to - from) * progress));
 
     private static double GetLuminance((int R, int G, int B) color) =>
@@ -125,9 +184,7 @@ internal static class ChartColor
     private static bool TryParseHex(ReadOnlySpan<char> hex, out (int R, int G, int B) color)
     {
         color = default;
-        if (!Int32.TryParse(hex[..2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var r) ||
-            !Int32.TryParse(hex.Slice(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var g) ||
-            !Int32.TryParse(hex.Slice(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
+        if (!TryParseChannel(hex[..2], out var r) || !TryParseChannel(hex.Slice(2, 2), out var g) || !TryParseChannel(hex.Slice(4, 2), out var b))
         {
             return false;
         }
@@ -135,6 +192,9 @@ internal static class ChartColor
         color = (r, g, b);
         return true;
     }
+
+    private static bool TryParseChannel(ReadOnlySpan<char> hex, out int value) =>
+        Int32.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
 
     private static (double H, double S, double L) ToHsl((int R, int G, int B) color)
     {

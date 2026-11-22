@@ -102,7 +102,8 @@ public sealed partial class MusselPieChartView
         var culture = Culture ?? CultureInfo.CurrentCulture;
         WatchSource(Items);
         ApplySources();
-        if (!LegendToggleEnabled)
+        var togglable = LegendToggleEnabled && (LegendVisible ?? true);
+        if (!togglable)
         {
             hiddenLabels.Clear();
         }

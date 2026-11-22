@@ -274,7 +274,7 @@ public sealed partial class MusselChartView
             if (options.Live && !IsBarKind(kind) && !IsMarkerKind(kind))
             {
                 var last = state.Points.FindLast(static x => Double.IsFinite(x.Value));
-                if (last.Sequence > 0)
+                if ((last.Sequence > 0) && (last.X >= position.Start) && (last.X <= position.End) && (last.Top >= scale.Minimum) && (last.Top <= scale.Maximum))
                 {
                     var (x, y) = map.Map(last.X, last.Top);
                     livePoints.Add(new LivePoint(ChartFormat.Pixel(x), ChartFormat.Pixel(y), state.Color));
@@ -398,7 +398,14 @@ public sealed partial class MusselChartView
             end += half;
         }
 
-        return new PositionWindow(ToSeconds(Math.Max(start, 0)), ToSeconds(Math.Min(end, DateTime.MaxValue.Ticks)));
+        var from = Math.Max(start, 0);
+        var to = Math.Min(end, DateTime.MaxValue.Ticks);
+        if ((to <= from) && (end > start))
+        {
+            (from, to) = from == 0 ? (0, TimeSpan.TicksPerSecond) : (DateTime.MaxValue.Ticks - TimeSpan.TicksPerSecond, DateTime.MaxValue.Ticks);
+        }
+
+        return new PositionWindow(ToSeconds(from), ToSeconds(to));
     }
 
     private static double MeasureBarSpacing(List<SeriesState> visible)
@@ -560,7 +567,7 @@ public sealed partial class MusselChartView
         TickGenerator.Numeric(position.Scale, ticks);
         foreach (var tick in ticks)
         {
-            var text = ChartFormat.Value(tick, axis?.LabelFormat, axis?.LabelFormatter, culture);
+            var text = ChartFormat.AxisValue(tick, position.Scale.Interval, axis?.LabelFormat, axis?.LabelFormatter, culture);
             positionTicks.Add(((tick - position.Start) / (position.End - position.Start), text));
         }
     }
@@ -607,7 +614,7 @@ public sealed partial class MusselChartView
         {
             foreach (var tick in valueTicks)
             {
-                valueTexts.Add(FormatAxisValue(tick, percent));
+                valueTexts.Add(FormatAxisValue(tick, scale.Interval, percent));
             }
         }
     }
@@ -884,7 +891,10 @@ public sealed partial class MusselChartView
             offsetChangesText = ChartStringBuilder.ToStringAndReturn(builder);
         }
 
-        var spansDays = (ChartTime.ToZoneTicks(start, zone) / TimeSpan.TicksPerDay) != (ChartTime.ToZoneTicks(end, zone) / TimeSpan.TicksPerDay);
+        var zoneStart = ChartTime.ToZoneTicks(start, zone);
+        var zoneEnd = ChartTime.ToZoneTicks(end, zone);
+        var spansDays = (zoneStart / TimeSpan.TicksPerDay) != (zoneEnd / TimeSpan.TicksPerDay);
+        var spansYears = ChartDateTime.YearOf(zoneStart) != ChartDateTime.YearOf(zoneEnd);
         var finest = Double.PositiveInfinity;
         foreach (var state in visible)
         {
@@ -896,7 +906,9 @@ public sealed partial class MusselChartView
         }
 
         finest = Double.IsInfinity(finest) ? 60 : finest;
-        timeFormat = TimeInterval.GetTrackingFormat(finest < 60 ? TimeLabelPrecision.Second : finest < 86400 ? TimeLabelPrecision.Minute : TimeLabelPrecision.Day, spansDays, ChartFormat.IsDayFirst(culture));
+        var precision = finest < 60 ? TimeLabelPrecision.Second : finest < 86400 ? TimeLabelPrecision.Minute : TimeLabelPrecision.Day;
+        var dayFirst = ChartFormat.IsDayFirst(culture);
+        timeFormat = spansYears ? TimeInterval.GetYearTrackingFormat(precision, dayFirst) : TimeInterval.GetTrackingFormat(precision, spansDays, dayFirst);
     }
 
     private static bool IsListed(ChartSeries series) => series.LegendVisible && !String.IsNullOrEmpty(series.Title);
@@ -986,14 +998,14 @@ public sealed partial class MusselChartView
         return values;
     }
 
-    private string FormatAxisValue(double value, bool percent)
+    private string FormatAxisValue(double value, double step, bool percent)
     {
         if (percent && (yAxis?.LabelFormat is null) && (yAxis?.LabelFormatter is null))
         {
             return (value / 100).ToString("P0", culture);
         }
 
-        return ChartFormat.Value(value, yAxis?.LabelFormat, yAxis?.LabelFormatter, culture);
+        return ChartFormat.AxisValue(value, step, yAxis?.LabelFormat, yAxis?.LabelFormatter, culture);
     }
 
     private static double MeasureSpacing(SeriesState state)

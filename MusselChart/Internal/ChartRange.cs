@@ -42,11 +42,11 @@ internal static class ChartRange
         {
             if (fixedMaximum is null)
             {
-                maximum = minimum + 1;
+                maximum = Above(minimum);
             }
             else
             {
-                minimum = maximum - 1;
+                minimum = Below(maximum);
             }
         }
 
@@ -60,6 +60,10 @@ internal static class ChartRange
         return (low is { } start) && (high is { } end) && !(end > start) ? (null, null) : (low, high);
     }
 
+    public static double Above(double end) => end + 1 > end ? end + 1 : end + GetGap(end);
+
+    public static double Below(double end) => end - 1 < end ? end - 1 : end - GetGap(end);
+
     public static (double Minimum, double Maximum) Pad(double minimum, double maximum, double padding, double length)
     {
         if ((padding <= 0) || !(length > padding * 2) || !Double.IsFinite(minimum) || !Double.IsFinite(maximum))
@@ -72,4 +76,10 @@ internal static class ChartRange
     }
 
     private static double? Finite(double? value) => (value is { } number) && Double.IsFinite(number) ? number : null;
+
+    private static double GetGap(double end)
+    {
+        var magnitude = Math.Abs(end);
+        return Math.Min(magnitude * 0.1, Double.MaxValue - magnitude);
+    }
 }

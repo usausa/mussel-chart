@@ -289,6 +289,17 @@ public sealed class MusselRadarChartViewTests : BunitContext
     }
 
     [Fact]
+    public void LevelsOfANarrowRangeKeepTheDecimalsThatTellThemApart()
+    {
+        var layout = new RadarLayout();
+        List<List<RadarPoint>> series = [[new RadarPoint("A", 20.002), new RadarPoint("B", 20.004), new RadarPoint("C", 20.008)]];
+
+        layout.Update(400, 400, new RadarLayoutOptions { Minimum = 20, Maximum = 20.01, LevelCount = 5, Culture = CultureInfo.InvariantCulture }, series, [true], 5);
+
+        Assert.Equal(["20.002", "20.004", "20.006", "20.008", "20.01"], layout.Levels.Select(static x => x.Text));
+    }
+
+    [Fact]
     public void LevelsAreLabeledExceptAtTheCenter()
     {
         var cut = Render<MusselRadarChartView>(parameters => parameters

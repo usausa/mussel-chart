@@ -383,6 +383,17 @@ internal sealed class HeatmapLayout
         var (fixedMinimum, fixedMaximum) = ChartRange.FixedEnds(options.Minimum, options.Maximum);
         Minimum = fixedMinimum ?? (HasValues ? minimum : 0);
         Maximum = fixedMaximum ?? (HasValues ? maximum : 1);
+        if ((Maximum <= Minimum) && ((fixedMinimum is null) != (fixedMaximum is null)))
+        {
+            if (fixedMaximum is null)
+            {
+                Maximum = ChartRange.Above(Minimum);
+            }
+            else
+            {
+                Minimum = ChartRange.Below(Maximum);
+            }
+        }
     }
 
     private void PlaceScale()
@@ -407,7 +418,7 @@ internal sealed class HeatmapLayout
             return;
         }
 
-        var width = ScaleThickness + LabelGap + Math.Max(ChartText.Measure(FormatValue(Minimum), LabelFontSize), ChartText.Measure(FormatValue(Maximum), LabelFontSize));
+        var width = ScaleThickness + LabelGap + MeasureScaleEnds(Math.Max(2, (int)Math.Floor(area.Height / (LabelHeight + ScaleVerticalSpacing))));
         if (area.Width - width - LegendGap < width * 2)
         {
             ShowsScale = false;
@@ -658,10 +669,21 @@ internal sealed class HeatmapLayout
     private void CreateScaleTexts(int count)
     {
         scaleTexts.Clear();
+        var step = GetScaleStep(count);
         for (var i = 0; i < count; i++)
         {
-            scaleTexts.Add(FormatValue(GetScaleValue(i, count)));
+            scaleTexts.Add(FormatScaleValue(GetScaleValue(i, count), step));
         }
+    }
+
+    private double GetScaleStep(int count) => (Maximum - Minimum) / (count - 1);
+
+    private string FormatScaleValue(double value, double step) => ChartFormat.AxisValue(value, step, options.ValueFormat, options.ValueFormatter, options.Culture);
+
+    private double MeasureScaleEnds(int count)
+    {
+        var step = GetScaleStep(count);
+        return Math.Max(ChartText.Measure(FormatScaleValue(Minimum, step), LabelFontSize), ChartText.Measure(FormatScaleValue(Maximum, step), LabelFontSize));
     }
 
     private bool FitsScale(int count, double length)

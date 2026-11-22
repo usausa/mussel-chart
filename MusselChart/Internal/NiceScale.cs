@@ -10,8 +10,6 @@ internal static class NiceScale
 
     private const double MantissaNoise = 1e-14;
 
-    private const int CleanDigits = 9;
-
     private static readonly double[] Powers =
     [
         1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
@@ -63,17 +61,6 @@ internal static class NiceScale
     public static double Floor(double value, double step) => Multiple(Math.Floor((value / step) + Tolerance), step);
 
     public static double Ceiling(double value, double step) => Multiple(Math.Ceiling((value / step) - Tolerance), step);
-
-    public static double Snap(double value, double step)
-    {
-        if (!TryDecomposeShort(step, out _, out var exponent))
-        {
-            return value;
-        }
-
-        var index = Math.Round(value / step);
-        return Math.Abs((value / step) - index) <= Tolerance ? Multiple(index, step) : Round(value, CleanDigits - exponent);
-    }
 
     public static AxisScale Create(double minimum, double maximum, int maxDivisions, bool niceMinimum, bool niceMaximum)
     {
@@ -132,22 +119,6 @@ internal static class NiceScale
         mantissa = 0;
         exponent = 0;
         return false;
-    }
-
-    private static double Round(double value, int digits)
-    {
-        if (digits < 0)
-        {
-            var unit = Pow10(-digits);
-            return Math.Round(value / unit) * unit;
-        }
-
-        if (digits <= 15)
-        {
-            return Math.Round(value, digits);
-        }
-
-        return digits < Powers.Length ? Math.Round(value * Powers[digits]) / Powers[digits] : value;
     }
 
     private static double Compose(double mantissa, int exponent) => exponent >= 0 ? mantissa * Pow10(exponent) : mantissa / Pow10(-exponent);

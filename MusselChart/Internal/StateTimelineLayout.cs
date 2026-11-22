@@ -3,12 +3,12 @@ namespace MusselChart.Internal;
 using System.Globalization;
 using System.Text;
 
-internal readonly record struct StateTimelineEntry(int DataIndex, string? Row, double Start, double End, string? Text, double Number)
+internal readonly record struct StateTimelineEntry(int DataIndex, string? Row, long Start, long? End, string? Text, double Number)
 {
     public bool HasState => (Text is not null) || Double.IsFinite(Number);
 }
 
-internal readonly record struct StateTimelineSegment(int Row, double Start, double End, int State);
+internal readonly record struct StateTimelineSegment(int Row, long Start, long? End, int State);
 
 internal readonly record struct StateTimelineState(string Text, string Color, bool Discrete);
 
@@ -31,7 +31,7 @@ internal sealed class StateTimelineLayout
 {
     private static readonly string[] Continuous = [ChartColor.Level(ChartThresholdLevel.Good), ChartColor.Level(ChartThresholdLevel.Warning), ChartColor.Level(ChartThresholdLevel.Critical)];
 
-    private static readonly (int R, int G, int B)[] ContinuousStops = HeatmapPalette.Parse(Continuous);
+    private static readonly (int R, int G, int B, int A)[] ContinuousStops = HeatmapPalette.Parse(Continuous);
 
     private readonly List<(int Row, StateTimelineEntry Entry)> sorted = [];
 
@@ -73,9 +73,9 @@ internal sealed class StateTimelineLayout
 
     public bool HasRowNames { get; private set; }
 
-    public static string FormatDuration(double ticks)
+    public static string FormatDuration(long ticks)
     {
-        var milliseconds = ticks / TimeSpan.TicksPerMillisecond;
+        var milliseconds = ticks / (double)TimeSpan.TicksPerMillisecond;
         if (!(milliseconds >= 0))
         {
             return string.Empty;
@@ -266,11 +266,6 @@ internal sealed class StateTimelineLayout
         hasNumbers = false;
         foreach (var entry in entries)
         {
-            if (!Double.IsFinite(entry.Start))
-            {
-                continue;
-            }
-
             var row = GetRowIndex(entry.Row);
             HasRowNames |= entry.Row is not null;
             sorted.Add((row, entry));
@@ -309,16 +304,16 @@ internal sealed class StateTimelineLayout
             while ((i < count) && (sorted[i].Row == row))
             {
                 var entry = sorted[i].Entry;
-                var next = (i + 1 < count) && (sorted[i + 1].Row == row) ? sorted[i + 1].Entry.Start : Double.PositiveInfinity;
+                long? next = (i + 1 < count) && (sorted[i + 1].Row == row) ? sorted[i + 1].Entry.Start : null;
                 i++;
-                var end = Double.IsFinite(entry.End) && (entry.End > entry.Start) ? Math.Min(entry.End, next) : next;
-                if (!(end > entry.Start) || !entry.HasState)
+                var end = (entry.End is { } last) && (last > entry.Start) ? Math.Min(last, next ?? last) : next;
+                if (((end is { } stop) && (stop <= entry.Start)) || !entry.HasState)
                 {
                     continue;
                 }
 
                 var (state, key) = ResolveState(entry, row);
-                if (options.MergeValues && (segments.Count > first) && (key == lastKey) && segments[^1].End.Equals(entry.Start))
+                if (options.MergeValues && (segments.Count > first) && (key == lastKey) && (segments[^1].End == entry.Start))
                 {
                     segments[^1] = segments[^1] with { End = end };
                     continue;

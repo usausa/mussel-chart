@@ -212,12 +212,10 @@ function show(chart, position, active) {
     const target = fromPosition(chart, position);
     const x = nearest(series, target);
     const horizontal = chart.dataset.orientation === 'horizontal';
-    const clip = chart.querySelector('clipPath rect');
-    const low = Number(clip.getAttribute(horizontal ? 'y' : 'x'));
-    const high = low + Number(clip.getAttribute(horizontal ? 'height' : 'width'));
+    const bounds = clipBounds(chart);
     const along = horizontal ? (matrix.b * x) + matrix.f : (matrix.a * x) + matrix.e;
     const tolerance = position.kind === 'category' ? 0 : spacing(series);
-    if (x === null || along < low - 1 || along > high + 1 || (!active && Math.abs(x - target) > tolerance)) {
+    if (x === null || !within(along, horizontal ? bounds.top : bounds.left, horizontal ? bounds.bottom : bounds.right) || (!active && Math.abs(x - target) > tolerance)) {
         hide(chart);
         return;
     }
@@ -226,17 +224,9 @@ function show(chart, position, active) {
 
     const hover = chart.querySelector('.mussel-hover');
     hover.replaceChildren();
-    const rows = [];
-    const culture = chart.dataset.culture;
-    for (const item of series) {
-        const entry = item.values.get(x);
-        if (entry === undefined) {
-            continue;
-        }
-
-        const dotX = entry.center ?? x;
-        addDot(hover, (matrix.a * dotX) + (matrix.c * entry.y) + matrix.e, (matrix.b * dotX) + (matrix.d * entry.y) + matrix.f, item.color);
-        rows.push([item.color, item.title, formatEntry(item, entry, culture)]);
+    const { dots, rows } = hoverEntries(series, x, matrix, bounds, chart.dataset.culture);
+    for (const [dotX, dotY, color] of dots) {
+        addDot(hover, dotX, dotY, color);
     }
 
     const tooltip = chart.querySelector('.mussel-tooltip');
@@ -270,15 +260,41 @@ function show(chart, position, active) {
     tooltip.style.top = '4px';
 }
 
-function showPoint(chart, series, ctm, event) {
+export function hoverEntries(series, x, matrix, bounds, culture) {
+    const dots = [];
+    const rows = [];
+    for (const item of series) {
+        const entry = item.values.get(x);
+        if (entry === undefined) {
+            continue;
+        }
+
+        const along = entry.center ?? x;
+        const dotX = (matrix.a * along) + (matrix.c * entry.y) + matrix.e;
+        const dotY = (matrix.b * along) + (matrix.d * entry.y) + matrix.f;
+        if (contains(bounds, dotX, dotY)) {
+            dots.push([dotX, dotY, item.color]);
+        }
+
+        rows.push([item.color, item.title, formatEntry(item, entry, culture)]);
+    }
+
+    return { dots, rows };
+}
+
+export function nearestMarker(series, ctm, matrix, bounds, clientX, clientY) {
     let best = null;
     let distance = Infinity;
     for (const item of series) {
         for (const marker of item.group.querySelectorAll('.mussel-markers > *')) {
             const x = Number(marker.dataset.x);
             const y = Number(marker.dataset.y);
-            const dx = (ctm.a * x) + (ctm.c * y) + ctm.e - event.clientX;
-            const dy = (ctm.b * x) + (ctm.d * y) + ctm.f - event.clientY;
+            if (!contains(bounds, (matrix.a * x) + (matrix.c * y) + matrix.e, (matrix.b * x) + (matrix.d * y) + matrix.f)) {
+                continue;
+            }
+
+            const dx = (ctm.a * x) + (ctm.c * y) + ctm.e - clientX;
+            const dy = (ctm.b * x) + (ctm.d * y) + ctm.f - clientY;
             const current = (dx * dx) + (dy * dy);
             if (current < distance) {
                 distance = current;
@@ -287,8 +303,28 @@ function showPoint(chart, series, ctm, event) {
         }
     }
 
+    return best;
+}
+
+export function clipBounds(chart) {
+    const rect = chart.querySelector('clipPath rect');
+    const left = Number(rect.getAttribute('x'));
+    const top = Number(rect.getAttribute('y'));
+    return { left, top, right: left + Number(rect.getAttribute('width')), bottom: top + Number(rect.getAttribute('height')) };
+}
+
+function within(value, low, high) {
+    return value >= low - 1 && value <= high + 1;
+}
+
+function contains(bounds, x, y) {
+    return within(x, bounds.left, bounds.right) && within(y, bounds.top, bounds.bottom);
+}
+
+function showPoint(chart, series, ctm, event) {
     const matrix = plotMatrix(chart.querySelector('.mussel-plot'));
-    if (best === null || !matrix) {
+    const best = matrix ? nearestMarker(series, ctm, matrix, clipBounds(chart), event.clientX, event.clientY) : null;
+    if (best === null) {
         hide(chart);
         return;
     }
@@ -443,7 +479,11 @@ function showItem(chart, target) {
     fillTooltip(tooltip, tip.t, tip.r);
 }
 
-function fillTooltip(tooltip, title, rows) {
+export function isSafeColor(color) {
+    return typeof color === 'string' && /^[A-Za-z0-9 #(),.%/-]{1,64}$/.test(color) && !color.toLowerCase().includes('url(');
+}
+
+export function fillTooltip(tooltip, title, rows) {
     tooltip.replaceChildren();
     if (title) {
         const header = document.createElement('div');
@@ -455,7 +495,7 @@ function fillTooltip(tooltip, title, rows) {
     for (const [color, name, value] of rows) {
         const line = document.createElement('div');
         line.className = 'mussel-tooltip-row';
-        if (color) {
+        if (isSafeColor(color)) {
             const mark = document.createElement('i');
             mark.style.background = color;
             line.appendChild(mark);
@@ -562,7 +602,7 @@ function numberFormat(culture, kind, digits) {
     let format = numberFormats.get(key);
     if (format === undefined) {
         format = new Intl.NumberFormat(culture || undefined, kind === 'C'
-            ? { maximumFractionDigits: digits }
+            ? { maximumFractionDigits: digits, useGrouping: true }
             : kind === 'P'
                 ? { style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits }
                 : { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: kind === 'N' });

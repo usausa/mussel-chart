@@ -21,6 +21,17 @@ internal enum ChartXKind
 
 internal readonly record struct ChartPointData(long Ticks, double Number, string? Category, double Value, double Low, double Size);
 
+internal readonly record struct SeriesSelectors(Delegate? X, Delegate? XValue, Delegate? Category)
+{
+    public Delegate? Y { get; init; }
+
+    public Delegate? Low { get; init; }
+
+    public Delegate? High { get; init; }
+
+    public Delegate? Size { get; init; }
+}
+
 internal sealed record SeriesOptions(
     string? Title,
     string? Color,
@@ -42,6 +53,8 @@ internal sealed record SeriesOptions(
     public double MaxSize { get; init; }
 
     public bool SizeIncludesZero { get; init; }
+
+    public SeriesSelectors Selectors { get; init; }
 }
 
 internal static class ChartTime
@@ -129,6 +142,9 @@ internal static class ChartFormat
 
         return format.Contains('{', StringComparison.Ordinal) ? String.Format(culture, format, value) : value.ToString(format, culture);
     }
+
+    public static string AxisValue(double value, double step, string? format, Func<double, string>? formatter, CultureInfo culture) =>
+        (formatter is null) && String.IsNullOrEmpty(format) ? CompactNumberFormat.Format(value, step, culture) : Value(value, format, formatter, culture);
 
     public static (string? Format, Func<double, string>? Formatter) Pick(string? format, Func<double, string>? formatter, string? fallbackFormat, Func<double, string>? fallbackFormatter) =>
         (format is not null) || (formatter is not null) ? (format, formatter) : (fallbackFormat, fallbackFormatter);

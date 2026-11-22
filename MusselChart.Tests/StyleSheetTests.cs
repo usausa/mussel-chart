@@ -56,6 +56,41 @@ public sealed partial class StyleSheetTests
     }
 
     [Fact]
+    public void ThresholdsAreGrayOnlyWithoutALevelOrAColor()
+    {
+        var css = File.ReadAllText(Path.Combine(TestPaths.Root, "MusselChart", "MusselChartView.razor.css"));
+        string[] levels = ["mussel-neutral", "mussel-good", "mussel-warning", "mussel-serious", "mussel-critical"];
+
+        var painted = Rule().Matches(css)
+            .Where(static x => Paint().IsMatch(x.Groups["body"].Value))
+            .SelectMany(static x => TopLevelComma().Split(x.Groups["selector"].Value))
+            .Select(static x => x.Trim())
+            .Where(static x => x.Contains("mussel-threshold", StringComparison.Ordinal) || x.Contains("mussel-band", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(painted);
+        Assert.All(painted, x => Assert.Contains(levels, y => x.Contains(y, StringComparison.Ordinal)));
+        Assert.Contains(".mussel-band.mussel-neutral", painted);
+        Assert.Contains(".mussel-neutral .mussel-threshold-label", painted);
+    }
+
+    [Fact]
+    public void ThresholdBandsHaveNoOutline()
+    {
+        var css = File.ReadAllText(Path.Combine(TestPaths.Root, "MusselChart", "MusselChartView.razor.css"));
+
+        var stroked = Rule().Matches(css)
+            .Where(static x => Stroke().IsMatch(x.Groups["body"].Value))
+            .SelectMany(static x => TopLevelComma().Split(x.Groups["selector"].Value))
+            .Select(static x => x.Trim())
+            .ToList();
+
+        Assert.Contains(".mussel-good .mussel-threshold", stroked);
+        Assert.Contains(".mussel-neutral .mussel-threshold", stroked);
+        Assert.DoesNotContain(stroked, static x => x.Contains("mussel-band", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CornersAreNotRounded()
     {
         var files = Directory.GetFiles(Path.Combine(TestPaths.Root, "MusselChart"), "*.razor.css", SearchOption.AllDirectories)
@@ -90,4 +125,10 @@ public sealed partial class StyleSheetTests
 
     [GeneratedRegex(@"^(?::where\([^()]*\)\s*)+$")]
     private static partial Regex WhereOnly();
+
+    [GeneratedRegex(@"(?:^|;)\s*(?:stroke|fill)\s*:")]
+    private static partial Regex Paint();
+
+    [GeneratedRegex(@"(?:^|;)\s*stroke\s*:")]
+    private static partial Regex Stroke();
 }

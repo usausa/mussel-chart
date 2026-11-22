@@ -82,42 +82,10 @@ internal static class TickGenerator
         }
     }
 
-    public static void Aligned(AxisScale primary, IReadOnlyList<double> primaryTicks, AxisScale secondary, List<double> ticks)
-    {
-        ticks.Clear();
-        var span = primary.Span;
-        if (!(span > 0))
-        {
-            return;
-        }
-
-        // ReSharper disable once ForCanBeConvertedToForeach
-        for (var i = 0; i < primaryTicks.Count; i++)
-        {
-            var fraction = (primaryTicks[i] - primary.Minimum) / span;
-            var value = (secondary.Minimum * (1 - fraction)) + (secondary.Maximum * fraction);
-            ticks.Add(NiceScale.Snap(value, secondary.Interval));
-        }
-    }
-
-    public static void Category(int count, List<double> ticks)
-    {
-        ticks.Clear();
-        for (var i = 0; i < count; i++)
-        {
-            ticks.Add(i);
-        }
-    }
-
-    public static TimeInterval SelectTimeInterval(double span, double length, int maxDivisions, double gap, TimeLabelWidths labelWidths, ChartDateTimeIntervalType minimumUnit = ChartDateTimeIntervalType.Auto)
+    public static TimeInterval SelectTimeInterval(double span, double length, int maxDivisions, double gap, TimeLabelWidths labelWidths)
     {
         foreach (var interval in TimeIntervals)
         {
-            if (interval.Unit < minimumUnit)
-            {
-                continue;
-            }
-
             if (!(span > 0))
             {
                 return interval;

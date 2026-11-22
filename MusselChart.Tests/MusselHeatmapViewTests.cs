@@ -66,6 +66,19 @@ public sealed class MusselHeatmapViewTests : BunitContext
         Assert.Equal(plain.Find(".mussel-heat-scale").InnerHtml, ends.Find(".mussel-heat-scale").InnerHtml);
     }
 
+    [Theory]
+    [InlineData(null, 0d, 1d, -1d, 0d)]
+    [InlineData(6d, null, 1d, 6d, 7d)]
+    [InlineData(null, 1e16, 2e16, 9e15, 1e16)]
+    public void AnEndThatTheValuesAreBeyondIsKeptWithTheOtherEndAway(double? minimum, double? maximum, double value, double low, double high)
+    {
+        var layout = new HeatmapLayout();
+
+        layout.Update(600, 200, new HeatmapLayoutOptions { Minimum = minimum, Maximum = maximum }, [new HeatmapEntry(null, "1", null, value), new HeatmapEntry(null, "2", null, value * 5)]);
+
+        Assert.Equal((low, high), (layout.Minimum, layout.Maximum));
+    }
+
     [Fact]
     public void MatrixDrawsEveryCellAndEmptyOnesInTheTrack()
     {
@@ -96,6 +109,26 @@ public sealed class MusselHeatmapViewTests : BunitContext
         var cells = cut.FindAll(".mussel-heat-cells rect");
         Assert.Equal(ChartPalettes.OrangesLight[0], cells[0].GetAttribute("fill"));
         Assert.Equal(ChartPalettes.OrangesLight[^1], cells[1].GetAttribute("fill"));
+    }
+
+    [Fact]
+    public void ChangedColorsOfTheSameScaleAreUsed()
+    {
+        var scale = new List<string>(ChartPalettes.OrangesLight);
+        var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
+            .Add(static p => p.Items, [new HeatItem("A", "1", 0), new HeatItem("A", "2", 10)])
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Column, static x => x.Column)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.ColorScale, scale));
+
+        scale.Clear();
+        scale.AddRange(ChartPalettes.OrangesDark);
+        cut.Render();
+
+        var cells = cut.FindAll(".mussel-heat-cells rect");
+        Assert.Equal(ChartPalettes.OrangesDark[0], cells[0].GetAttribute("fill"));
+        Assert.Equal(ChartPalettes.OrangesDark[^1], cells[1].GetAttribute("fill"));
     }
 
     [Fact]
@@ -328,6 +361,50 @@ public sealed class MusselHeatmapViewTests : BunitContext
         Assert.Equal(0, HeatmapPalette.GetIndex(1, 1, 1, 64));
         Assert.Equal(32, HeatmapPalette.GetIndex(5e306, 0, 1e307, 64));
         Assert.Equal(32, HeatmapPalette.GetIndex(0, -1e308, 1e308, 64));
+    }
+
+    [Fact]
+    public void MissingAndUnreadableColorsOfTheScaleAreTheGrayOfThePalettes()
+    {
+        var single = HeatmapPalette.Build(["#FF0000"]);
+
+        Assert.All(HeatmapPalette.Build([]), static x => Assert.Equal(ChartColor.Other, x));
+        Assert.All(HeatmapPalette.Build(["red", "blue"]), static x => Assert.Equal(ChartColor.Other, x));
+        Assert.Equal(("#FF0000", ChartColor.Other), (single[0], single[^1]));
+    }
+
+    [Fact]
+    public void TheScaleKeepsTheAlphaOfItsColors()
+    {
+        var translucent = HeatmapPalette.Build(["#FF000080", "#0000FF80"]);
+        var mixed = HeatmapPalette.Build(["#FF0000", "#0000FF80"]);
+
+        Assert.All(translucent, static x => Assert.Matches("^#[0-9A-F]{6}80$", x));
+        Assert.Equal(("#FF0000", "#0000FF80"), (mixed[0], mixed[^1]));
+    }
+
+    [Fact]
+    public void ScaleLabelsOfANarrowRangeKeepTheDecimalsThatTellThemApart()
+    {
+        var layout = new HeatmapLayout();
+
+        layout.Update(600, 200, new HeatmapLayoutOptions { Culture = CultureInfo.InvariantCulture }, [new HeatmapEntry(null, "1", null, 20.001), new HeatmapEntry(null, "2", null, 20.009)]);
+
+        var texts = layout.ScaleLabels.Select(static x => x.Text).ToList();
+        Assert.True(texts.Count > 2);
+        Assert.Equal(texts.Count, texts.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(("20.001", "20.009"), (texts[0], texts[^1]));
+    }
+
+    [Fact]
+    public void ScaleLabelsOfANarrowRangeFitBesideTheScale()
+    {
+        var layout = new HeatmapLayout();
+
+        layout.Update(600, 200, new HeatmapLayoutOptions { LegendPosition = ChartLegendPosition.Right, Culture = CultureInfo.InvariantCulture }, [new HeatmapEntry(null, "1", null, 20.001), new HeatmapEntry(null, "2", null, 20.009)]);
+
+        Assert.True(layout.ScaleLabels.Count > 2);
+        Assert.All(layout.ScaleLabels, static x => Assert.True(x.X + ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize) <= 592, x.Text));
     }
 
     [Fact]

@@ -4,6 +4,8 @@ internal static class HeatmapPalette
 {
     public const int Steps = 64;
 
+    private static readonly (int R, int G, int B, int A) Missing = ChartColor.TryParse(ChartColor.Other, out var other, out var alpha) ? (other.R, other.G, other.B, alpha) : default;
+
     public static string[] Build(IReadOnlyList<string> stops)
     {
         var parsed = Parse(stops);
@@ -33,21 +35,21 @@ internal static class HeatmapPalette
         return value > maximum ? count - 1 : Math.Min(count - 1, (int)Math.Floor(((value / 2) - (minimum / 2)) / range * count));
     }
 
-    public static (int R, int G, int B)[] Parse(IReadOnlyList<string> stops)
+    public static (int R, int G, int B, int A)[] Parse(IReadOnlyList<string> stops)
     {
-        var parsed = new (int R, int G, int B)[Math.Max(stops.Count, 2)];
+        var parsed = new (int R, int G, int B, int A)[Math.Max(stops.Count, 2)];
         for (var i = 0; i < parsed.Length; i++)
         {
-            parsed[i] = (i < stops.Count) && ChartColor.TryParse(stops[i], out var color) ? color : (128, 128, 128);
+            parsed[i] = (i < stops.Count) && ChartColor.TryParse(stops[i], out var color, out var alpha) ? (color.R, color.G, color.B, alpha) : Missing;
         }
 
         return parsed;
     }
 
-    public static string GetColor((int R, int G, int B)[] stops, double t) =>
-        ChartColor.ToHex((Interpolate(stops, t, 0), Interpolate(stops, t, 1), Interpolate(stops, t, 2)));
+    public static string GetColor((int R, int G, int B, int A)[] stops, double t) =>
+        ChartColor.ToHex((Interpolate(stops, t, 0), Interpolate(stops, t, 1), Interpolate(stops, t, 2)), Interpolate(stops, t, 3));
 
-    private static int Interpolate((int R, int G, int B)[] stops, double t, int channel)
+    private static int Interpolate((int R, int G, int B, int A)[] stops, double t, int channel)
     {
         var n = stops.Length - 1;
         int i;
@@ -80,10 +82,11 @@ internal static class HeatmapPalette
         return (((1 - (3 * t1) + (3 * t2) - t3) * v0) + ((4 - (6 * t2) + (3 * t3)) * v1) + ((1 + (3 * t1) + (3 * t2) - (3 * t3)) * v2) + (t3 * v3)) / 6;
     }
 
-    private static double GetChannel((int R, int G, int B) color, int channel) => channel switch
+    private static double GetChannel((int R, int G, int B, int A) color, int channel) => channel switch
     {
         0 => color.R,
         1 => color.G,
-        _ => color.B
+        2 => color.B,
+        _ => color.A
     };
 }

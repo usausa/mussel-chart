@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attach, barEntry, compact, formatPosition, formatTime, fromPosition, horizontalTooltipLeft, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
+import { attach, barEntry, clipBounds, compact, fillTooltip, formatPosition, formatTime, fromPosition, horizontalTooltipLeft, hoverEntries, isSafeColor, nearestMarker, offsetAt, plotMatrix, readSeries, toPosition } from '../../MusselChart/wwwroot/MusselChart.js';
 
 const parentNode = { dataset: { offset: '0.5' } };
 const rect = (attributes, dataset) => ({ getAttribute: (name) => attributes[name], dataset, parentNode });
@@ -29,6 +29,71 @@ test('compact notation moves to the next unit after rounding', () => {
     for (const [value, expected] of cases) {
         assert.equal(compact(value, 'en-US'), expected, String(value));
     }
+});
+
+test('compact notation groups the thousands of four digits in every culture', () => {
+    assert.equal(compact(1234.5, 'es-ES'), '1.234,5');
+    assert.equal(compact(-1234.5, 'es-ES'), '-1.234,5');
+    assert.equal(compact(1e15, 'es-ES'), '1.000T');
+});
+
+test('hover dots leave out the points outside the clip and keep their rows', () => {
+    const matrix = { a: 10, b: 0, c: 0, d: -1, e: 50, f: 200 };
+    const bounds = { left: 40, top: 8, right: 600, bottom: 212 };
+    const series = [
+        { title: 'in', color: '#111', format: '', kind: 'Line', values: new Map([[1, { y: 100, value: 100 }]]) },
+        { title: 'out', color: '#222', format: '', kind: 'Line', values: new Map([[1, { y: 250, value: 250 }]]) },
+    ];
+
+    const { dots, rows } = hoverEntries(series, 1, matrix, bounds, 'en-US');
+
+    assert.deepEqual(dots, [[60, 100, '#111']]);
+    assert.deepEqual(rows, [['#111', 'in', '100'], ['#222', 'out', '250']]);
+});
+
+test('the nearest marker is chosen among the markers inside the clip', () => {
+    const marker = (x, y) => ({ dataset: { x: String(x), y: String(y) } });
+    const inside = marker(2, 50);
+    const outside = marker(1, 150);
+    const matrix = { a: 10, b: 0, c: 0, d: -1, e: 0, f: 100 };
+    const bounds = { left: 0, top: 0, right: 100, bottom: 100 };
+
+    assert.equal(nearestMarker([{ group: { querySelectorAll: () => [outside, inside] } }], matrix, matrix, bounds, 10, -50).marker, inside);
+    assert.equal(nearestMarker([{ group: { querySelectorAll: () => [outside] } }], matrix, matrix, bounds, 10, -50), null);
+});
+
+test('colors of styles keep the safe characters and leave out urls', () => {
+    for (const color of ['#5794F2', 'rgb(87 148 242 / 80%)', 'var(--brand)', 'a'.repeat(64)]) {
+        assert.equal(isSafeColor(color), true, color);
+    }
+
+    for (const color of ['url(//example.com/x.png)', 'URL(x)', 'a'.repeat(65), '', 'red; position: fixed', null]) {
+        assert.equal(isSafeColor(color), false, String(color));
+    }
+});
+
+test('a tooltip row whose color is not safe has no mark', () => {
+    const saved = globalThis.document;
+    globalThis.document = {
+        createElement: (name) => ({ name, style: {}, children: [], appendChild(child) { this.children.push(child); }, append(...items) { this.children.push(...items); } }),
+    };
+    try {
+        const tooltip = { children: [], hidden: true, replaceChildren() { this.children = []; }, appendChild(child) { this.children.push(child); } };
+
+        fillTooltip(tooltip, null, [['#123456', 'a', '1'], ['red;background:url(x)', 'b', '2']]);
+
+        assert.deepEqual(tooltip.children.map((row) => row.children.filter((child) => child.name === 'i').map((child) => child.style.background)), [['#123456'], []]);
+        assert.equal(tooltip.hidden, false);
+    } finally {
+        globalThis.document = saved;
+    }
+});
+
+test('the clip bounds come from the rect of the clip path', () => {
+    const attributes = { x: '40', y: '6', width: '590', height: '216' };
+    const chart = { querySelector: (selector) => (selector === 'clipPath rect' ? { getAttribute: (name) => attributes[name] } : null) };
+
+    assert.deepEqual(clipBounds(chart), { left: 40, top: 6, right: 630, bottom: 222 });
 });
 
 test('times are written as Unix seconds plus the time zone offset', () => {

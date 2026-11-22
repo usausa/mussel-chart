@@ -443,7 +443,7 @@ internal sealed class RadarLayout
                 continue;
             }
 
-            var text = ChartFormat.Value(value, options.ValueFormat, options.ValueFormatter, options.Culture);
+            var text = ChartFormat.AxisValue(value, Scale.Interval, options.ValueFormat, options.ValueFormatter, options.Culture);
             var radius = Radius * GetRatio(value);
             levelCandidates.Add(new RadarLevel(value, text, ChartText.Measure(text, LabelFontSize)));
             levelExtents.Add(new LabelExtent(radius - half, radius + half));

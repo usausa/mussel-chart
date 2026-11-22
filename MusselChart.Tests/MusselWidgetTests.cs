@@ -405,6 +405,71 @@ public sealed class MusselWidgetTests : BunitContext
     }
 
     [Fact]
+    public void ColorsForStylesKeepTheSafeCharactersAndLeaveOutUrls()
+    {
+        string[] kept = ["#5794F2", "rgb(87 148 242 / 80%)", "var(--brand)", new('a', 64)];
+        string?[] dropped = ["url(//example.com/x.png)", "URL(x)", new('a', 65), string.Empty, "red; position: fixed", null];
+
+        Assert.All(kept, static x => Assert.True(ChartColor.IsSafe(x)));
+        Assert.All(dropped, static x => Assert.False(ChartColor.IsSafe(x)));
+    }
+
+    [Fact]
+    public void AStatLeavesOutAColorThatIsNotSafeForTheNextOne()
+    {
+        const string injected = "red; position: fixed; inset: 0; background: url(https://example.invalid/a.png)";
+        var filled = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 90)
+            .Add(static p => p.Fill, injected)
+            .Add(static p => p.ColorMode, ChartStatColorMode.Value));
+        var stepped = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 90)
+            .Add(static p => p.Fill, injected)
+            .Add(static p => p.Thresholds, [new ChartThreshold { Level = ChartThresholdLevel.Good }, new ChartThreshold { Value = 85, Level = ChartThresholdLevel.Critical, Color = injected }])
+            .Add(static p => p.ColorMode, ChartStatColorMode.Value));
+        var listed = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 90)
+            .Add(static p => p.Palette, [injected])
+            .Add(static p => p.ColorMode, ChartStatColorMode.Indicator));
+
+        Assert.Equal("color: " + ChartPalettes.DefaultLight[0], filled.Find(".mussel-stat-value").GetAttribute("style"));
+        Assert.Equal("color: " + ChartColor.Level(ChartThresholdLevel.Critical), stepped.Find(".mussel-stat-value").GetAttribute("style"));
+        Assert.Equal(ChartColor.Other, listed.Find(".mussel-stat-indicator rect").GetAttribute("fill"));
+    }
+
+    [Fact]
+    public void FourDigitColorsEndWithTheAlpha()
+    {
+        Assert.True(ChartColor.TryParse("#FFFC", out var white));
+        Assert.Equal((255, 255, 255), white);
+        Assert.False(ChartColor.TryParse("#FFFZ", out _));
+        Assert.Equal(255, ChartColor.Brightness("#FFFC"));
+    }
+
+    [Fact]
+    public void ColorsMadeFromATranslucentColorKeepItsAlpha()
+    {
+        Assert.Equal("#FFFFFFCC", ChartColor.Shift("#FFFC", 0, 0));
+        Assert.Equal("#80808080", ChartColor.Lerp("#00000080", "#FFFFFF80", 0.5));
+        Assert.Equal("#1A2A3A40", ChartColor.Brighten("#10203040", 4));
+        Assert.Matches("^#[0-9A-F]{6}CC$", ChartColor.Shift("#5794F2CC", 8, -15));
+        Assert.Matches("^#[0-9A-F]{6}$", ChartColor.Shift("#5794F2", 8, -15));
+    }
+
+    [Fact]
+    public void AStatOnALightFillOfFourDigitsTakesDarkTextAndKeepsTheAlpha()
+    {
+        var cut = Render<MusselStatView>(parameters => parameters
+            .Add(static p => p.Value, 10)
+            .Add(static p => p.Fill, "#FFFC")
+            .Add(static p => p.ColorMode, ChartStatColorMode.Background)
+            .Add(static p => p.FillMode, ChartFillMode.Gradient));
+
+        Assert.Contains("mussel-stat-dark-text", cut.Find(".mussel-stat").ClassName, StringComparison.Ordinal);
+        Assert.All(cut.FindAll("stop"), static x => Assert.Matches("^#[0-9A-F]{6}CC$", x.GetAttribute("stop-color")));
+    }
+
+    [Fact]
     public void ColorShiftKeepsHexAndBrightness()
     {
         Assert.True(ChartColor.TryParse("#5794F2", out var color));

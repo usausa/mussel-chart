@@ -128,6 +128,37 @@ public sealed class MusselPieChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TooltipsLeaveOutTheMarkOfAColorThatIsNotSafe()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, [new ChartEntry("A", 1, "url(https://example.invalid/a.png)"), new ChartEntry("B", 1, "#112233")]));
+
+        var slices = cut.FindAll(".mussel-slice");
+        using var first = JsonDocument.Parse(slices[0].GetAttribute("data-tip")!);
+        using var second = JsonDocument.Parse(slices[1].GetAttribute("data-tip")!);
+        Assert.Equal(string.Empty, first.RootElement.GetProperty("r")[0][0].GetString());
+        Assert.Equal("#112233", second.RootElement.GetProperty("r")[0][0].GetString());
+    }
+
+    [Fact]
+    public void HiddenSlicesComeBackWhenTheLegendIsHidden()
+    {
+        var cut = Render<MusselPieChartView>(parameters => parameters
+            .Add(static p => p.Items, Entries)
+            .Add(static p => p.LegendToggleEnabled, true));
+        cut.FindAll(".mussel-view-legend-item")[0].Click();
+        Assert.Equal(2, cut.FindAll(".mussel-slice").Count);
+
+        cut.Render(static parameters => parameters.Add(static p => p.LegendVisible, false));
+        var hidden = cut.FindAll(".mussel-slice").Count;
+        cut.Render(static parameters => parameters.Add(static p => p.LegendVisible, true));
+
+        Assert.Equal(3, hidden);
+        Assert.Equal(3, cut.FindAll(".mussel-slice").Count);
+        Assert.Empty(cut.FindAll(".mussel-view-legend-hidden"));
+    }
+
+    [Fact]
     public void TheLastSliceCannotBeHidden()
     {
         var cut = Render<MusselPieChartView>(parameters => parameters

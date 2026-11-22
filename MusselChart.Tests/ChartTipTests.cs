@@ -11,4 +11,12 @@ public sealed class ChartTipTests
 
         Assert.Equal("{\"t\":\"a\\\"b\",\"r\":[[\"#000000\",\"c\\\\d\",\"e\\nf\"]],\"m\":[[1.2,2,\"#FFFFFF\"]],\"l\":[1,2,3,4]}", tip.Replace("1.3", "1.2", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void ARowWithAColorThatIsNotSafeHasNoColor()
+    {
+        var tip = ChartTip.Create(null, [new ChartTipRow("url(https://example.invalid/a.png)", "a", "1"), new ChartTipRow("#000000", "b", "2")]);
+
+        Assert.Equal("{\"t\":\"\",\"r\":[[\"\",\"a\",\"1\"],[\"#000000\",\"b\",\"2\"]]}", tip);
+    }
 }
