@@ -6,7 +6,7 @@
 ## 🐚 What is this?
 
 Charts for Blazor drawn as SVG, made for dashboards and widgets.  
-Lines, areas, bars, range bars, scatter and bubble plots, pies, radars, heatmaps, state timelines, KPI tiles, sparklines, bar gauges and radial bars follow the look of [ClamChart](https://github.com/usausa/clam-chart) and stay light on Blazor Server, where only the new points of a time series read from a `ChartRingBuffer` go over the circuit.  
+Lines, areas, bars, range bars, scatter and bubble plots, pies, radars, heatmaps, state timelines, KPI tiles, sparklines, bar gauges and radial bars follow the look of [ClamChart](https://github.com/usausa/clam-chart) and stay light on Blazor Server, where only the new points of a time series read from a `ChartRingBuffer` go over the circuit, besides every scatter and bubble point when the scale of an axis or of the bubbles changes.  
 
 | 🖥️ Monitoring board | 📈 Charts | 🔢 Widgets |
 |:-:|:-:|:-:|

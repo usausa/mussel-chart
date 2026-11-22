@@ -174,7 +174,9 @@ export function readSeries(chart) {
         }
 
         for (const marker of group.querySelectorAll('.mussel-markers > *')) {
-            values.set(Number(marker.dataset.x), markerEntry(marker, base));
+            if (marker.dataset.outside !== 'true') {
+                values.set(Number(marker.dataset.x), markerEntry(marker, base));
+            }
         }
 
         return {
@@ -289,7 +291,7 @@ export function nearestMarker(series, ctm, matrix, bounds, clientX, clientY) {
         for (const marker of item.group.querySelectorAll('.mussel-markers > *')) {
             const x = Number(marker.dataset.x);
             const y = Number(marker.dataset.y);
-            if (!contains(bounds, (matrix.a * x) + (matrix.c * y) + matrix.e, (matrix.b * x) + (matrix.d * y) + matrix.f)) {
+            if (marker.dataset.outside === 'true' || !contains(bounds, (matrix.a * x) + (matrix.c * y) + matrix.e, (matrix.b * x) + (matrix.d * y) + matrix.f)) {
                 continue;
             }
 

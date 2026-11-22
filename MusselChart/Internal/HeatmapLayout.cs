@@ -94,6 +94,8 @@ internal sealed class HeatmapLayout
 
     private double cellGap;
 
+    private int scaleCount;
+
     private int firstDay;
 
     private DayOfWeek firstDayOfWeek;
@@ -201,14 +203,15 @@ internal sealed class HeatmapLayout
         }
 
         ResolveRange();
-        PlaceScale();
-        if (options.LayoutMode == ChartHeatmapLayoutMode.Calendar)
+        scaleCount = 0;
+        PlaceScale(MeasureScaleEnds(Math.Max(2, (int)Math.Floor(bounds.Height / (LabelHeight + ScaleVerticalSpacing)))));
+        PlaceCells();
+        if (ShowsScale && IsScaleVertical && (CellCount > 0) && ((Maximum / 2) - (Minimum / 2) > 0))
         {
-            PlaceCalendar();
-        }
-        else
-        {
-            PlaceMatrix();
+            scaleCount = ChooseScaleCount(Math.Max(0, GridBounds.Height - cellGap));
+            CreateScaleTexts(scaleCount);
+            PlaceScale(MeasureScaleTexts());
+            PlaceCells();
         }
 
         PlaceScaleLabels();
@@ -270,6 +273,11 @@ internal sealed class HeatmapLayout
         else if (columnNames.Count > 0)
         {
             rowNames.Add(null);
+        }
+
+        if ((long)rowNames.Count * columnNames.Count > Int32.MaxValue)
+        {
+            Clear();
         }
 
         RowCount = rowNames.Count;
@@ -396,7 +404,19 @@ internal sealed class HeatmapLayout
         }
     }
 
-    private void PlaceScale()
+    private void PlaceCells()
+    {
+        if (options.LayoutMode == ChartHeatmapLayoutMode.Calendar)
+        {
+            PlaceCalendar();
+        }
+        else
+        {
+            PlaceMatrix();
+        }
+    }
+
+    private void PlaceScale(double labelWidth)
     {
         var area = bounds;
         plotBounds = area;
@@ -418,7 +438,7 @@ internal sealed class HeatmapLayout
             return;
         }
 
-        var width = ScaleThickness + LabelGap + MeasureScaleEnds(Math.Max(2, (int)Math.Floor(area.Height / (LabelHeight + ScaleVerticalSpacing))));
+        var width = ScaleThickness + LabelGap + labelWidth;
         if (area.Width - width - LegendGap < width * 2)
         {
             ShowsScale = false;
@@ -634,13 +654,7 @@ internal sealed class HeatmapLayout
         var count = 1;
         if (span > 0)
         {
-            var widest = Math.Max(ChartText.Measure(FormatValue(Minimum), LabelFontSize), ChartText.Measure(FormatValue(Maximum), LabelFontSize));
-            count = Math.Max(2, (int)Math.Floor(length / (IsScaleVertical ? LabelHeight + ScaleVerticalSpacing : widest + ScaleLabelSpacing)));
-            while ((count > 2) && !FitsScale(count, length))
-            {
-                count--;
-            }
-
+            count = scaleCount > 0 ? scaleCount : ChooseScaleCount(length);
             CreateScaleTexts(count);
         }
         else
@@ -684,6 +698,29 @@ internal sealed class HeatmapLayout
     {
         var step = GetScaleStep(count);
         return Math.Max(ChartText.Measure(FormatScaleValue(Minimum, step), LabelFontSize), ChartText.Measure(FormatScaleValue(Maximum, step), LabelFontSize));
+    }
+
+    private double MeasureScaleTexts()
+    {
+        var widest = 0d;
+        foreach (var text in scaleTexts)
+        {
+            widest = Math.Max(widest, ChartText.Measure(text, LabelFontSize));
+        }
+
+        return widest;
+    }
+
+    private int ChooseScaleCount(double length)
+    {
+        var widest = Math.Max(ChartText.Measure(FormatValue(Minimum), LabelFontSize), ChartText.Measure(FormatValue(Maximum), LabelFontSize));
+        var count = Math.Max(2, (int)Math.Floor(length / (IsScaleVertical ? LabelHeight + ScaleVerticalSpacing : widest + ScaleLabelSpacing)));
+        while ((count > 2) && !FitsScale(count, length))
+        {
+            count--;
+        }
+
+        return count;
     }
 
     private bool FitsScale(int count, double length)

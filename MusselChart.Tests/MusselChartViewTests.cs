@@ -462,6 +462,45 @@ public sealed class MusselChartViewTests : BunitContext
     }
 
     [Fact]
+    public void TheEndsOfATimeAxisStayWhereTheyAreSetForDailyBars()
+    {
+        Sample[] items = [.. Enumerable.Range(0, 7).Select(static x => new Sample(Start.AddDays(x), x + 1))];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<DateTimeAxis>(static axis => axis.Add(static p => p.Minimum, Start).Add(static p => p.Maximum, Start.AddDays(6)))
+            .AddChildContent<BarSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
+        var (start, end, _) = PlotEnds(cut);
+        Assert.Equal(0, start, 1d);
+        Assert.Equal(TimeSpan.FromDays(6).TotalSeconds, end, 1d);
+    }
+
+    [Fact]
+    public void AWindowOfBubblesKeepsItsSizeAndEndsPastTheLastBubble()
+    {
+        Sample[] items = [.. Enumerable.Range(0, 10).Select(static x => new Sample(Start.AddSeconds(x), x, 100))];
+
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<DateTimeAxis>(static axis => axis.Add(static p => p.WindowSize, TimeSpan.FromSeconds(60)))
+            .AddChildContent<BubbleSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)
+                .Add(static p => p.Size, static x => x.Other)));
+
+        var (start, end, scale) = PlotEnds(cut);
+        var last = cut.FindAll(".mussel-markers circle")[^1];
+        Assert.Equal(60, end - start, 0.01);
+        Assert.Equal("9", last.GetAttribute("data-x"));
+        Assert.Equal(9 + ((Number(last, "r") + 1) / scale), end, 0.01);
+    }
+
+    [Fact]
     public void ShowsEmptyTextWithoutData()
     {
         var cut = Render<MusselChartView>(parameters => parameters
@@ -628,6 +667,31 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal(height, bars[0].GetAttribute("height"));
         Assert.Equal(value, bars[0].GetAttribute("data-v"));
         Assert.Equal("6", bars[^1].GetAttribute("x"));
+    }
+
+    [Fact]
+    public void MarkersInTheWindowKeepTheirAttributesWhenAPointIsAdded()
+    {
+        var buffer = CreateBuffer(100, 6);
+        var cut = Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .AddChildContent<DateTimeAxis>(static axis => axis.Add(static p => p.WindowSize, TimeSpan.FromSeconds(5)))
+            .AddChildContent<NumericAxis>(static axis => axis.Add(static p => p.Minimum, 0).Add(static p => p.Maximum, 10))
+            .AddChildContent<ScatterSeries<Sample>>(series => series
+                .Add(static p => p.Items, buffer)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+        var origin = cut.Find(".mussel-markers").GetAttribute("transform");
+        var kept = cut.FindAll(".mussel-markers circle").Skip(1).Select(static x => x.OuterHtml).ToArray();
+
+        buffer.Push(new Sample(Start.AddSeconds(6), 5));
+        cut.Render();
+
+        var markers = cut.FindAll(".mussel-markers circle");
+        Assert.Equal(kept, markers.SkipLast(1).Select(static x => x.OuterHtml));
+        Assert.Equal("6", markers[^1].GetAttribute("data-x"));
+        Assert.NotEqual(origin, cut.Find(".mussel-markers").GetAttribute("transform"));
+        AssertMarkersSitOnThePlot(cut);
     }
 
     [Fact]
@@ -999,6 +1063,10 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal(("1", "10"), (marker.GetAttribute("data-x"), marker.GetAttribute("data-y")));
         var matrix = cut.Find(".mussel-plot").GetAttribute("transform")!.TrimEnd(')').Split(' ');
         Assert.All(matrix[^2..], static x => Assert.InRange(Double.Parse(x, CultureInfo.InvariantCulture), -1000, 1000));
+        var origin = cut.Find(".mussel-markers").GetAttribute("transform")!["translate(".Length..^1].Split(' ');
+        Assert.All(origin, static x => Assert.InRange(Double.Parse(x, CultureInfo.InvariantCulture), -1000, 1000));
+        Assert.InRange(Number(marker, "cx"), -1000, 1000);
+        Assert.InRange(Number(marker, "cy"), -1000, 1000);
     }
 
     [Theory]
@@ -1016,15 +1084,8 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.XValue, static x => x.X)
                 .Add(static p => p.Y, static x => x.Y)));
 
-        var transform = cut.Find(".mussel-plot").GetAttribute("transform")!;
-        var markers = cut.FindAll(".mussel-markers circle");
-        Assert.Equal(3, markers.Count);
-        Assert.All(markers, marker =>
-        {
-            var (x, y) = Transform(transform, Number(marker, "data-x"), Number(marker, "data-y"));
-            Assert.Equal(Number(marker, "cx"), x, 0.01);
-            Assert.Equal(Number(marker, "cy"), y, 0.01);
-        });
+        Assert.Equal(3, cut.FindAll(".mussel-markers circle").Count);
+        AssertMarkersSitOnThePlot(cut);
     }
 
     [Fact]
@@ -1327,6 +1388,29 @@ public sealed class MusselChartViewTests : BunitContext
         Assert.Equal("M/d HH:mm", cut.Find(".mussel-chart").GetAttribute("data-time-format"));
     }
 
+    [Fact]
+    public void TimeLabelsOfALongFormatDoNotOverlap()
+    {
+        var first = new DateTime(2026, 7, 1, 9, 0, 0, DateTimeKind.Utc);
+        var items = Enumerable.Range(0, 9).Select(x => new Sample(first.AddHours(x), x)).ToArray();
+
+        var formatted = RenderTimes(items, static axis => axis.Add(static p => p.LabelFormat, "yyyy/MM/dd HH:mm"));
+        var formatter = RenderTimes(items, static axis => axis.Add(static p => p.LabelFormatter, static x => x.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture)));
+
+        AssertApart(formatted);
+        AssertApart(formatter);
+
+        static void AssertApart(IRenderedComponent<MusselChartView> cut)
+        {
+            var labels = cut.FindAll(".mussel-axis text[text-anchor='middle']").Select(static x => (X: Number(x, "x"), Width: ChartText.Measure(x.TextContent, 11))).ToList();
+            Assert.True(labels.Count > 1);
+            for (var i = 1; i < labels.Count; i++)
+            {
+                Assert.True(labels[i].X - labels[i - 1].X >= (labels[i].Width + labels[i - 1].Width) / 2, $"{labels[i - 1].X} {labels[i].X}");
+            }
+        }
+    }
+
     [Theory]
     [InlineData("en-US", 30, "yyyy/M/d HH:mm")]
     [InlineData("en-US", 43200, "yyyy/M/d")]
@@ -1414,6 +1498,17 @@ public sealed class MusselChartViewTests : BunitContext
                 .Add(static p => p.Y, static x => x.Value)
                 .Add(static p => p.Title, "Value")));
 
+    private IRenderedComponent<MusselChartView> RenderTimes(Sample[] items, Action<ComponentParameterCollectionBuilder<DateTimeAxis>> axis) =>
+        Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent(axis)
+            .AddChildContent<NumericAxis>(static numeric => numeric.Add(static p => p.Minimum, 0).Add(static p => p.Maximum, 100))
+            .AddChildContent<LineSeries<Sample>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.X, static x => x.Time)
+                .Add(static p => p.Y, static x => x.Value)));
+
     private IRenderedComponent<MusselChartView> RenderValues(Sample[] items, ChartLegendValues legendValues) =>
         Render<MusselChartView>(parameters => parameters
             .Add(static p => p.TimeZone, TimeZoneInfo.Utc)
@@ -1454,6 +1549,34 @@ public sealed class MusselChartViewTests : BunitContext
     {
         var m = transform["matrix(".Length..^1].Split(' ').Select(static v => Double.Parse(v, CultureInfo.InvariantCulture)).ToArray();
         return ((m[0] * x) + (m[2] * y) + m[4], (m[1] * x) + (m[3] * y) + m[5]);
+    }
+
+    private static (double X, double Y) Translate(string transform, double x, double y)
+    {
+        var t = transform["translate(".Length..^1].Split(' ').Select(static v => Double.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+        return (x + t[0], y + t[1]);
+    }
+
+    private static (double Start, double End, double Scale) PlotEnds(IRenderedComponent<MusselChartView> cut)
+    {
+        var transform = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var grid = cut.Find(".mussel-grid line");
+        var origin = Transform(transform, 0, 0).X;
+        var scale = Transform(transform, 1, 0).X - origin;
+        return ((Number(grid, "x1") - origin) / scale, (Number(grid, "x2") - origin) / scale, scale);
+    }
+
+    private static void AssertMarkersSitOnThePlot(IRenderedComponent<MusselChartView> cut)
+    {
+        var transform = cut.Find(".mussel-plot").GetAttribute("transform")!;
+        var origin = cut.Find(".mussel-markers").GetAttribute("transform")!;
+        Assert.All(cut.FindAll(".mussel-markers circle"), marker =>
+        {
+            var (x, y) = Transform(transform, Number(marker, "data-x"), Number(marker, "data-y"));
+            var (cx, cy) = Translate(origin, Number(marker, "cx"), Number(marker, "cy"));
+            Assert.Equal(x, cx, 0.01);
+            Assert.Equal(y, cy, 0.01);
+        });
     }
 
     private static double Number(AngleSharp.Dom.IElement element, string name) => Double.Parse(element.GetAttribute(name)!, CultureInfo.InvariantCulture);

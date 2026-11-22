@@ -26,6 +26,8 @@ public sealed partial class MusselChartView
 
     private static readonly List<string> NoLegendValues = [];
 
+    private static readonly DateTime SampleTime = new(2000, 10, 20, 20, 0, 0, DateTimeKind.Unspecified);
+
     private const double SegmentGap = 2;
 
     private const double MarkerOutline = 1;
@@ -87,6 +89,8 @@ public sealed partial class MusselChartView
     private readonly List<int> selectedLabels = [];
 
     private string transform = string.Empty;
+
+    private string markerTransform = string.Empty;
 
     private string baseText = "0";
 
@@ -234,6 +238,7 @@ public sealed partial class MusselChartView
             ? new PlotMap(true, scaleP, plotTop - (position.Start * scaleP), scaleV, plotLeft - (scale.Minimum * scaleV), numberBase, valueBase)
             : new PlotMap(false, scaleP, plotLeft - (position.Start * scaleP), scaleV, plotBottom + (scale.Minimum * scaleV), numberBase, valueBase);
         transform = map.Matrix;
+        markerTransform = map.Translation;
 
         var clipMargin = Math.Max(markerMargin, MarkerClipMargin);
         plotLeftText = ChartFormat.Pixel(plotLeft);
@@ -370,9 +375,11 @@ public sealed partial class MusselChartView
         }
 
         var axisTime = xAxis as DateTimeAxis;
-        var (fixedStart, fixedEnd) = ChartTime.FixedEnds(axisTime?.WindowSize is null ? axisTime?.Minimum : null, axisTime?.Maximum, zone);
-        var end = fixedEnd ?? latest ?? DateTime.UtcNow.Ticks;
-        var start = axisTime?.WindowSize is { } window ? end - window.Ticks : fixedStart ?? earliest ?? (end - TimeSpan.TicksPerMinute);
+        var size = axisTime?.WindowSize;
+        var (fixedStart, fixedEnd) = ChartTime.FixedEnds(size is null ? axisTime?.Minimum : null, axisTime?.Maximum, zone);
+        var half = (long)(MeasureBarSpacing(visible) * TimeSpan.TicksPerSecond / 2);
+        var end = fixedEnd ?? (latest + half) ?? DateTime.UtcNow.Ticks;
+        var start = size is { } window ? end - window.Ticks : fixedStart ?? (earliest - half) ?? (end - TimeSpan.TicksPerMinute);
         if (end <= start)
         {
             if (fixedEnd is not null)
@@ -390,14 +397,6 @@ public sealed partial class MusselChartView
             }
         }
 
-        var barSpacing = MeasureBarSpacing(visible);
-        if (barSpacing > 0)
-        {
-            var half = (long)(barSpacing * TimeSpan.TicksPerSecond / 2);
-            start -= axisTime?.WindowSize is null ? half : 0;
-            end += half;
-        }
-
         var from = Math.Max(start, 0);
         var to = Math.Min(end, DateTime.MaxValue.Ticks);
         if ((to <= from) && (end > start))
@@ -405,7 +404,7 @@ public sealed partial class MusselChartView
             (from, to) = from == 0 ? (0, TimeSpan.TicksPerSecond) : (DateTime.MaxValue.Ticks - TimeSpan.TicksPerSecond, DateTime.MaxValue.Ticks);
         }
 
-        return new PositionWindow(ToSeconds(from), ToSeconds(to));
+        return new PositionWindow(ToSeconds(from), ToSeconds(to), (size is null) && (fixedStart is null), fixedEnd is null, size is not null);
     }
 
     private static double MeasureBarSpacing(List<SeriesState> visible)
@@ -438,9 +437,21 @@ public sealed partial class MusselChartView
             case ChartXKind.Number:
                 return ResolveNumberPosition(visible, length);
             default:
-                var (start, end) = ChartRange.Pad(window.Start, window.End, bubbleExtent, length);
+                var (start, end) = PadTimeWindow(window, length);
                 return new PositionRange(start, end, default);
         }
+    }
+
+    private (double Start, double End) PadTimeWindow(in PositionWindow window, double length)
+    {
+        if (window.KeepsLength)
+        {
+            var shift = window.PadsEnd && (length > bubbleExtent * 2) ? bubbleExtent * (window.End - window.Start) / length : 0;
+            return (window.Start + shift, window.End + shift);
+        }
+
+        var (start, end) = ChartRange.Pad(window.Start, window.End, bubbleExtent, length);
+        return (window.PadsStart ? start : window.Start, window.PadsEnd ? end : window.End);
     }
 
     private PositionRange ResolveNumberPosition(List<SeriesState> visible, double length)
@@ -581,7 +592,7 @@ public sealed partial class MusselChartView
         var spacing = vertical ? TickGenerator.VerticalLabelSpacing : TickGenerator.HorizontalLabelSpacing;
         var divisions = TickGenerator.GetMaxDivisions(length, spacing, axis?.MaxLabelCount);
         var height = ChartText.LineHeight(LabelFontSize);
-        var widths = vertical ? new TimeLabelWidths(height, height, height, height) : new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
+        var widths = vertical ? new TimeLabelWidths(height, height, height, height) : MeasureTimeLabels(axis);
         var interval = TickGenerator.SelectTimeInterval(span, length, divisions, LabelGap * 2, widths);
         TickGenerator.ZoneTime(start, end, zone, interval, culture.DateTimeFormat.FirstDayOfWeek, ticks, zoneTicks, offsetChanges);
         var dayFirst = ChartFormat.IsDayFirst(culture);
@@ -590,6 +601,18 @@ public sealed partial class MusselChartView
             var text = ChartFormat.Time(ChartDateTime.FromTicks(local), axis?.LabelFormat, axis?.LabelFormatter, interval.GetTickFormat(local, dayFirst), culture);
             positionTicks.Add(((utc - start) / span, text));
         }
+    }
+
+    private TimeLabelWidths MeasureTimeLabels(DateTimeAxis? axis)
+    {
+        var widths = new TimeLabelWidths(8 * LabelCharWidth, 5 * LabelCharWidth, 5 * LabelCharWidth, 7 * LabelCharWidth);
+        if ((axis is null) || ((axis.LabelFormatter is null) && String.IsNullOrEmpty(axis.LabelFormat)))
+        {
+            return widths;
+        }
+
+        var measured = ChartText.Measure(ChartFormat.Time(SampleTime, axis.LabelFormat, axis.LabelFormatter, string.Empty, culture), LabelFontSize);
+        return new TimeLabelWidths(Math.Max(widths.Second, measured), Math.Max(widths.Minute, measured), Math.Max(widths.Day, measured), Math.Max(widths.Month, measured));
     }
 
     private double MeasurePositionLabels()
@@ -807,14 +830,15 @@ public sealed partial class MusselChartView
         var sharedRadius = bubble ? null : ChartGeometry.Text(options.Thickness / 2);
         foreach (var marker in state.Markers)
         {
-            if ((marker.X < position.Start) || (marker.X > position.End))
+            var size = bubble ? GetBubbleSize(marker.Size, options) : options.Thickness;
+            var radius = size / 2;
+            var reach = GetMarkerExtent(radius, options.Shape) / map.ScaleP;
+            if ((marker.X + reach < position.Start) || (marker.X - reach > position.End))
             {
                 continue;
             }
 
-            var size = bubble ? GetBubbleSize(marker.Size, options) : options.Thickness;
-            var radius = size / 2;
-            var (x, y) = map.Map(marker.X, marker.Y);
+            var (x, y) = map.MapFromOrigin(marker.X, marker.Y);
             markers.Add(new MarkerView(
                 marker.Key,
                 marker.XText,
@@ -823,11 +847,14 @@ public sealed partial class MusselChartView
                 ChartGeometry.Text(x),
                 ChartGeometry.Text(y),
                 sharedRadius ?? ChartGeometry.Text(radius),
-                CreateMarkerPath(x, y, radius, options.Shape)));
+                CreateMarkerPath(x, y, radius, options.Shape),
+                (marker.X < position.Start) || (marker.X > position.End) ? "true" : null));
         }
 
         return markers;
     }
+
+    private static double GetMarkerExtent(double radius, ChartMarkerShape shape) => shape == ChartMarkerShape.Diamond ? radius * Math.Sqrt(2) : radius;
 
     private static string? CreateMarkerPath(double x, double y, double radius, ChartMarkerShape shape)
     {
@@ -836,7 +863,7 @@ public sealed partial class MusselChartView
             return null;
         }
 
-        var extent = shape == ChartMarkerShape.Diamond ? radius * Math.Sqrt(2) : radius;
+        var extent = GetMarkerExtent(radius, shape);
         var builder = ChartStringBuilder.Rent();
         if (shape == ChartMarkerShape.Diamond)
         {
@@ -1027,18 +1054,28 @@ public sealed partial class MusselChartView
         return spacings[count / 2];
     }
 
-    private readonly record struct PositionWindow(double Start, double End);
+    private readonly record struct PositionWindow(double Start, double End, bool PadsStart = false, bool PadsEnd = false, bool KeepsLength = false);
 
     private readonly record struct PositionRange(double Start, double End, AxisScale Scale);
 
     private readonly record struct PlotMap(bool Horizontal, double ScaleP, double OffsetP, double ScaleV, double OffsetV, double PositionBase, double ValueBase)
     {
         public string Matrix => Horizontal
-            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:G9} {ScaleV:G9} 0 {OffsetV + (ValueBase * ScaleV):0.###} {OffsetP + (PositionBase * ScaleP):0.###})")
-            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:G9} 0 0 {-ScaleV:G9} {OffsetP + (PositionBase * ScaleP):0.###} {OffsetV - (ValueBase * ScaleV):0.###})");
+            ? String.Create(CultureInfo.InvariantCulture, $"matrix(0 {ScaleP:G9} {ScaleV:G9} 0 {OriginX:0.###} {OriginY:0.###})")
+            : String.Create(CultureInfo.InvariantCulture, $"matrix({ScaleP:G9} 0 0 {-ScaleV:G9} {OriginX:0.###} {OriginY:0.###})");
+
+        public string Translation => String.Create(CultureInfo.InvariantCulture, $"translate({OriginX:0.###} {OriginY:0.###})");
+
+        private double OriginX => Horizontal ? OffsetV + (ValueBase * ScaleV) : OffsetP + (PositionBase * ScaleP);
+
+        private double OriginY => Horizontal ? OffsetP + (PositionBase * ScaleP) : OffsetV - (ValueBase * ScaleV);
 
         public (double X, double Y) Map(double position, double value) => Horizontal
             ? (OffsetV + (value * ScaleV), OffsetP + (position * ScaleP))
             : (OffsetP + (position * ScaleP), OffsetV - (value * ScaleV));
+
+        public (double X, double Y) MapFromOrigin(double position, double value) => Horizontal
+            ? ((value - ValueBase) * ScaleV, (position - PositionBase) * ScaleP)
+            : ((position - PositionBase) * ScaleP, (ValueBase - value) * ScaleV);
     }
 }

@@ -62,6 +62,22 @@ test('the nearest marker is chosen among the markers inside the clip', () => {
     assert.equal(nearestMarker([{ group: { querySelectorAll: () => [outside] } }], matrix, matrix, bounds, 10, -50), null);
 });
 
+test('a marker drawn past an end of the plot is neither found nor read', () => {
+    const inside = { dataset: { x: '2', y: '50' } };
+    const past = { dataset: { x: '1', y: '50', outside: 'true' } };
+    const matrix = { a: 10, b: 0, c: 0, d: -1, e: 0, f: 100 };
+    const bounds = { left: 0, top: 0, right: 100, bottom: 100 };
+    const group = {
+        dataset: { title: 'p', color: '#fff', format: '', kind: 'Bubble' },
+        querySelectorAll: (selector) => (selector === '.mussel-markers > *' ? [past, inside] : []),
+    };
+    const chart = { querySelectorAll: () => [group], querySelector: () => ({ dataset: { valueBase: '0' } }) };
+
+    assert.equal(nearestMarker([{ group }], matrix, matrix, bounds, 10, -50).marker, inside);
+    assert.equal(nearestMarker([{ group: { querySelectorAll: () => [past] } }], matrix, matrix, bounds, 10, -50), null);
+    assert.deepEqual([...readSeries(chart)[0].values.keys()], [2]);
+});
+
 test('colors of styles keep the safe characters and leave out urls', () => {
     for (const color of ['#5794F2', 'rgb(87 148 242 / 80%)', 'var(--brand)', 'a'.repeat(64)]) {
         assert.equal(isSafeColor(color), true, color);

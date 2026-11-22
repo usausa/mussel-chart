@@ -85,16 +85,16 @@
                         }
 
                         <g class="mussel-series" data-title="@view.State.Series.Title" data-color="@view.State.Color" data-kind="@view.Kind" data-format="@view.Format">
-                            <g class="mussel-markers" fill="@view.State.Color" fill-opacity="@view.State.OpacityText" stroke="@view.State.Color">
+                            <g class="mussel-markers" fill="@view.State.Color" fill-opacity="@view.State.OpacityText" stroke="@view.State.Color" transform="@markerTransform">
                                 @foreach (var marker in view.Markers)
                                 {
                                     if (marker.Path is null)
                                     {
-                                        <circle @key="marker.Key" cx="@marker.Cx" cy="@marker.Cy" r="@marker.R" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" />
+                                        <circle @key="marker.Key" cx="@marker.Cx" cy="@marker.Cy" r="@marker.R" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" data-outside="@marker.OutsideText" />
                                     }
                                     else
                                     {
-                                        <path @key="marker.Key" d="@marker.Path" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" />
+                                        <path @key="marker.Key" d="@marker.Path" data-x="@marker.XText" data-y="@marker.YText" data-size="@marker.SizeText" data-outside="@marker.OutsideText" />
                                     }
                                 }
                             </g>

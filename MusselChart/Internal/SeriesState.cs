@@ -279,7 +279,7 @@ internal sealed record SeriesView(SeriesState State, ChartSeriesKind Kind, strin
     }
 }
 
-internal readonly record struct MarkerView(long Key, string XText, string YText, string? SizeText, string Cx, string Cy, string R, string? Path);
+internal readonly record struct MarkerView(long Key, string XText, string YText, string? SizeText, string Cx, string Cy, string R, string? Path, string? OutsideText);
 
 internal readonly record struct AxisLabel(string Position, string Text);
 

@@ -337,6 +337,23 @@ public sealed class MusselHeatmapViewTests : BunitContext
     }
 
     [Fact]
+    public void AMatrixOfMoreCellsThanAnIntHoldsShowsTheEmptyText()
+    {
+        var items = Enumerable.Range(0, 46341).Select(static i => new HeatItem("r" + i.ToString(CultureInfo.InvariantCulture), "c" + i.ToString(CultureInfo.InvariantCulture), i)).ToArray();
+
+        var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
+            .Add(static p => p.Items, items)
+            .Add(static p => p.Row, static x => x.Row)
+            .Add(static p => p.Column, static x => x.Column)
+            .Add(static p => p.Value, static x => x.Value)
+            .Add(static p => p.EmptyText, "No data"));
+
+        Assert.Equal("No data", cut.Find(".mussel-empty text").TextContent);
+        Assert.Empty(cut.FindAll(".mussel-heat-cells rect"));
+        Assert.Empty(cut.FindAll(".mussel-view-label"));
+    }
+
+    [Fact]
     public void ShowsEmptyTextWithoutData()
     {
         var cut = Render<MusselHeatmapView<HeatItem>>(parameters => parameters
@@ -405,6 +422,33 @@ public sealed class MusselHeatmapViewTests : BunitContext
 
         Assert.True(layout.ScaleLabels.Count > 2);
         Assert.All(layout.ScaleLabels, static x => Assert.True(x.X + ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize) <= 592, x.Text));
+    }
+
+    [Fact]
+    public void ScaleLabelsWiderThanTheEndsFitBesideTheScale()
+    {
+        var layout = new HeatmapLayout();
+
+        layout.Update(600, 200, new HeatmapLayoutOptions { LegendPosition = ChartLegendPosition.Right, Culture = CultureInfo.InvariantCulture }, [new HeatmapEntry(null, "1", null, 0), new HeatmapEntry(null, "2", null, 10000)]);
+
+        var widths = layout.ScaleLabels.Select(static x => ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize)).ToList();
+        Assert.True(widths.Count > 2);
+        Assert.True(widths.Max() > Math.Max(widths[0], widths[^1]));
+        Assert.All(layout.ScaleLabels, static x => Assert.True(x.X + ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize) <= 592, x.Text));
+    }
+
+    [Fact]
+    public void ScaleLabelsOnTheLeftStayClearOfTheRowNames()
+    {
+        var layout = new HeatmapLayout();
+
+        layout.Update(600, 240, new HeatmapLayoutOptions { LegendPosition = ChartLegendPosition.Left, HasRows = true, Culture = CultureInfo.InvariantCulture },
+            [new HeatmapEntry("web-01", "1", null, 0), new HeatmapEntry("web-02", "1", null, 3e8), new HeatmapEntry("db-01", "1", null, 6e8), new HeatmapEntry("batch", "1", null, 1e9)]);
+
+        var scaleRight = layout.ScaleLabels.Max(static x => x.X + ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize));
+        var rowLeft = layout.RowLabels.Min(static x => x.X - ChartText.Measure(x.Text, HeatmapLayout.LabelFontSize));
+        Assert.True(layout.ScaleLabels.Count > 2);
+        Assert.True(scaleRight <= rowLeft, $"{scaleRight} > {rowLeft}");
     }
 
     [Fact]

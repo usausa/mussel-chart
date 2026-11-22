@@ -468,6 +468,24 @@ public sealed class MusselChartKindsTests : BunitContext
     }
 
     [Fact]
+    public void ABubbleJustBeyondAFixedEndIsDrawnWhereItReachesThePlot()
+    {
+        var cut = RenderBubblesWithXEnds([new PointItem(0, 5, 100), new PointItem(10.1, 5, 100)]);
+
+        var markers = cut.FindAll(".mussel-markers circle");
+        Assert.Equal(["0", "10.1"], markers.Select(static x => x.GetAttribute("data-x")));
+        Assert.Equal([null, "true"], markers.Select(static x => x.GetAttribute("data-outside")));
+    }
+
+    [Fact]
+    public void ABubbleWhollyBeyondAFixedEndIsNotDrawn()
+    {
+        var cut = RenderBubblesWithXEnds([new PointItem(0, 5, 100), new PointItem(12, 5, 100)]);
+
+        Assert.Equal(["0"], cut.FindAll(".mussel-markers circle").Select(static x => x.GetAttribute("data-x")));
+    }
+
+    [Fact]
     public void BarsOnANumericAxisKeepTheEndsInsideThePlot()
     {
         PointItem[] items = [new(0, 1), new(10, 2), new(20, 3)];
@@ -580,4 +598,14 @@ public sealed class MusselChartKindsTests : BunitContext
                 .Add(static p => p.Items, [new PointItem(1, 50), new PointItem(3, 80), new PointItem(5, 100)])
                 .Add(static p => p.XValue, static x => x.X)
                 .Add(static p => p.Y, static x => x.Y)));
+
+    private IRenderedComponent<MusselChartView> RenderBubblesWithXEnds(PointItem[] items) =>
+        Render<MusselChartView>(parameters => parameters
+            .Add(static p => p.Culture, CultureInfo.InvariantCulture)
+            .AddChildContent<NumericXAxis>(static axis => axis.Add(static p => p.Minimum, 0).Add(static p => p.Maximum, 10))
+            .AddChildContent<BubbleSeries<PointItem>>(series => series
+                .Add(static p => p.Items, items)
+                .Add(static p => p.XValue, static x => x.X)
+                .Add(static p => p.Y, static x => x.Y)
+                .Add(static p => p.Size, static x => x.Size)));
 }
