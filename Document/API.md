@@ -13,12 +13,12 @@ Axes and series are written as child components, and every component passes othe
 | `StackMode` | `ChartStackMode` | `Normal` | `Percent` scales each stack to 100% |
 | `LegendVisible` | `bool?` | `null` | `null` shows the legend for two or more series with a title |
 | `LegendMode`, `LegendValues` | `ChartLegendMode`, `ChartLegendValues` | `List`, `None` | A list, or a table with `Last`, `Min`, `Max` and `Mean` of the points in view |
-| `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows its series; the last visible series stays |
+| `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows its series; the last visible series stays. Hidden series show again when this is turned off, when the legend is hidden, or when a series leaves the legend |
 | `TrackballMode` | `ChartTrackballMode` | `Hover` | `None` turns the crosshair and the tooltip off for the pointer over this chart; a chart in a `TrackingGroup` still follows the others |
 | `TooltipVisible` | `bool` | `true` | `false` keeps only the crosshair and the points |
 | `TrackingGroup`, `TrackingGroupMode` | `string?`, `ChartTrackingGroupMode` | `null`, `Crosshair` | Charts of the same group follow the chart under the pointer; `Tooltip` also shows their tooltips |
 | `Thresholds`, `ThresholdsMode` | `IReadOnlyList<ChartThreshold>?`, `ChartThresholdsMode` | `null`, `None` | Threshold `Lines` and `Bands` on the value axis, in the `Color` of each threshold, the color of its `Level`, or `--mussel-secondary-text` without either |
-| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; positions and lengths follow real time across a change of the offset, so the repeated hour of a change shows its labels twice; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture, and the tooltip adds the year when the view crosses a year |
+| `Culture`, `TimeZone` | `CultureInfo?`, `TimeZoneInfo?` | current culture, local zone | Formats and the zone of the times; a `DateTime` without a kind is read in that zone; positions and lengths follow real time across a change of the offset, so the repeated hour of a change shows its labels twice; the default time labels use `/` and `:` in every culture, with the day or the month first as in the culture, and the tooltip adds the date when the view crosses midnight in the zone, and the year when it crosses a year |
 | `EmptyText` | `string?` | `null` | Text drawn when there is no data |
 
 A chart keeps the space of `Height` and stays hidden until the browser has measured its width, at most for a second, so that it opens at its final size. While an interactive chart is prerendered, it stays hidden until it starts.  
@@ -32,7 +32,7 @@ The pie, radial bar, radar, heatmap and state timeline views do the same.
 | `DateTimeAxis` | The X axis of `X`: `WindowSize`, `Minimum`, `Maximum`, `LabelFormatter`; `WindowSize` is the time up to `Maximum` or the last point, without `Minimum`; `Minimum` and `Maximum` stay as set, so a bar or a bubble at them is cut in half, while an end taken from the points, the end of a window included, leaves half the spacing of bars and the radius of the largest bubble beyond them; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the points are beyond is kept with the other end a second away, within the range of `DateTime` |
 | `CategoryAxis` | The X axis of `Category`: `LabelPlacement` (`BetweenTicks` or `OnTicks`), `LabelMaxLength`, `LabelFormatter` |
 | `NumericXAxis` | The X axis of `XValue`, with the parameters of `NumericAxis` |
-| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter`; a value that is not finite is not used, a `Minimum` that is not below `Maximum` fixes neither end, and an end that the values are beyond is kept with the other end 1 away, or a tenth of the end away when 1 is below its precision |
+| `NumericAxis` | The value axis: `Minimum`, `Maximum`, `SoftMinimum`, `SoftMaximum`, `IncludeZero`, `NiceRange`, `LabelFormatter`; `IncludeZero` unset includes 0 while a bar or an area series is visible (never on `NumericXAxis`), and with 0 included, values that are all 0 take 0 to 1; a value that is not finite is not used, a `Minimum` that is not below `Maximum` fixes neither end, and an end that the values are beyond is kept with the other end 1 away, or a tenth of the end away when 1 is below its precision |
 
 Without an X axis, the first series chooses it from the delegate it has, and the ends of a numeric X axis are not widened to the next tick.  
 Without `LabelFormat` and `LabelFormatter`, the numbers of the value axis and of a numeric X axis take the compact number format with the decimals of the interval between ticks, per unit with `K`, `M`, `B` and `T`, so that next labels differ.  
@@ -78,7 +78,7 @@ Angles are degrees clockwise from 12 o'clock.
 | `MaxSlices`, `OthersThreshold`, `OthersLabel` | `int`, `double`, `string` | `8`, `0`, `Other` | The smallest items over the limit and two or more items below the share become one merged slice |
 | `LabelsMode`, `LabelContent` | `ChartPieLabelsMode`, `ChartPieLabelContent` | `None`, `Percent` | `Inside` draws the labels that fit in their slices; `Outside` draws them beside the pie with leader lines |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Bottom`, `None` | The legend and the value or the percentage in it; `null` shows the legend |
-| `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows the slice by its name; the merged slice and the last visible slice stay |
+| `LegendToggleEnabled` | `bool` | `false` | Clicking a legend item hides or shows the slice by its name; the merged slice and the last visible slice stay. Hidden slices show again when this is turned off or the legend is hidden |
 | `CenterValueMode`, `CenterValue`, `CenterLabel` | `ChartCenterValueMode`, `double?`, `string?` | `Auto`, `null`, `null` | The total or `CenterValue` in the hole, shrunk to fit, with the label under it; a value that is not finite shows neither |
 | `CenterValueFormat`, `CenterValueFormatter` | `string?`, `Func<double, string>?` | `null` | Format of the center value; when neither is set, `ValueFormat` and `ValueFormatter` apply |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the slice values; the default is the compact number |
@@ -100,7 +100,7 @@ Concentric rings that compare several progress values, the first item being the 
 | `FillMode` | `ChartFillMode` | `Solid` | `Gradient` draws a sweep of the threshold colors, or of the shades of the ring color |
 | `TrackVisible`, `BarGlow`, `ThresholdMarkersVisible` | `bool` | `true`, `false`, `false` | The rest of each ring; a glow under the values and the threshold ring; a thin ring of the threshold ranges outside the rings |
 | `OverflowMode` | `ChartOverflowMode` | `Clamp` | `Wrap` draws the part over the maximum on top of the first lap in a darker color |
-| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum` |
+| `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Colors by the percentage of the range from `Minimum` to `Maximum`; below the first threshold, a ring keeps its own color |
 | `CenterValueMode`, `CenterText`, `CenterLabel` | `ChartCenterValueMode`, `string?`, `string?` | `Auto`, `null`, `null` | `Auto` shows the outermost ring as a percentage with its name, or nothing when its value is not finite, and `Total` the sum of the finite values, or nothing when the sum is not finite; `CenterText` takes the place of the value in every mode, `None` included, while an item has a finite value; with no finite value in any item, `EmptyText` is drawn instead of the center |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; the default is the compact number |
 | `LegendVisible`, `LegendPosition`, `LegendValueMode` | `bool?`, `ChartLegendPosition`, `ChartLegendValueMode` | `null`, `Right`, `None` | The legend and the value or the percentage in it; `null` shows the legend |
@@ -116,10 +116,10 @@ Compares several series on axes that spread from the center, one axis per item.
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `Height`, `Palette` | `double`, `IReadOnlyList<string>?` | `240`, `ChartPalettes.DefaultLight` | Height in pixels and the series colors |
-| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels, and so are both ends when `Minimum` is not below `Maximum` |
+| `Minimum`, `Maximum` | `double?` | `null` | Value at the center and at the outer ring; `null`, or a value that is not finite, is chosen from the visible series with 0 included and nice levels, and so are both ends when `Minimum` is not below `Maximum`; values that are all 0 take 0 to 1 |
 | `GridShape`, `LevelCount` | `ChartRadarGridShape`, `int` | `Polygon`, `5` | Shape of the rings and the most rings; fewer than 3 items always use circles |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the levels and of the series that set neither `ValueFormat` nor `ValueFormatter`; without either, the levels keep the decimals of the interval between them |
-| `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays |
+| `LegendVisible`, `LegendPosition`, `LegendToggleEnabled` | `bool?`, `ChartLegendPosition`, `bool` | `null`, `Bottom`, `false` | `null` shows the legend for two or more series with a title; clicking an item hides or shows its series, and the last visible series stays. Hidden series show again when the toggle is turned off, when the legend is hidden, or when a series leaves the legend |
 | `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | Hovering marks the axis in that direction and shows the values of every series |
 
 | `RadarSeries<TItem>` | Description |
@@ -144,7 +144,7 @@ The colors follow the Grafana heatmap, spread over 64 steps.
 | `LayoutMode` | `ChartHeatmapLayoutMode` | `Matrix` | A `Matrix` or a `Calendar` |
 | `Height` | `double` | `240` | Height in pixels |
 | `Minimum`, `Maximum` | `double?` | `null` | Values at the two ends of the colors; `null`, or a value that is not finite, takes the smallest and the largest value, and so do both ends when `Minimum` is not below `Maximum`; an end that the values are beyond is kept with the other end 1 away, or a tenth of the end away when 1 is below its precision |
-| `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more, with their alpha; `OrangesDark` suits a dark theme |
+| `ColorScale` | `IReadOnlyList<string>` | `ChartPalettes.OrangesLight` | Hex colors from low to high values, two or more, with their alpha; a missing or unreadable color is gray (`#B5B3AA`); `OrangesDark` suits a dark theme |
 | `CellGap` | `double` | `1` | Space after each cell |
 | `ValueFormat`, `ValueFormatter`, `Culture` | | | Format of the values; without either format, the labels of the color scale keep the decimals of the interval between them; the week starts on the `FirstDayOfWeek` of the culture |
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The color scale and its side; `null` shows it |
@@ -165,16 +165,16 @@ Each item is the start of a state, which lasts until the next start in its row.
 | `State` | `Func<TItem, object?>?` | `null` | Text or a number; `null`, `NaN` and infinities end the previous state |
 | `Height` | `double` | `240` | Height in pixels |
 | `Minimum`, `Maximum` | `DateTime?` | `null` | Time range; `null` takes the first start and the last start or end, so pass the current time as `Maximum`; a `Maximum` that is not after `Minimum` fixes neither end, and an end that the states are beyond is kept with the other end a second away |
-| `ValueMappings` | `IReadOnlyList<ChartValueMapping>?` | `null` | `Value` to match, `Text`, `Color` and `Level` of a state |
+| `ValueMappings` | `IReadOnlyList<ChartValueMapping>?` | `null` | `Value` to match, `Text`, `Color` and `Level` of a state; numbers of the built-in types match as `double` (`1.5` matches `1.50m`, but `0.1` does not match `0.1f`), and other `IFormattable` values by their text in the invariant culture |
 | `Thresholds` | `IReadOnlyList<ChartThreshold>?` | `null` | Steps of numeric states, named by `Label` or like `< 60` and `60+`. When some states are numbers, the legend shows the steps |
 | `MergeValues` | `bool` | `true` | Merges equal states next to each other, and numbers in the same threshold step, which then do not use `ValueMappings` |
 | `ShowValue`, `AlignValue` | `ChartVisibilityMode`, `ChartValueAlignment` | `Auto`, `Left` | Text on each band; `Auto` writes it where its first two characters fit |
 | `RowHeight`, `FillOpacity`, `LineWidth` | `double` | `0.9`, `0.7`, `0` | Share of the height taken by the bands, the fill and the outline |
-| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, the order of the day and the month follows the culture, and the tooltip adds the year when the view crosses a year |
+| `ValueFormat`, `ValueFormatter`, `Culture`, `TimeZone` | | | Format of numeric states and the zone of the times; as in the main chart, the times use `/` and `:`, the order of the day and the month follows the culture, and the tooltip adds the date when the view or the band crosses midnight, and the year when the view crosses a year |
 | `LegendVisible`, `LegendPosition` | `bool?`, `ChartLegendPosition` | `null`, `Bottom` | The states or the threshold steps; `null` shows them |
-| `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`) |
+| `TrackballMode`, `TooltipVisible`, `EmptyText` | | `Hover`, `true`, `null` | The tooltip shows the start and the end, the state and the duration (`2h 30m`); an end beyond the range is shown as the end of the range, and the duration stops there |
 
-Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`, in the color of a step without a level. A lone step at `-∞` without `Label` has no name: its bands carry no text, the legend leaves it out, and the tooltip leaves the state empty.  
+Numbers without thresholds take a green to yellow to red scale between the smallest and the largest number of their row and have no legend, and text without a mapping is green, or with thresholds in the color of the lowest step. Thresholds without a step at `-∞` get one below their first step, named like `< 60`; it and the steps with neither `Color` nor `Level` are gray (`#B5B3AA`). A lone step at `-∞` without `Label` has no name: its bands carry no text, the legend leaves it out, and the tooltip leaves the state empty.  
 
 ## 🔢 MusselStatView
 
@@ -185,7 +185,7 @@ A KPI tile that fills the height of its container.
 | `Title`, `Value`, `Unit` | Title, value and unit; `NaN` and infinities show `EmptyText` (`-` when it is not set) without the unit |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the value; the default is the compact number |
 | `TrendValues`, `TrendPlacement` | Trend line at the `Bottom`, in the `Background` or `None`; values that are not finite are skipped and the line joins the others |
-| `Thresholds` | State by value |
+| `Thresholds` | State by value; an empty value and a value below the first threshold take the color of the tile without thresholds, `Fill` or the first color of `Palette` |
 | `ColorMode`, `FillMode`, `Fill`, `Palette` | `None`, `Value`, `Indicator` or `Background`, solid or gradient |
 | `LayoutMode` | `Vertical` stacks the title and the value; `Horizontal` puts the value and the unit at the top right |
 
@@ -196,7 +196,7 @@ A KPI tile that fills the height of its container.
 | `Values`, `Kind` | Values as a `Line`, an `Area`, `Bar`s or `WinLoss`, where wins fill the upper half and losses the lower half; a value that is not finite is skipped, so a line or an area joins the others and a bar leaves its place empty |
 | `Color`, `Palette`, `Thickness` | Colors and the line width |
 | `NegativeColor` | Negative bars and losses; `null` is the color of the bars and `--mussel-critical` for losses |
-| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels; a value that is not finite is not fixed, and a `Minimum` that is not below `Maximum` fixes neither end; `Bar` widens the range to include 0, and `WinLoss` does not use it |
+| `Minimum`, `Maximum`, `Height` | Fixed range and the height in pixels; a value that is not finite is not fixed, a `Minimum` that is not below `Maximum` fixes neither end, and a fixed end that the values are beyond is kept with the other end a tenth of the end away, or 1 away when the end is 0; `Bar` widens the range to include 0, and `WinLoss` does not use it |
 
 ## 📶 MusselBarGaugeView
 
@@ -207,7 +207,7 @@ A KPI tile that fills the height of its container.
 | `DisplayMode`, `SegmentWidth`, `BarThickness` | `Basic` or `Segmented` bars |
 | `LabelPosition`, `ValueVisible`, `ValueMode` | Names at the `Top`, on the `Left` (one column for every bar, up to 40 % of the width) or `None`, and the value as a `Value`, a `Percent` or a `ValueOfMaximum` |
 | `ValueFormat`, `ValueFormatter`, `Culture` | Format of the numbers |
-| `TrackVisible`, `Thresholds`, `Color`, `Palette` | Track, threshold colors by percentage and the bar color; `Segmented` always draws the cells that are not lit |
+| `TrackVisible`, `Thresholds`, `Color`, `Palette` | Track, threshold colors by percentage and the bar color; a bar below the first threshold and a `-` take the color of the item, `Color` or the first color of `Palette`; `Segmented` always draws the cells that are not lit |
 
 ## 🧰 ChartRingBuffer
 
@@ -236,7 +236,7 @@ These are shared with the other Mussel libraries. Their light defaults follow th
 | `--mussel-good`, `--mussel-warning`, `--mussel-serious`, `--mussel-critical` | Threshold lines and bands, and the losses of sparklines |
 | `--mussel-font-family` | Font family |
 
-The level colors of `MusselRadialBarView`, `MusselBarGaugeView`, `MusselStatView` and `MusselStateTimelineView` stay the dark values in both themes and do not follow these variables. Series, slices and rings beyond the palette, and every view with an empty palette, are gray (`#B5B3AA`). Shades and gradients of a color, and the text on it, are worked out from hex colors (`#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`); shades keep the alpha of the color. The text drawn on a color, that is the inside labels of `MusselPieChartView`, the text on the bands of `MusselStateTimelineView` and the text of a `Gradient` tile of `MusselStatView`, is white or dark by the lightness of the color, which does not count its transparency, so for translucent colors set `fill` on `.mussel-pie-label` or `.mussel-timeline-text` in a global stylesheet. The text of a `Gradient` tile cannot be changed from an app, so give such a tile an opaque `Fill`. The colors of `MusselStatView` and `MusselRadialBarView`, and the marks of tooltips, are CSS colors of up to 64 characters; a color that is longer, with `url(`, or with characters other than letters, digits, space and `# ( ) , . % - /` is not used: the tile and the rings take the color they would take without it, down to gray, and a tooltip shows no mark.  
+The level colors of `MusselRadialBarView`, `MusselBarGaugeView`, `MusselStatView` and `MusselStateTimelineView` stay the dark values in both themes and do not follow these variables. Series, slices and rings beyond the palette, and every view with an empty palette, are gray (`#B5B3AA`). Shades and gradients of a color, and the text on it, are worked out from hex colors (`#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`); shades keep the alpha of the color. The text drawn on a color, that is the inside labels of `MusselPieChartView`, the text on the bands of `MusselStateTimelineView` and the text of a `Gradient` tile of `MusselStatView`, is white or dark by the lightness of the color, which does not count its transparency, so for translucent colors set `fill` on `.mussel-pie-label` or `.mussel-timeline-text` in a global stylesheet. The text of a `Gradient` tile cannot be changed from an app, so give such a tile an opaque `Fill`. The colors of `MusselStatView` and `MusselRadialBarView`, and the marks of tooltips, are CSS colors of up to 64 characters; a color that is empty, longer, with `url(`, or with characters other than ASCII letters and digits, space and `# ( ) , . % - /` is not used: the tile and the rings take the color they would take without it, down to gray, and a tooltip shows no mark.  
 
 ## 🚧 Not supported yet
 
